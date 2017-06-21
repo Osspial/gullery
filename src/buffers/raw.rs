@@ -148,6 +148,11 @@ impl<'bind, 'buf, T, B> RawBoundBuffer<'bind, 'buf, T, B>
             panic!("Attempted to get data from buffer where offset + request length exceeded buffer length");
         }
     }
+
+    #[inline]
+    pub fn buffer(&self) -> &RawBuffer<T> {
+        &self.buffer
+    }
 }
 
 impl<'bind, 'buf, T, B> RawBoundBufferMut<'bind, 'buf, T, B>
