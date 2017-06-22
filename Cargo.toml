@@ -6,3 +6,4 @@ authors = ["Osspial <osspial@gmail.com>"]
 [dependencies]
 gl = "0.6"
 num-traits = "0.1"
+derive_more = "0.6"
