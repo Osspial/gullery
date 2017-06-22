@@ -5,3 +5,4 @@ authors = ["Osspial <osspial@gmail.com>"]
 
 [dependencies]
 gl = "0.6"
+num-traits = "0.1"
