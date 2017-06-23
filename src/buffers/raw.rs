@@ -8,7 +8,7 @@ use std::marker::PhantomData;
 pub struct RawBuffer<T: Copy> {
     handle: GLuint,
     size: GLsizeiptr,
-    _marker: PhantomData<T>
+    _marker: PhantomData<(T, *const ())>
 }
 
 // The RawBoundBuffer types are #[repr(C)] because deref coercing from RawBoundBufferMut to
@@ -77,7 +77,13 @@ pub mod targets {
         ($(
             pub target $target_name:ident = $target_enum:expr;
         )*) => ($(
-            pub struct $target_name;
+            pub struct $target_name(PhantomData<*const ()>);
+            impl $target_name {
+                #[inline]
+                pub fn new() -> $target_name {
+                    $target_name(PhantomData)
+                }
+            }
             unsafe impl RawBindTarget for $target_name {
                 #[inline]
                 fn target() -> GLenum {$target_enum}

@@ -59,7 +59,7 @@ pub mod targets {
     impl ElementArrayTarget {
         #[inline]
         pub unsafe fn create() -> ElementArrayTarget {
-            ElementArrayTarget(targets::RawElementArray)
+            ElementArrayTarget(targets::RawElementArray::new())
         }
 
         #[inline]
