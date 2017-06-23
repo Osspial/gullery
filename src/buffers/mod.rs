@@ -4,30 +4,13 @@ pub use self::raw::BufferUsage;
 use self::raw::RawBuffer;
 use self::targets::BindTarget;
 
-use gl;
-use gl::types::*;
-
-use num_traits::Num;
 use seal::Sealed;
+use types::GLPrim;
 
-pub unsafe trait Index: Num + Copy + Sealed {
-    unsafe fn index_type() -> GLenum;
-}
-unsafe impl Index for u8 {
-    unsafe fn index_type() -> GLenum {
-        gl::UNSIGNED_BYTE
-    }
-}
-unsafe impl Index for u16 {
-    unsafe fn index_type() -> GLenum {
-        gl::UNSIGNED_SHORT
-    }
-}
-unsafe impl Index for u32 {
-    unsafe fn index_type() -> GLenum {
-        gl::UNSIGNED_INT
-    }
-}
+pub unsafe trait Index: GLPrim {}
+unsafe impl Index for u8 {}
+unsafe impl Index for u16 {}
+unsafe impl Index for u32 {}
 
 pub unsafe trait Buffer: Sealed {
     type Item: Copy;

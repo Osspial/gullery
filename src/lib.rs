@@ -1,3 +1,5 @@
+#![feature(associated_consts)]
+
 extern crate gl;
 extern crate num_traits;
 #[macro_use]
@@ -20,4 +22,11 @@ mod seal {
     impl Sealed for isize {}
     impl Sealed for f32 {}
     impl Sealed for f64 {}
+
+    macro_rules! impl_sealed_arrays {
+        ($($len:expr),+) => {$(
+            impl<S: Sealed> Sealed for [S; $len] {}
+        )+};
+    }
+    impl_sealed_arrays!(1, 2, 3, 4);
 }
