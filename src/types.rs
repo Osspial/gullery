@@ -3,6 +3,7 @@ use gl::types::*;
 
 use seal::Sealed;
 
+/// The Rust representation of a GLSL type.
 pub unsafe trait GLSLType: Copy + Sealed {
     /// The number of primitives this type contains.
     const LEN: usize;

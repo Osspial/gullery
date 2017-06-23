@@ -11,7 +11,7 @@ pub struct RawBuffer<T: Copy> {
     _marker: PhantomData<T>
 }
 
-// The RawBoundBuffer types are #[repr(C)] because deref coercing from RawBoundBufferMut to 
+// The RawBoundBuffer types are #[repr(C)] because deref coercing from RawBoundBufferMut to
 // RawBoundBuffer requires a pointer type change, and we want to be sure that the memory layouts are
 // identical between the two types.
 #[repr(C)]
@@ -21,7 +21,7 @@ pub struct RawBoundBuffer<'a, T, B>
 {
     bind: PhantomData<&'a B>,
     buffer: &'a RawBuffer<T>
-} 
+}
 
 #[repr(C)]
 pub struct RawBoundBufferMut<'a, T, B>
@@ -108,7 +108,7 @@ impl<T: Copy> RawBuffer<T> {
             let mut handle = 0;
             gl::GenBuffers(1, &mut handle);
 
-            RawBuffer { 
+            RawBuffer {
                 handle,
                 size: 0,
                 _marker: PhantomData
@@ -139,9 +139,9 @@ impl<'a, T, B> RawBoundBuffer<'a, T, B>
     pub fn get_data(&self, offset: usize, buf: &mut [T]) {
         if offset + buf.len() <= self.buffer.size as usize {
             unsafe {gl::GetBufferSubData(
-                B::target(), 
-                offset as GLintptr, 
-                (buf.len() * mem::size_of::<T>()) as GLsizeiptr, 
+                B::target(),
+                offset as GLintptr,
+                (buf.len() * mem::size_of::<T>()) as GLsizeiptr,
                 buf.as_mut_ptr() as *mut GLvoid
             )};
         } else {
@@ -163,9 +163,9 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
     pub fn sub_data(&mut self, offset: usize, data: &[T]) {
         if offset + data.len() <= self.buffer.size as usize {
             unsafe {gl::BufferSubData(
-                B::target(), 
-                offset as GLintptr, 
-                (data.len() * mem::size_of::<T>()) as GLsizeiptr, 
+                B::target(),
+                offset as GLintptr,
+                (data.len() * mem::size_of::<T>()) as GLsizeiptr,
                 data.as_ptr() as *const GLvoid
             )};
         } else {
