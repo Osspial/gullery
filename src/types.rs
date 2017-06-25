@@ -4,7 +4,7 @@ use gl::types::*;
 use seal::Sealed;
 
 /// The Rust representation of a GLSL type.
-pub unsafe trait GLSLType: Copy + Sealed {
+pub unsafe trait GLSLType: 'static + Copy + Sealed {
     /// The number of primitives this type contains.
     const LEN: usize;
     /// Whether or not this type represents a matrix.
@@ -14,7 +14,7 @@ pub unsafe trait GLSLType: Copy + Sealed {
 }
 
 /// The Rust representation of an OpenGL primitive.
-pub unsafe trait GLPrim: Copy + Sealed {
+pub unsafe trait GLPrim: 'static + Copy + Sealed {
     /// The OpenGL constant associated with this type.
     const GL_ENUM: GLenum;
     /// If an integer, whether or not the integer is signed. If a float, false.

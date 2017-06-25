@@ -80,7 +80,7 @@ pub mod targets {
             pub struct $target_name(PhantomData<*const ()>);
             impl $target_name {
                 #[inline]
-                pub fn new() -> $target_name {
+                pub(crate) fn new() -> $target_name {
                     $target_name(PhantomData)
                 }
             }
@@ -91,7 +91,7 @@ pub mod targets {
     }
 
     raw_bind_target!{
-        // pub target RawArray = gl::ARRAY_BUFFER;
+        pub target RawArray = gl::ARRAY_BUFFER;
         // pub target RawCopyRead = gl::COPY_READ_BUFFER;
         // pub target RawCopyWrite = gl::COPY_WRITE_BUFFER;
         // pub target RawDrawIndirect = gl::DRAW_INDIRECT_BUFFER;
@@ -108,7 +108,7 @@ pub mod targets {
 
 impl<T: Copy> RawBuffer<T> {
     #[inline]
-    pub fn new() -> RawBuffer<T> {
+    pub(crate) fn new() -> RawBuffer<T> {
         unsafe {
             let mut handle = 0;
             gl::GenBuffers(1, &mut handle);
@@ -123,7 +123,7 @@ impl<T: Copy> RawBuffer<T> {
 
     /// Get the size of the raw buffer
     #[inline]
-    pub fn size(&self) -> usize {
+    pub(crate) fn size(&self) -> usize {
         self.size as usize
     }
 }
@@ -141,7 +141,7 @@ impl<'a, T, B> RawBoundBuffer<'a, T, B>
           T: 'a + Copy
 {
     #[inline]
-    pub fn get_data(&self, offset: usize, buf: &mut [T]) {
+    pub(crate) fn get_data(&self, offset: usize, buf: &mut [T]) {
         if offset + buf.len() <= self.buffer.size as usize {
             unsafe {gl::GetBufferSubData(
                 B::TARGET,
@@ -155,7 +155,7 @@ impl<'a, T, B> RawBoundBuffer<'a, T, B>
     }
 
     #[inline]
-    pub fn buffer(&self) -> &RawBuffer<T> {
+    pub(crate) fn buffer(&self) -> &RawBuffer<T> {
         &self.buffer
     }
 }
@@ -165,7 +165,7 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
           T: 'a + Copy
 {
     #[inline]
-    pub fn sub_data(&mut self, offset: usize, data: &[T]) {
+    pub(crate) fn sub_data(&mut self, offset: usize, data: &[T]) {
         if offset + data.len() <= self.buffer.size as usize {
             unsafe {gl::BufferSubData(
                 B::TARGET,
@@ -179,7 +179,7 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
     }
 
     #[inline]
-    pub fn alloc_data(&mut self, size: usize, usage: BufferUsage) {
+    pub(crate) fn alloc_data(&mut self, size: usize, usage: BufferUsage) {
         assert!(size < isize::max_value() as usize);
         unsafe {gl::BufferData(
             B::TARGET,
@@ -192,7 +192,7 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
     }
 
     #[inline]
-    pub fn alloc_upload(&mut self, data: &[T], usage: BufferUsage) {
+    pub(crate) fn alloc_upload(&mut self, data: &[T], usage: BufferUsage) {
         assert!(data.len() < isize::max_value() as usize);
         unsafe {gl::BufferData(
             B::TARGET,
