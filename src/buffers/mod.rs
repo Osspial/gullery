@@ -2,9 +2,10 @@ mod raw;
 
 pub use self::raw::{RawBindTarget, BufferUsage, AllocError};
 use self::raw::{targets, RawBuffer};
-// use self::targets::BindTarget;
 
 use seal::Sealed;
+
+use std::collections::range::RangeArgument;
 
 pub unsafe trait BufferData: 'static + Copy {}
 
@@ -82,6 +83,15 @@ impl<T: BufferData> Buffer<T> {
         BIND_TARGETS.with(|bt| {
             let mut bind = unsafe{ bt.copy_write.bind_mut(&mut self.0) };
             bind.sub_data(offset, data);
+        })
+    }
+
+    #[inline]
+    pub fn copy_to<R: RangeArgument<usize>>(&self, dest_buf: &mut Buffer<T>, self_range: R, write_offset: usize) {
+        BIND_TARGETS.with(|bt| {
+            let src_bind = unsafe{ bt.copy_read.bind(&self.0) };
+            let mut dest_bind = unsafe{ bt.copy_write.bind_mut(&mut dest_buf.0) };
+            src_bind.copy_to(&mut dest_bind, self_range, write_offset);
         })
     }
 }

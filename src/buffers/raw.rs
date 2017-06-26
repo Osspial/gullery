@@ -3,14 +3,16 @@ use gl::types::*;
 
 use std::{ptr, mem};
 use std::ops::Deref;
+use std::collections::Bound;
+use std::collections::range::RangeArgument;
 use std::cell::Cell;
 use std::marker::PhantomData;
 use std::error::Error;
 use std::fmt::{self, Display};
 
 pub struct RawBuffer<T: Copy> {
-    size: GLsizeiptr,
     handle: GLuint,
+    size: usize,
     _marker: PhantomData<(T, *const ())>
 }
 
@@ -148,8 +150,8 @@ impl<T: Copy> RawBuffer<T> {
             gl::GenBuffers(1, &mut handle);
 
             RawBuffer {
-                size: 0,
                 handle,
+                size: 0,
                 _marker: PhantomData
             }
         }
@@ -158,7 +160,7 @@ impl<T: Copy> RawBuffer<T> {
     /// Get the size of the raw buffer
     #[inline]
     pub(crate) fn size(&self) -> usize {
-        self.size as usize
+        self.size
     }
 }
 
@@ -176,7 +178,7 @@ impl<'a, T, B> RawBoundBuffer<'a, T, B>
 {
     #[inline]
     pub(crate) fn get_data(&self, offset: usize, buf: &mut [T]) {
-        if offset + buf.len() <= self.buffer.size as usize {
+        if offset + buf.len() <= self.buffer.size {
             unsafe {gl::GetBufferSubData(
                 B::TARGET,
                 offset as GLintptr,
@@ -187,6 +189,38 @@ impl<'a, T, B> RawBoundBuffer<'a, T, B>
             panic!("Attempted to get data from buffer where offset + request length exceeded buffer length");
         }
     }
+
+    #[inline]
+    pub(crate) fn copy_to<C, R>(&self, dest_bind: &mut RawBoundBufferMut<T, C>, self_range: R, write_offset: usize)
+        where C: RawBindTarget,
+              R: RangeArgument<usize>
+    {
+        fn bound_to_num(bound: Bound<&usize>, unbounded: usize) -> usize {
+            match bound {
+                Bound::Included(t) => *t,
+                Bound::Excluded(t) => *t - 1,
+                Bound::Unbounded   => unbounded
+            }
+        }
+        let read_offset = bound_to_num(self_range.start(), 0);
+        let read_end = bound_to_num(self_range.end(), self.buffer.size);
+        assert!(read_end <= isize::max_value() as usize);
+
+        let size = read_end.checked_sub(read_end)
+            .expect(&format!("Copy range starts at {} but ends at {}", read_offset, read_end));
+
+        if read_end > self.buffer.size {
+            panic!("Read index {} out of range for buffer of length {}", read_end, self.buffer.size);
+        } else if write_offset + size > dest_bind.buffer.size {
+            panic!("Write offset {} with read length {} out of range for buffer of length {}", write_offset, size, dest_bind.buffer.size);
+        } else if size > 0 {
+            unsafe {gl::CopyBufferSubData(
+                B::TARGET, C::TARGET,
+                read_offset as GLintptr, write_offset as GLintptr,
+                size as GLsizeiptr
+            )}
+        }
+    }
 }
 
 impl<'a, T, B> RawBoundBufferMut<'a, T, B>
@@ -195,7 +229,8 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
 {
     #[inline]
     pub(crate) fn sub_data(&mut self, offset: usize, data: &[T]) {
-        if offset + data.len() <= self.buffer.size as usize {
+        assert!(offset + data.len() <= isize::max_value() as usize);
+        if offset + data.len() <= self.buffer.size {
             unsafe {gl::BufferSubData(
                 B::TARGET,
                 offset as GLintptr,
@@ -219,7 +254,7 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
 
         let error = unsafe{ gl::GetError() };
         if error == 0 {
-            self.buffer.size = size as GLsizeiptr;
+            self.buffer.size = size;
             Ok(())
         } else {
             assert_eq!(error, gl::OUT_OF_MEMORY);
@@ -240,7 +275,7 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
 
         let error = unsafe{ gl::GetError() };
         if error == 0 {
-            self.buffer.size = data.len() as GLsizeiptr;
+            self.buffer.size = data.len();
             Ok(())
         } else {
             assert_eq!(error, gl::OUT_OF_MEMORY);
