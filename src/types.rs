@@ -2,6 +2,7 @@ use gl;
 use gl::types::*;
 
 use seal::Sealed;
+use buffers::BufferData;
 
 /// The Rust representation of a GLSL type.
 pub unsafe trait GLSLType: 'static + Copy + Sealed {
@@ -31,6 +32,7 @@ macro_rules! impl_glsl_type {
             const MATRIX: bool = false;
             type GLPrim = P;
         }
+        unsafe impl<P: GLPrim> BufferData for [P; $num] {}
         impl_glsl_type!{$($rest)*}
     };
     (impl [[P; $cols:expr]; $rows:expr] = $variant:ident; $($rest:tt)*) => {
@@ -39,6 +41,7 @@ macro_rules! impl_glsl_type {
             const MATRIX : bool = true;
             type GLPrim = P;
         }
+        unsafe impl<P: GLPrim> BufferData for [[P; $cols]; $rows] {}
         impl_glsl_type!{$($rest)*}
     };
 }
@@ -169,3 +172,18 @@ unsafe impl GLPrim for f64 {
     const SIGNED: bool = false;
     const NORMALIZED: bool = false;
 }
+
+unsafe impl BufferData for i8 {}
+unsafe impl BufferData for u8 {}
+unsafe impl BufferData for i16 {}
+unsafe impl BufferData for u16 {}
+unsafe impl BufferData for i32 {}
+unsafe impl BufferData for u32 {}
+unsafe impl BufferData for Ni8 {}
+unsafe impl BufferData for Nu8 {}
+unsafe impl BufferData for Ni16 {}
+unsafe impl BufferData for Nu16 {}
+unsafe impl BufferData for Ni32 {}
+unsafe impl BufferData for Nu32 {}
+unsafe impl BufferData for f32 {}
+unsafe impl BufferData for f64 {}
