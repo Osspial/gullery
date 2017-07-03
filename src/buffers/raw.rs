@@ -13,6 +13,8 @@ use std::fmt::{self, Display};
 pub struct RawBuffer<T: Copy> {
     handle: GLuint,
     size: usize,
+    /// `*const ()` used to opt out of `Send` and `Sync` without relying on the unstable opt-out
+    /// features.
     _marker: PhantomData<(T, *const ())>
 }
 
@@ -59,8 +61,7 @@ pub enum AllocError {
 }
 
 pub unsafe trait RawBindTarget: 'static + Sized {
-    const TARGET: GLenum;
-
+    fn target() -> GLenum;
     fn bound_buffer(&self) -> &Cell<GLuint>;
 
     #[inline]
@@ -68,7 +69,7 @@ pub unsafe trait RawBindTarget: 'static + Sized {
         let handle = buffer.handle;
         let bound_buffer = self.bound_buffer();
         if bound_buffer.get() != handle {
-            gl::BindBuffer(Self::TARGET, buffer.handle);
+            gl::BindBuffer(Self::target(), buffer.handle);
             bound_buffer.set(handle);
         }
 
@@ -82,7 +83,7 @@ pub unsafe trait RawBindTarget: 'static + Sized {
         let handle = buffer.handle;
         let bound_buffer = self.bound_buffer();
         if bound_buffer.get() != handle {
-            gl::BindBuffer(Self::TARGET, buffer.handle);
+            gl::BindBuffer(Self::target(), buffer.handle);
             bound_buffer.set(handle);
         }
         RawBoundBufferMut {
@@ -91,9 +92,9 @@ pub unsafe trait RawBindTarget: 'static + Sized {
         }
     }
     #[inline]
-    unsafe fn reset_bind(&mut self) {
+    unsafe fn reset_bind(&self) {
         self.bound_buffer().set(0);
-        gl::BindBuffer(Self::TARGET, 0)
+        gl::BindBuffer(Self::target(), 0)
     }
 }
 
@@ -109,7 +110,7 @@ pub mod targets {
             }
             impl $target_name {
                 #[inline]
-                pub(crate) unsafe fn new() -> $target_name {
+                pub(crate) fn new() -> $target_name {
                     $target_name {
                         bound_buffer: Cell::new(0),
                         _marker: PhantomData
@@ -117,7 +118,7 @@ pub mod targets {
                 }
             }
             unsafe impl RawBindTarget for $target_name {
-                const TARGET: GLenum = $target_enum;
+                fn target() -> GLenum {$target_enum}
 
                 #[inline]
                 fn bound_buffer(&self) -> &Cell<GLuint> {
@@ -180,7 +181,7 @@ impl<'a, T, B> RawBoundBuffer<'a, T, B>
     pub(crate) fn get_data(&self, offset: usize, buf: &mut [T]) {
         if offset + buf.len() <= self.buffer.size {
             unsafe {gl::GetBufferSubData(
-                B::TARGET,
+                B::target(),
                 offset as GLintptr,
                 (buf.len() * mem::size_of::<T>()) as GLsizeiptr,
                 buf.as_mut_ptr() as *mut GLvoid
@@ -215,7 +216,7 @@ impl<'a, T, B> RawBoundBuffer<'a, T, B>
             panic!("Write offset {} with read length {} out of range for buffer of length {}", write_offset, size, dest_bind.buffer.size);
         } else if size > 0 {
             unsafe {gl::CopyBufferSubData(
-                B::TARGET, C::TARGET,
+                B::target(), C::target(),
                 read_offset as GLintptr, write_offset as GLintptr,
                 size as GLsizeiptr
             )}
@@ -232,7 +233,7 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
         assert!(offset + data.len() <= isize::max_value() as usize);
         if offset + data.len() <= self.buffer.size {
             unsafe {gl::BufferSubData(
-                B::TARGET,
+                B::target(),
                 offset as GLintptr,
                 (data.len() * mem::size_of::<T>()) as GLsizeiptr,
                 data.as_ptr() as *const GLvoid
@@ -246,7 +247,7 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
     pub(crate) fn alloc_size(&mut self, size: usize, usage: BufferUsage) -> Result<(), AllocError> {
         assert!(size <= isize::max_value() as usize);
         unsafe {gl::BufferData(
-            B::TARGET,
+            B::target(),
             (size * mem::size_of::<T>()) as GLsizeiptr,
             ptr::null_mut(),
             usage.to_gl_enum()
@@ -267,7 +268,7 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
     pub(crate) fn alloc_upload(&mut self, data: &[T], usage: BufferUsage) -> Result<(), AllocError> {
         assert!(data.len() <= isize::max_value() as usize);
         unsafe {gl::BufferData(
-            B::TARGET,
+            B::target(),
             (data.len() * mem::size_of::<T>()) as GLsizeiptr,
             data.as_ptr() as *const GLvoid,
             usage.to_gl_enum()

@@ -7,7 +7,8 @@ use seal::Sealed;
 
 use std::collections::range::RangeArgument;
 
-pub unsafe trait BufferData: 'static + Copy {}
+pub unsafe trait BufferData: 'static + Copy + Default {}
+pub unsafe trait Vertex: BufferData {}
 
 struct BindTargets {
     // array: targets::RawArray,
@@ -17,12 +18,12 @@ struct BindTargets {
 }
 
 thread_local!{
-    static BIND_TARGETS: BindTargets = unsafe {BindTargets {
+    static BIND_TARGETS: BindTargets = BindTargets {
         // array: targets::RawArray::new(),
         copy_read: targets::RawCopyRead::new(),
         copy_write: targets::RawCopyWrite::new(),
         // element_array: targets:: RawElementArray::new()
-    }}
+    }
 }
 
 pub struct Buffer<T: BufferData>(RawBuffer<T>, BufferUsage);

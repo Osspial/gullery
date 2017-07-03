@@ -1,4 +1,4 @@
-#![feature(associated_consts, collections_range)]
+#![feature(collections_range)]
 
 extern crate gl;
 extern crate num_traits;

@@ -5,31 +5,33 @@ use seal::Sealed;
 use buffers::BufferData;
 
 /// The Rust representation of a GLSL type.
-pub unsafe trait GLSLType: 'static + Copy + Sealed {
+pub unsafe trait GLSLType: 'static + Copy + Default + Sealed {
     /// The number of primitives this type contains.
-    const LEN: usize;
-    /// Whether or not this type represents a matrix.
-    const MATRIX: bool;
-    /// The underlying primitive for this type.
+    fn len() ->  usize;
+    /// Whether or not this type represents a matrix
+    fn matrix() ->  bool;
+    /// The underlying primitive for this type
     type GLPrim: GLPrim;
 }
 
 /// The Rust representation of an OpenGL primitive.
-pub unsafe trait GLPrim: 'static + Copy + Sealed {
+pub unsafe trait GLPrim: 'static + Copy + Default + Sealed {
     /// The OpenGL constant associated with this type.
-    const GL_ENUM: GLenum;
-    /// If an integer, whether or not the integer is signed. If a float, false.
-    const SIGNED: bool;
-    /// Whether or not this value is normalized by GLSL into a float.
-    const NORMALIZED: bool;
+    fn gl_enum() ->  GLenum;
+    /// If an integer, whether or not the integer is signed. If a float, false
+    fn signed() ->  bool;
+    /// Whether or not this value is normalized by GLSL into a float
+    fn normalized() ->  bool;
 }
 
 macro_rules! impl_glsl_type {
     () => ();
     (impl [P; $num:expr] = $variant:ident; $($rest:tt)*) => {
         unsafe impl<P: GLPrim> GLSLType for [P; $num] {
-            const LEN: usize = $num;
-            const MATRIX: bool = false;
+            #[inline]
+            fn len() ->  usize {$num}
+            #[inline]
+            fn matrix() ->  bool {false}
             type GLPrim = P;
         }
         unsafe impl<P: GLPrim> BufferData for [P; $num] {}
@@ -37,8 +39,10 @@ macro_rules! impl_glsl_type {
     };
     (impl [[P; $cols:expr]; $rows:expr] = $variant:ident; $($rest:tt)*) => {
         unsafe impl<P: GLPrim> GLSLType for [[P; $cols]; $rows] {
-            const LEN: usize = $cols * $rows;
-            const MATRIX : bool = true;
+            #[inline]
+            fn len() ->  usize {$cols * $rows}
+            #[inline]
+            fn matrix() ->  bool {true}
             type GLPrim = P;
         }
         unsafe impl<P: GLPrim> BufferData for [[P; $cols]; $rows] {}
@@ -48,8 +52,8 @@ macro_rules! impl_glsl_type {
 
 macro_rules! normalized_int {
     ($(pub struct $name:ident($inner:ident);)*) => ($(
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, From, Into, Not, Add, AddAssign, Mul, MulAssign)]
         /// Normalized integer type.
+        #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, From, Into, Not, Add, AddAssign, Mul, MulAssign)]
         pub struct $name(pub $inner);
 
         impl Sealed for $name {}
@@ -72,8 +76,8 @@ macro_rules! normalized_int {
 }
 
 unsafe impl<P: GLPrim> GLSLType for P {
-    const LEN: usize = 1;
-    const MATRIX: bool = false;
+    fn len() ->  usize {1}
+    fn matrix() ->  bool {false}
     type GLPrim = P;
 }
 impl_glsl_type!{
@@ -103,74 +107,116 @@ normalized_int!{
 }
 
 unsafe impl GLPrim for i8 {
-    const GL_ENUM: GLenum = gl::BYTE;
-    const SIGNED: bool = true;
-    const NORMALIZED: bool = false;
+    #[inline]
+    fn gl_enum() ->  GLenum {gl::BYTE}
+    #[inline]
+    fn signed() ->  bool {true}
+    #[inline]
+    fn normalized() ->  bool {false}
 }
 unsafe impl GLPrim for u8 {
-    const GL_ENUM: GLenum = gl::UNSIGNED_BYTE;
-    const SIGNED: bool = false;
-    const NORMALIZED: bool = false;
+    #[inline]
+    fn gl_enum() ->  GLenum {gl::UNSIGNED_BYTE}
+    #[inline]
+    fn signed() ->  bool {false}
+    #[inline]
+    fn normalized() ->  bool {false}
 }
 unsafe impl GLPrim for i16 {
-    const GL_ENUM: GLenum = gl::SHORT;
-    const SIGNED: bool = true;
-    const NORMALIZED: bool = false;
+    #[inline]
+    fn gl_enum() ->  GLenum {gl::SHORT}
+    #[inline]
+    fn signed() ->  bool {true}
+    #[inline]
+    fn normalized() ->  bool {false}
 }
 unsafe impl GLPrim for u16 {
-    const GL_ENUM: GLenum = gl::UNSIGNED_SHORT;
-    const SIGNED: bool = false;
-    const NORMALIZED: bool = false;
+    #[inline]
+    fn gl_enum() ->  GLenum {gl::UNSIGNED_SHORT}
+    #[inline]
+    fn signed() ->  bool {false}
+    #[inline]
+    fn normalized() ->  bool {false}
 }
 unsafe impl GLPrim for i32 {
-    const GL_ENUM: GLenum = gl::INT;
-    const SIGNED: bool = true;
-    const NORMALIZED: bool = false;
+    #[inline]
+    fn gl_enum() ->  GLenum {gl::INT}
+    #[inline]
+    fn signed() ->  bool {true}
+    #[inline]
+    fn normalized() ->  bool {false}
 }
 unsafe impl GLPrim for u32 {
-    const GL_ENUM: GLenum = gl::UNSIGNED_INT;
-    const SIGNED: bool = false;
-    const NORMALIZED: bool = false;
+    #[inline]
+    fn gl_enum() ->  GLenum {gl::UNSIGNED_INT}
+    #[inline]
+    fn signed() ->  bool {false}
+    #[inline]
+    fn normalized() ->  bool {false}
 }
 unsafe impl GLPrim for Ni8 {
-    const GL_ENUM: GLenum = gl::BYTE;
-    const SIGNED: bool = true;
-    const NORMALIZED: bool = true;
+    #[inline]
+    fn gl_enum() ->  GLenum {gl::BYTE}
+    #[inline]
+    fn signed() ->  bool {true}
+    #[inline]
+    fn normalized() ->  bool {true}
 }
 unsafe impl GLPrim for Nu8 {
-    const GL_ENUM: GLenum = gl::UNSIGNED_BYTE;
-    const SIGNED: bool = false;
-    const NORMALIZED: bool = true;
+    #[inline]
+    fn gl_enum() ->  GLenum {gl::UNSIGNED_BYTE}
+    #[inline]
+    fn signed() ->  bool {false}
+    #[inline]
+    fn normalized() ->  bool {true}
 }
 unsafe impl GLPrim for Ni16 {
-    const GL_ENUM: GLenum = gl::SHORT;
-    const SIGNED: bool = true;
-    const NORMALIZED: bool = true;
+    #[inline]
+    fn gl_enum() ->  GLenum {gl::SHORT}
+    #[inline]
+    fn signed() ->  bool {true}
+    #[inline]
+    fn normalized() ->  bool {true}
 }
 unsafe impl GLPrim for Nu16 {
-    const GL_ENUM: GLenum = gl::UNSIGNED_SHORT;
-    const SIGNED: bool = false;
-    const NORMALIZED: bool = true;
+    #[inline]
+    fn gl_enum() ->  GLenum {gl::UNSIGNED_SHORT}
+    #[inline]
+    fn signed() ->  bool {false}
+    #[inline]
+    fn normalized() ->  bool {true}
 }
 unsafe impl GLPrim for Ni32 {
-    const GL_ENUM: GLenum = gl::INT;
-    const SIGNED: bool = true;
-    const NORMALIZED: bool = true;
+    #[inline]
+    fn gl_enum() ->  GLenum {gl::INT}
+    #[inline]
+    fn signed() ->  bool {true}
+    #[inline]
+    fn normalized() ->  bool {true}
 }
 unsafe impl GLPrim for Nu32 {
-    const GL_ENUM: GLenum = gl::UNSIGNED_INT;
-    const SIGNED: bool = false;
-    const NORMALIZED: bool = true;
+    #[inline]
+    fn gl_enum() ->  GLenum {gl::UNSIGNED_INT}
+    #[inline]
+    fn signed() ->  bool {false}
+    #[inline]
+    fn normalized() ->  bool {true}
 }
 unsafe impl GLPrim for f32 {
-    const GL_ENUM: GLenum = gl::FLOAT;
-    const SIGNED: bool = false;
-    const NORMALIZED: bool = false;
+    #[inline]
+    fn gl_enum() ->  GLenum {gl::FLOAT}
+    #[inline]
+    fn signed() ->  bool {false}
+    #[inline]
+    fn normalized() ->  bool {false}
 }
 unsafe impl GLPrim for f64 {
-    const GL_ENUM: GLenum = gl::FLOAT;
-    const SIGNED: bool = false;
-    const NORMALIZED: bool = false;
+    #[inline]
+    fn gl_enum() ->  GLenum {gl::FLOAT}
+    #[inline]
+    fn signed() ->  bool {false}
+    #[inline]
+    fn normalized() ->  bool {false}
 }
 
 unsafe impl BufferData for i8 {}
