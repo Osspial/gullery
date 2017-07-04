@@ -1,4 +1,4 @@
-use gl;
+use gl::{self, Gl};
 use gl::types::*;
 
 use std::{ptr, mem};
@@ -27,7 +27,8 @@ pub struct RawBoundBuffer<'a, T, B>
           T: 'a + Copy
 {
     bind: PhantomData<&'a B>,
-    buffer: &'a RawBuffer<T>
+    buffer: &'a RawBuffer<T>,
+    gl: &'a Gl
 }
 
 #[repr(C)]
@@ -37,6 +38,7 @@ pub struct RawBoundBufferMut<'a, T, B>
 {
     bind: PhantomData<&'a B>,
     buffer: &'a mut RawBuffer<T>,
+    gl: &'a Gl
 }
 
 const USAGE_OFFSET: GLenum = 35039;
@@ -65,36 +67,36 @@ pub unsafe trait RawBindTarget: 'static + Sized {
     fn bound_buffer(&self) -> &Cell<GLuint>;
 
     #[inline]
-    unsafe fn bind<'a, T: Copy>(&'a self, buffer: &'a RawBuffer<T>) -> RawBoundBuffer<'a, T, Self> {
+    unsafe fn bind<'a, T: Copy>(&'a self, buffer: &'a RawBuffer<T>, gl: &'a Gl) -> RawBoundBuffer<'a, T, Self> {
         let handle = buffer.handle;
         let bound_buffer = self.bound_buffer();
         if bound_buffer.get() != handle {
-            gl::BindBuffer(Self::target(), buffer.handle);
+            gl.BindBuffer(Self::target(), buffer.handle);
             bound_buffer.set(handle);
         }
 
         RawBoundBuffer {
             bind: PhantomData,
-            buffer
+            buffer, gl
         }
     }
     #[inline]
-    unsafe fn bind_mut<'a, T: Copy>(&'a self, buffer: &'a mut RawBuffer<T>) -> RawBoundBufferMut<'a, T, Self> {
+    unsafe fn bind_mut<'a, T: Copy>(&'a self, buffer: &'a mut RawBuffer<T>, gl: &'a Gl) -> RawBoundBufferMut<'a, T, Self> {
         let handle = buffer.handle;
         let bound_buffer = self.bound_buffer();
         if bound_buffer.get() != handle {
-            gl::BindBuffer(Self::target(), buffer.handle);
+            gl.BindBuffer(Self::target(), buffer.handle);
             bound_buffer.set(handle);
         }
         RawBoundBufferMut {
             bind: PhantomData,
-            buffer
+            buffer, gl
         }
     }
     #[inline]
-    unsafe fn reset_bind(&self) {
+    unsafe fn reset_bind(&self, gl: &Gl) {
         self.bound_buffer().set(0);
-        gl::BindBuffer(Self::target(), 0)
+        gl.BindBuffer(Self::target(), 0)
     }
 }
 
@@ -145,10 +147,10 @@ pub mod targets {
 
 impl<T: Copy> RawBuffer<T> {
     #[inline]
-    pub(crate) fn new() -> RawBuffer<T> {
+    pub(crate) fn new(gl: &Gl) -> RawBuffer<T> {
         unsafe {
             let mut handle = 0;
-            gl::GenBuffers(1, &mut handle);
+            gl.GenBuffers(1, &mut handle);
 
             assert_ne!(handle, 0);
 
@@ -165,12 +167,10 @@ impl<T: Copy> RawBuffer<T> {
     pub(crate) fn size(&self) -> usize {
         self.size
     }
-}
 
-impl<T: Copy> Drop for RawBuffer<T> {
-    fn drop(&mut self) {
+    pub(crate) fn delete(self, gl: &Gl) {
         unsafe {
-            gl::DeleteBuffers(1, &self.handle);
+            gl.DeleteBuffers(1, &self.handle);
         }
     }
 }
@@ -182,7 +182,7 @@ impl<'a, T, B> RawBoundBuffer<'a, T, B>
     #[inline]
     pub(crate) fn get_data(&self, offset: usize, buf: &mut [T]) {
         if offset + buf.len() <= self.buffer.size {
-            unsafe {gl::GetBufferSubData(
+            unsafe {self.gl.GetBufferSubData(
                 B::target(),
                 offset as GLintptr,
                 (buf.len() * mem::size_of::<T>()) as GLsizeiptr,
@@ -217,7 +217,7 @@ impl<'a, T, B> RawBoundBuffer<'a, T, B>
         } else if write_offset + size > dest_bind.buffer.size {
             panic!("Write offset {} with read length {} out of range for buffer of length {}", write_offset, size, dest_bind.buffer.size);
         } else if size > 0 {
-            unsafe {gl::CopyBufferSubData(
+            unsafe {self.gl.CopyBufferSubData(
                 B::target(), C::target(),
                 read_offset as GLintptr, write_offset as GLintptr,
                 size as GLsizeiptr
@@ -234,7 +234,7 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
     pub(crate) fn sub_data(&mut self, offset: usize, data: &[T]) {
         assert!(offset + data.len() <= isize::max_value() as usize);
         if offset + data.len() <= self.buffer.size {
-            unsafe {gl::BufferSubData(
+            unsafe {self.gl.BufferSubData(
                 B::target(),
                 offset as GLintptr,
                 (data.len() * mem::size_of::<T>()) as GLsizeiptr,
@@ -248,14 +248,14 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
     #[inline]
     pub(crate) fn alloc_size(&mut self, size: usize, usage: BufferUsage) -> Result<(), AllocError> {
         assert!(size <= isize::max_value() as usize);
-        unsafe {gl::BufferData(
+        unsafe {self.gl.BufferData(
             B::target(),
             (size * mem::size_of::<T>()) as GLsizeiptr,
             ptr::null_mut(),
             usage.to_gl_enum()
         )};
 
-        let error = unsafe{ gl::GetError() };
+        let error = unsafe{ self.gl.GetError() };
         if error == 0 {
             self.buffer.size = size;
             Ok(())
@@ -269,14 +269,14 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
     #[inline]
     pub(crate) fn alloc_upload(&mut self, data: &[T], usage: BufferUsage) -> Result<(), AllocError> {
         assert!(data.len() <= isize::max_value() as usize);
-        unsafe {gl::BufferData(
+        unsafe {self.gl.BufferData(
             B::target(),
             (data.len() * mem::size_of::<T>()) as GLsizeiptr,
             data.as_ptr() as *const GLvoid,
             usage.to_gl_enum()
         )};
 
-        let error = unsafe{ gl::GetError() };
+        let error = unsafe{ self.gl.GetError() };
         if error == 0 {
             self.buffer.size = data.len();
             Ok(())

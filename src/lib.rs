@@ -1,12 +1,30 @@
 #![feature(collections_range)]
 
-extern crate gl;
+extern crate gl_raw as gl;
 extern crate num_traits;
 #[macro_use]
 extern crate derive_more;
 
 pub mod buffers;
 pub mod types;
+
+use gl::Gl;
+use std::rc::Rc;
+
+
+pub struct ContextState {
+    buffer_binds: buffers::BufferBinds,
+    gl: Gl
+}
+
+impl ContextState {
+    pub unsafe fn new<F: Fn(&str) -> *const ()>(load_fn: F) -> Rc<ContextState> {
+        Rc::new(ContextState {
+            buffer_binds: buffers::BufferBinds::new(),
+            gl: Gl::load_with(|s| load_fn(s) as *const _)
+        })
+    }
+}
 
 mod seal {
     pub trait Sealed {}

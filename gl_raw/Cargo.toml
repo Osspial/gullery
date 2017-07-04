@@ -1,0 +1,7 @@
+[package]
+name = "gl_raw"
+version = "0.1.0"
+authors = ["Osspial <osspial@gmail.com>"]
+
+[build-dependencies]
+gl_generator = "0.5"

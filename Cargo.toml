@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Osspial <osspial@gmail.com>"]
 
 [dependencies]
-gl = "0.6"
+gl_raw = {path = "./gl_raw"}
 num-traits = "0.1"
 derive_more = "0.6"
+
+[workspace]
+members = ["./gl_raw"]
