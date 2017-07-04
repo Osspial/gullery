@@ -1,3 +1,5 @@
+use ContextState;
+
 use gl::{self, Gl};
 use gl::types::*;
 
@@ -168,9 +170,15 @@ impl<T: Copy> RawBuffer<T> {
         self.size
     }
 
-    pub(crate) fn delete(self, gl: &Gl) {
+    #[inline]
+    pub(crate) fn handle(&self) -> GLuint {
+        self.handle
+    }
+
+    pub(crate) fn delete(self, state: &ContextState) {
         unsafe {
-            gl.DeleteBuffers(1, &self.handle);
+            state.buffer_binds.unbind(&self, &state.gl);
+            state.gl.DeleteBuffers(1, &self.handle);
         }
     }
 }

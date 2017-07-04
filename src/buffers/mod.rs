@@ -3,8 +3,9 @@ mod raw;
 pub use self::raw::{RawBindTarget, BufferUsage, AllocError};
 use self::raw::{targets, RawBuffer};
 
-use seal::Sealed;
+use gl::Gl;
 use ContextState;
+use seal::Sealed;
 
 use std::mem;
 use std::rc::Rc;
@@ -25,6 +26,17 @@ impl BufferBinds {
         BufferBinds {
             copy_read: targets::RawCopyRead::new(),
             copy_write: targets::RawCopyWrite::new()
+        }
+    }
+
+    unsafe fn unbind<T: Copy>(&self, buf: &RawBuffer<T>, gl: &Gl) {
+        if self.copy_read.bound_buffer().get() == buf.handle() {
+            println!("reset bind");
+            self.copy_read.reset_bind(gl);
+        }
+        if self.copy_write.bound_buffer().get() == buf.handle() {
+            println!("reset bind");
+            self.copy_write.reset_bind(gl);
         }
     }
 }
@@ -123,6 +135,6 @@ impl<T: BufferData> Drop for Buffer<T> {
     fn drop(&mut self) {
         let mut buffer = unsafe{ mem::uninitialized() };
         mem::swap(&mut buffer, &mut self.raw);
-        buffer.delete(&self.state.gl);
+        buffer.delete(&self.state);
     }
 }
