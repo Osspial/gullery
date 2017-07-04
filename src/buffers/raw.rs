@@ -150,6 +150,8 @@ impl<T: Copy> RawBuffer<T> {
             let mut handle = 0;
             gl::GenBuffers(1, &mut handle);
 
+            assert_ne!(handle, 0);
+
             RawBuffer {
                 handle,
                 size: 0,
