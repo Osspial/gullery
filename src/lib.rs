@@ -5,6 +5,12 @@ extern crate num_traits;
 #[macro_use]
 extern crate derive_more;
 
+#[cfg(test)]
+#[macro_use]
+extern crate quickcheck;
+#[cfg(test)]
+extern crate glutin;
+
 pub mod buffers;
 pub mod types;
 
