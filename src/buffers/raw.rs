@@ -148,18 +148,29 @@ pub mod targets {
 
 
 impl<T: Copy> RawBuffer<T> {
+    /// Allocate a new RawBuffer on the GPU. If we're allocating a ZST, the GPU does nothing and
+    /// the handle associated with this buffer is 0. No GPU operations are performed on this buffer
+    /// if it's a ZST.
     #[inline]
     pub(crate) fn new(gl: &Gl) -> RawBuffer<T> {
         unsafe {
-            let mut handle = 0;
-            gl.GenBuffers(1, &mut handle);
+            if mem::size_of::<T>() != 0 {
+                let mut handle = 0;
 
-            assert_ne!(handle, 0);
+                gl.GenBuffers(1, &mut handle);
+                assert_ne!(handle, 0);
 
-            RawBuffer {
-                handle,
-                size: 0,
-                _marker: PhantomData
+                RawBuffer {
+                    handle,
+                    size: 0,
+                    _marker: PhantomData
+                }
+            } else {
+                RawBuffer {
+                    handle: 0,
+                    size: isize::max_value() as usize,
+                    _marker: PhantomData
+                }
             }
         }
     }
@@ -177,8 +188,10 @@ impl<T: Copy> RawBuffer<T> {
 
     pub(crate) fn delete(self, state: &ContextState) {
         unsafe {
-            state.buffer_binds.unbind(&self, &state.gl);
-            state.gl.DeleteBuffers(1, &self.handle);
+            if mem::size_of::<T>() != 0 {
+                state.buffer_binds.unbind(&self, &state.gl);
+                state.gl.DeleteBuffers(1, &self.handle);
+            }
         }
     }
 }
@@ -189,15 +202,17 @@ impl<'a, T, B> RawBoundBuffer<'a, T, B>
 {
     #[inline]
     pub(crate) fn get_data(&self, offset: usize, buf: &mut [T]) {
-        if offset + buf.len() <= self.buffer.size {
-            unsafe {self.gl.GetBufferSubData(
-                B::target(),
-                offset as GLintptr,
-                (buf.len() * mem::size_of::<T>()) as GLsizeiptr,
-                buf.as_mut_ptr() as *mut GLvoid
-            )};
-        } else {
-            panic!("Attempted to get data from buffer where offset + request length exceeded buffer length");
+        if mem::size_of::<T>() != 0 {
+            if offset + buf.len() <= self.buffer.size {
+                unsafe {self.gl.GetBufferSubData(
+                    B::target(),
+                    offset as GLintptr,
+                    (buf.len() * mem::size_of::<T>()) as GLsizeiptr,
+                    buf.as_mut_ptr() as *mut GLvoid
+                )};
+            } else {
+                panic!("Attempted to get data from buffer where offset + request length exceeded buffer length");
+            }
         }
     }
 
@@ -213,23 +228,25 @@ impl<'a, T, B> RawBoundBuffer<'a, T, B>
                 Bound::Unbounded   => unbounded
             }
         }
-        let read_offset = bound_to_num(self_range.start(), 0);
-        let read_end = bound_to_num(self_range.end(), self.buffer.size);
-        assert!(read_end <= isize::max_value() as usize);
+        if mem::size_of::<T>() != 0 {
+            let read_offset = bound_to_num(self_range.start(), 0);
+            let read_end = bound_to_num(self_range.end(), self.buffer.size);
+            assert!(read_end <= isize::max_value() as usize);
 
-        let size = read_end.checked_sub(read_end)
-            .expect(&format!("Copy range starts at {} but ends at {}", read_offset, read_end));
+            let size = read_end.checked_sub(read_end)
+                .expect(&format!("Copy range starts at {} but ends at {}", read_offset, read_end));
 
-        if read_end > self.buffer.size {
-            panic!("Read index {} out of range for buffer of length {}", read_end, self.buffer.size);
-        } else if write_offset + size > dest_bind.buffer.size {
-            panic!("Write offset {} with read length {} out of range for buffer of length {}", write_offset, size, dest_bind.buffer.size);
-        } else if size > 0 {
-            unsafe {self.gl.CopyBufferSubData(
-                B::target(), C::target(),
-                read_offset as GLintptr, write_offset as GLintptr,
-                size as GLsizeiptr
-            )}
+            if read_end > self.buffer.size {
+                panic!("Read index {} out of range for buffer of length {}", read_end, self.buffer.size);
+            } else if write_offset + size > dest_bind.buffer.size {
+                panic!("Write offset {} with read length {} out of range for buffer of length {}", write_offset, size, dest_bind.buffer.size);
+            } else if size > 0 {
+                unsafe {self.gl.CopyBufferSubData(
+                    B::target(), C::target(),
+                    read_offset as GLintptr, write_offset as GLintptr,
+                    size as GLsizeiptr
+                )}
+            }
         }
     }
 }
@@ -241,57 +258,67 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
     #[inline]
     pub(crate) fn sub_data(&mut self, offset: usize, data: &[T]) {
         assert!(offset + data.len() <= isize::max_value() as usize);
-        if offset + data.len() <= self.buffer.size {
-            unsafe {self.gl.BufferSubData(
-                B::target(),
-                offset as GLintptr,
-                (data.len() * mem::size_of::<T>()) as GLsizeiptr,
-                data.as_ptr() as *const GLvoid
-            )};
-        } else {
-            panic!("Attempted to upload data to buffer where offset + data length exceeded buffer length");
+        if mem::size_of::<T>() != 0 {
+            if offset + data.len() <= self.buffer.size {
+                unsafe {self.gl.BufferSubData(
+                    B::target(),
+                    offset as GLintptr,
+                    (data.len() * mem::size_of::<T>()) as GLsizeiptr,
+                    data.as_ptr() as *const GLvoid
+                )};
+            } else {
+                panic!("Attempted to upload data to buffer where offset + data length exceeded buffer length");
+            }
         }
     }
 
     #[inline]
     pub(crate) fn alloc_size(&mut self, size: usize, usage: BufferUsage) -> Result<(), AllocError> {
         assert!(size <= isize::max_value() as usize);
-        unsafe {self.gl.BufferData(
-            B::target(),
-            (size * mem::size_of::<T>()) as GLsizeiptr,
-            ptr::null_mut(),
-            usage.to_gl_enum()
-        )};
+        if mem::size_of::<T>() != 0 {
+            unsafe {self.gl.BufferData(
+                B::target(),
+                (size * mem::size_of::<T>()) as GLsizeiptr,
+                ptr::null_mut(),
+                usage.to_gl_enum()
+            )};
 
-        let error = unsafe{ self.gl.GetError() };
-        if error == 0 {
-            self.buffer.size = size;
-            Ok(())
+            let error = unsafe{ self.gl.GetError() };
+            if error == 0 {
+                self.buffer.size = size;
+                Ok(())
+            } else {
+                assert_eq!(error, gl::OUT_OF_MEMORY);
+                self.buffer.size = 0;
+                Err(AllocError::OutOfMemory)
+            }
         } else {
-            assert_eq!(error, gl::OUT_OF_MEMORY);
-            self.buffer.size = 0;
-            Err(AllocError::OutOfMemory)
+            Ok(())
         }
     }
 
     #[inline]
     pub(crate) fn alloc_upload(&mut self, data: &[T], usage: BufferUsage) -> Result<(), AllocError> {
         assert!(data.len() <= isize::max_value() as usize);
-        unsafe {self.gl.BufferData(
-            B::target(),
-            (data.len() * mem::size_of::<T>()) as GLsizeiptr,
-            data.as_ptr() as *const GLvoid,
-            usage.to_gl_enum()
-        )};
+        if mem::size_of::<T>() != 0 {
+            unsafe {self.gl.BufferData(
+                B::target(),
+                (data.len() * mem::size_of::<T>()) as GLsizeiptr,
+                data.as_ptr() as *const GLvoid,
+                usage.to_gl_enum()
+            )};
 
-        let error = unsafe{ self.gl.GetError() };
-        if error == 0 {
-            self.buffer.size = data.len();
-            Ok(())
+            let error = unsafe{ self.gl.GetError() };
+            if error == 0 {
+                self.buffer.size = data.len();
+                Ok(())
+            } else {
+                assert_eq!(error, gl::OUT_OF_MEMORY);
+                self.buffer.size = 0;
+                Err(AllocError::OutOfMemory)
+            }
         } else {
-            assert_eq!(error, gl::OUT_OF_MEMORY);
-            self.buffer.size = 0;
-            Err(AllocError::OutOfMemory)
+            Ok(())
         }
     }
 }
