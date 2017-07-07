@@ -46,6 +46,7 @@ mod seal {
     impl Sealed for isize {}
     impl Sealed for f32 {}
     impl Sealed for f64 {}
+    impl Sealed for () {}
 
     macro_rules! impl_sealed_arrays {
         ($($len:expr),+) => {$(
@@ -53,4 +54,22 @@ mod seal {
         )+};
     }
     impl_sealed_arrays!(1, 2, 3, 4);
+}
+
+#[cfg(test)]
+mod test_helper {
+    use super::*;
+    use glutin::{HeadlessRendererBuilder, HeadlessContext, GlRequest, Api};
+
+    thread_local!{
+        static CONTEXT: HeadlessContext = {
+            let context = HeadlessRendererBuilder::new(256, 256)
+                .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3))).build().unwrap();
+            unsafe{ context.make_current().unwrap() };
+            context
+        };
+        pub static CONTEXT_STATE: Rc<ContextState> = CONTEXT.with(|context| unsafe {
+            ContextState::new(|s| context.get_proc_address(s))
+        });
+    }
 }

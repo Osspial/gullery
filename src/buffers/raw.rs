@@ -77,6 +77,7 @@ pub unsafe trait RawBindTarget: 'static + Sized {
             bound_buffer.set(handle);
         }
 
+        debug_assert_eq!(handle, {let mut bound = 0; gl.GetIntegerv(Self::target(), &mut bound); bound as u32});
         RawBoundBuffer {
             bind: PhantomData,
             buffer, gl
@@ -90,6 +91,8 @@ pub unsafe trait RawBindTarget: 'static + Sized {
             gl.BindBuffer(Self::target(), buffer.handle);
             bound_buffer.set(handle);
         }
+
+        debug_assert_eq!(handle, {let mut bound = 0; gl.GetIntegerv(Self::target(), &mut bound); bound as u32});
         RawBoundBufferMut {
             bind: PhantomData,
             buffer, gl
@@ -132,12 +135,12 @@ pub mod targets {
         )*);
     }
 
+    // The ARRAY_BUFFER and ELEMENT_ARRAY_BUFFER targets are implemented in the buffers::vao module,
+    // under the VertexArrayObjTarget struct.
     raw_bind_target!{
-        // pub target RawArray = gl::ARRAY_BUFFER;
         pub target RawCopyRead = gl::COPY_READ_BUFFER;
         pub target RawCopyWrite = gl::COPY_WRITE_BUFFER;
         // pub target RawDrawIndirect = gl::DRAW_INDIRECT_BUFFER;
-        // pub target RawElementArray = gl::ELEMENT_ARRAY_BUFFER;
         // pub target RawPixelPack = gl::PIXEL_PACK_BUFFER;
         // pub target RawPixelUnpack = gl::PIXEL_UNPACK_BUFFER;
         // pub target RawTexture = gl::TEXTURE_BUFFER;

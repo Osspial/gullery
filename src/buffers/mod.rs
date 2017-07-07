@@ -1,4 +1,5 @@
 mod raw;
+pub mod vao;
 
 pub use self::raw::{RawBindTarget, BufferUsage, AllocError};
 use self::raw::{targets, RawBuffer};
@@ -11,31 +12,38 @@ use std::mem;
 use std::rc::Rc;
 use std::collections::range::RangeArgument;
 
-pub unsafe trait BufferData: 'static + Copy + Default {}
-pub unsafe trait Vertex: BufferData {}
+pub trait BufferData: 'static + Copy + Default {}
+impl<T: 'static + Copy + Default> BufferData for T {}
+pub trait Vertex: BufferData {
+    fn register_attribs(attrib_builder: vao::VertexAttribBuilder<Self>);
+}
+pub unsafe trait Index: BufferData + Sealed {}
+
+unsafe impl Index for () {}
+unsafe impl Index for u8 {}
+unsafe impl Index for u16 {}
+unsafe impl Index for u32 {}
 
 pub(crate) struct BufferBinds {
-    // array: targets::RawArray,
     copy_read: targets::RawCopyRead,
     copy_write: targets::RawCopyWrite,
-    // element_array: targets::RawElementArray
+    vao_bind: vao::VertexArrayObjTarget,
 }
 
 impl BufferBinds {
     pub(crate) unsafe fn new() -> BufferBinds {
         BufferBinds {
             copy_read: targets::RawCopyRead::new(),
-            copy_write: targets::RawCopyWrite::new()
+            copy_write: targets::RawCopyWrite::new(),
+            vao_bind: vao::VertexArrayObjTarget::new()
         }
     }
 
     unsafe fn unbind<T: Copy>(&self, buf: &RawBuffer<T>, gl: &Gl) {
         if self.copy_read.bound_buffer().get() == buf.handle() {
-            println!("reset bind");
             self.copy_read.reset_bind(gl);
         }
         if self.copy_write.bound_buffer().get() == buf.handle() {
-            println!("reset bind");
             self.copy_write.reset_bind(gl);
         }
     }
@@ -142,19 +150,7 @@ impl<T: BufferData> Drop for Buffer<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use glutin::{HeadlessRendererBuilder, HeadlessContext, GlRequest, Api};
-
-    thread_local!{
-        static CONTEXT: HeadlessContext = {
-            let context = HeadlessRendererBuilder::new(256, 256)
-                .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3))).build().unwrap();
-            unsafe{ context.make_current().unwrap() };
-            context
-        };
-        static CONTEXT_STATE: Rc<ContextState> = CONTEXT.with(|context| unsafe {
-            ContextState::new(|s| context.get_proc_address(s))
-        });
-    }
+    use test_helper::CONTEXT_STATE;
 
     quickcheck!{
         fn buffer_data(data: Vec<u32>) -> bool {
