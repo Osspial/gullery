@@ -14,9 +14,6 @@ use std::collections::range::RangeArgument;
 
 pub trait BufferData: 'static + Copy + Default {}
 impl<T: 'static + Copy + Default> BufferData for T {}
-pub trait Vertex: BufferData {
-    fn register_attribs(attrib_builder: vao::VertexAttribBuilder<Self>);
-}
 pub unsafe trait Index: BufferData + Sealed {}
 
 unsafe impl Index for () {}

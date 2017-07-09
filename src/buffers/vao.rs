@@ -1,20 +1,21 @@
 use gl::{self, Gl};
 use gl::types::*;
 
-use super::{Vertex, Index, Buffer, BufferUsage};
+use {BlockMemberRegistry, ShaderBlock};
+use super::{Index, Buffer, BufferUsage};
 use types::{GLSLType, GLPrim};
 
 use std::mem;
 use std::cell::Cell;
 use std::marker::PhantomData;
 
-pub struct VertexArrayObj<V: Vertex, I: Index> {
+pub struct VertexArrayObj<V: ShaderBlock, I: Index> {
     handle: GLuint,
     vertex_buffer: Buffer<V>,
     index_buffer: Buffer<I>
 }
 
-pub struct VertexAttribBuilder<'a, V: Vertex> {
+pub struct VertexAttribBuilder<'a, V: ShaderBlock> {
     attrib_index: u32,
     max_attribs: u32,
     gl: &'a Gl,
@@ -26,12 +27,12 @@ pub(crate) struct VertexArrayObjTarget {
     _sendsync_optout: PhantomData<*const ()>
 }
 
-pub(crate) struct BoundVAO<'a, V: Vertex, I: Index> {
+pub(crate) struct BoundVAO<'a, V: ShaderBlock, I: Index> {
     vao: &'a VertexArrayObj<V, I>
 }
 
 
-impl<V: Vertex, I: Index> VertexArrayObj<V, I> {
+impl<V: ShaderBlock, I: Index> VertexArrayObj<V, I> {
     pub fn new(vertex_buffer: Buffer<V>, index_buffer: Buffer<I>) -> VertexArrayObj<V, I> {
         if vertex_buffer.state.as_ref() as *const _ != index_buffer.state.as_ref() as *const _ {
             panic!("vertex buffer and index buffer using different contexts");
@@ -55,7 +56,7 @@ impl<V: Vertex, I: Index> VertexArrayObj<V, I> {
                     gl: &state.gl,
                     _marker: PhantomData
                 };
-                V::register_attribs(vab);
+                V::members(vab);
             }
 
             vao
@@ -63,7 +64,7 @@ impl<V: Vertex, I: Index> VertexArrayObj<V, I> {
     }
 }
 
-impl<V: Vertex> VertexArrayObj<V, ()> {
+impl<V: ShaderBlock> VertexArrayObj<V, ()> {
     #[inline]
     pub fn new_noindex(vertex_buffer: Buffer<V>) -> VertexArrayObj<V, ()> {
         let index_buffer: Buffer<()> = Buffer::with_size(BufferUsage::StaticDraw, 0, vertex_buffer.state.clone()).unwrap();
@@ -71,7 +72,7 @@ impl<V: Vertex> VertexArrayObj<V, ()> {
     }
 }
 
-impl<V: Vertex, I: Index> Drop for VertexArrayObj<V, I> {
+impl<V: ShaderBlock, I: Index> Drop for VertexArrayObj<V, I> {
     #[inline]
     fn drop(&mut self) {
         unsafe {
@@ -84,9 +85,10 @@ impl<V: Vertex, I: Index> Drop for VertexArrayObj<V, I> {
     }
 }
 
-impl<'a, V: Vertex> VertexAttribBuilder<'a, V> {
-    #[inline]
-    pub fn add_vertex_attrib<T: GLSLType>(&mut self, name: &str, get_type: fn(&V) -> &T) {
+impl<'a, V: ShaderBlock> BlockMemberRegistry for VertexAttribBuilder<'a, V> {
+    type Block = V;
+
+    fn add_member<T: GLSLType>(&mut self, name: &str, get_type: fn(&V) -> &T) {
         let gl = self.gl;
         let vertex = V::default();
 
@@ -147,7 +149,7 @@ impl VertexArrayObjTarget {
     }
 
     #[inline]
-    pub unsafe fn bind<'a, V: Vertex, I: Index>(&'a self, vao: &'a VertexArrayObj<V, I>) -> BoundVAO<'a, V, I> {
+    pub unsafe fn bind<'a, V: ShaderBlock, I: Index>(&'a self, vao: &'a VertexArrayObj<V, I>) -> BoundVAO<'a, V, I> {
         if self.bound_vao.get() != vao.handle {
             let gl = &vao.vertex_buffer.state.gl;
             gl.BindVertexArray(vao.handle);
@@ -164,7 +166,7 @@ impl VertexArrayObjTarget {
     }
 }
 
-impl<'a, V: Vertex, I: Index> BoundVAO<'a, V, I> {
+impl<'a, V: ShaderBlock, I: Index> BoundVAO<'a, V, I> {
     /// Perform the initial setup involved with the VAO and bind the vertex and element array
     /// buffers
     #[inline]
@@ -190,10 +192,12 @@ mod tests {
         color: [f32; 3]
     }
 
-    impl Vertex for TestVertex {
-        fn register_attribs(mut attrib_builder: VertexAttribBuilder<Self>) {
-            attrib_builder.add_vertex_attrib("vert", |t| &t.vert);
-            attrib_builder.add_vertex_attrib("color", |t| &t.color);
+    impl ShaderBlock for TestVertex {
+        fn members<M>(mut attrib_builder: M)
+            where M: BlockMemberRegistry<Block=Self>
+        {
+            attrib_builder.add_member("vert", |t| &t.vert);
+            attrib_builder.add_member("color", |t| &t.color);
         }
     }
 

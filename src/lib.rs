@@ -17,6 +17,18 @@ pub mod types;
 use gl::Gl;
 use std::rc::Rc;
 
+use types::GLSLType;
+
+
+pub trait BlockMemberRegistry {
+    type Block: ShaderBlock;
+    fn add_member<T: GLSLType>(&mut self, name: &str, get_type: fn(&Self::Block) -> &T);
+}
+
+pub trait ShaderBlock: buffers::BufferData {
+    fn members<M>(reg: M)
+        where M: BlockMemberRegistry<Block=Self>;
+}
 
 pub struct ContextState {
     buffer_binds: buffers::BufferBinds,
