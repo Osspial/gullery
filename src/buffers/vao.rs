@@ -1,21 +1,24 @@
 use gl::{self, Gl};
 use gl::types::*;
 
-use {BlockMemberRegistry, ShaderBlock};
+use {ContextState, BlockMemberRegistry, ShaderBlock};
 use super::{Index, Buffer, BufferUsage};
+use super::raw::RawBuffer;
 use types::{GLSLType, GLPrim};
 
 use std::mem;
+use std::rc::Rc;
 use std::cell::Cell;
 use std::marker::PhantomData;
 
 pub struct VertexArrayObj<V: ShaderBlock, I: Index> {
     handle: GLuint,
-    vertex_buffer: Buffer<V>,
-    index_buffer: Buffer<I>
+    vertex_buffer: RawBuffer<V>,
+    index_buffer: RawBuffer<I>,
+    state: Rc<ContextState>
 }
 
-pub struct VertexAttribBuilder<'a, V: ShaderBlock> {
+struct VertexAttribBuilder<'a, V: ShaderBlock> {
     attrib_index: u32,
     max_attribs: u32,
     gl: &'a Gl,
@@ -33,19 +36,38 @@ pub(crate) struct BoundVAO<'a, V: ShaderBlock, I: Index> {
 
 
 impl<V: ShaderBlock, I: Index> VertexArrayObj<V, I> {
-    pub fn new(vertex_buffer: Buffer<V>, index_buffer: Buffer<I>) -> VertexArrayObj<V, I> {
+    pub fn new(mut vertex_buffer: Buffer<V>, mut index_buffer: Buffer<I>) -> VertexArrayObj<V, I> {
         if vertex_buffer.state.as_ref() as *const _ != index_buffer.state.as_ref() as *const _ {
             panic!("vertex buffer and index buffer using different contexts");
         }
         unsafe {
+            // Unpack the buffers to their raw forms. We can't just do a straight unpack because
+            // buffers are drop types, so we've gotta do some swappery trickery. The `_state`
+            // variable is there to make sure both the ContextState Rcs get dropped, because we're
+            // forgetting the buffers.
+            let (mut vertex_buffer_raw, mut index_buffer_raw, mut state, mut _state) = mem::uninitialized();
+            mem::swap(&mut vertex_buffer_raw, &mut vertex_buffer.raw);
+            mem::swap(&mut index_buffer_raw, &mut index_buffer.raw);
+            mem::swap(&mut state, &mut vertex_buffer.state);
+            mem::swap(&mut _state, &mut index_buffer.state);
+            mem::forget(vertex_buffer);
+            mem::forget(index_buffer);
+
+
+            // Create the vertex array
             let mut handle = 0;
             let mut max_attribs = 0;
-            vertex_buffer.state.gl.GenVertexArrays(1, &mut handle);
+            state.gl.GenVertexArrays(1, &mut handle);
 
-            let vao = VertexArrayObj { handle, vertex_buffer, index_buffer };
+            let vao = VertexArrayObj {
+                handle,
+                vertex_buffer: vertex_buffer_raw,
+                index_buffer: index_buffer_raw,
+                state
+            };
 
             {
-                let state = &vao.vertex_buffer.state;
+                let state = &vao.state;
                 let vao_bind = state.buffer_binds.vao_bind.bind(&vao);
                 vao_bind.init_bind();
 
@@ -76,11 +98,19 @@ impl<V: ShaderBlock, I: Index> Drop for VertexArrayObj<V, I> {
     #[inline]
     fn drop(&mut self) {
         unsafe {
-            let state = &self.vertex_buffer.state;
+            let state = &self.state;
             state.gl.DeleteVertexArrays(1, &self.handle);
             if state.buffer_binds.vao_bind.bound_vao.get() == self.handle {
                 state.buffer_binds.vao_bind.reset_bind(&state.gl);
             }
+
+            // Again we can't just do a move soooooooo to the swapper we go.
+            let (mut vertex_buffer, mut index_buffer) = mem::uninitialized();
+            mem::swap(&mut self.vertex_buffer, &mut vertex_buffer);
+            mem::swap(&mut self.index_buffer, &mut index_buffer);
+
+            vertex_buffer.delete(state);
+            index_buffer.delete(state);
         }
     }
 }
@@ -151,7 +181,7 @@ impl VertexArrayObjTarget {
     #[inline]
     pub unsafe fn bind<'a, V: ShaderBlock, I: Index>(&'a self, vao: &'a VertexArrayObj<V, I>) -> BoundVAO<'a, V, I> {
         if self.bound_vao.get() != vao.handle {
-            let gl = &vao.vertex_buffer.state.gl;
+            let gl = &vao.state.gl;
             gl.BindVertexArray(vao.handle);
             self.bound_vao.set(vao.handle);
         }
@@ -172,9 +202,9 @@ impl<'a, V: ShaderBlock, I: Index> BoundVAO<'a, V, I> {
     #[inline]
     fn init_bind(&self) {
         unsafe {
-            let gl = &self.vao.vertex_buffer.state.gl;
-            gl.BindBuffer(gl::ARRAY_BUFFER, self.vao.vertex_buffer.raw.handle());
-            gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.vao.index_buffer.raw.handle());
+            let gl = &self.vao.state.gl;
+            gl.BindBuffer(gl::ARRAY_BUFFER, self.vao.vertex_buffer.handle());
+            gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.vao.index_buffer.handle());
             assert_eq!(0, gl.GetError());
         }
     }
