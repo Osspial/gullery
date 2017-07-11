@@ -192,6 +192,7 @@ impl VertexArrayObjTarget {
 
     #[inline]
     pub unsafe fn reset_bind(&self, gl: &Gl) {
+        self.bound_vao.set(0);
         gl.BindVertexArray(0);
     }
 }
