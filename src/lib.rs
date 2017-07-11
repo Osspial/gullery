@@ -21,14 +21,14 @@ use std::rc::Rc;
 use types::GLSLType;
 
 
-pub trait BlockMemberRegistry {
-    type Block: ShaderBlock;
-    fn add_member<T: GLSLType>(&mut self, name: &str, get_type: fn(&Self::Block) -> &T);
+pub trait TyGroupMemberRegistry {
+    type Group: GLSLTyGroup;
+    fn add_member<T: GLSLType>(&mut self, name: &str, get_type: fn(&Self::Group) -> &T);
 }
 
-pub trait ShaderBlock: buffers::BufferData {
+pub trait GLSLTyGroup: buffers::BufferData {
     fn members<M>(reg: M)
-        where M: BlockMemberRegistry<Block=Self>;
+        where M: TyGroupMemberRegistry<Group=Self>;
 }
 
 pub struct ContextState {
@@ -81,9 +81,9 @@ mod test_helper {
         color: [f32; 3]
     }
 
-    impl ShaderBlock for TestVertex {
+    impl GLSLTyGroup for TestVertex {
         fn members<M>(mut attrib_builder: M)
-            where M: BlockMemberRegistry<Block=Self>
+            where M: TyGroupMemberRegistry<Group=Self>
         {
             attrib_builder.add_member("pos", |t| &t.pos);
             attrib_builder.add_member("color", |t| &t.color);

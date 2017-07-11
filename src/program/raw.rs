@@ -1,7 +1,7 @@
 use gl::{self, Gl};
 use gl::types::*;
 
-use ::{ShaderBlock, BlockMemberRegistry};
+use ::{GLSLTyGroup, TyGroupMemberRegistry};
 use seal::Sealed;
 use types::GLSLType;
 
@@ -34,7 +34,7 @@ pub unsafe trait ShaderStage: Sized + Sealed {
     unsafe fn program_pre_link_hook(_: &RawShader<Self>, _: &RawProgram, _: &Gl) {}
 }
 
-pub enum VertexStage<V: ShaderBlock> {#[doc(hidden)]_Unused(!, V)}
+pub enum VertexStage<V: GLSLTyGroup> {#[doc(hidden)]_Unused(!, V)}
 pub enum GeometryStage {}
 pub enum FragmentStage {}
 
@@ -139,23 +139,23 @@ impl RawProgram {
     }
 }
 
-unsafe impl<V: ShaderBlock> ShaderStage for VertexStage<V> {
+unsafe impl<V: GLSLTyGroup> ShaderStage for VertexStage<V> {
     #[inline]
     fn shader_type_enum() -> GLenum {gl::VERTEX_SHADER}
 
     unsafe fn program_pre_link_hook(_: &RawShader<Self>, program: &RawProgram, gl: &Gl) {
         use std::ffi::CString;
 
-        struct VertexAttribLocBinder<'a, V: ShaderBlock> {
+        struct VertexAttribLocBinder<'a, V: GLSLTyGroup> {
             cstr_bytes: Vec<u8>,
             index: GLuint,
             program: &'a RawProgram,
             gl: &'a Gl,
             _marker: PhantomData<V>
         }
-        impl<'a, V: ShaderBlock> BlockMemberRegistry for VertexAttribLocBinder<'a, V> {
-            type Block = V;
-            fn add_member<T: GLSLType>(&mut self, name: &str, _: fn(&Self::Block) -> &T) {
+        impl<'a, V: GLSLTyGroup> TyGroupMemberRegistry for VertexAttribLocBinder<'a, V> {
+            type Group = V;
+            fn add_member<T: GLSLType>(&mut self, name: &str, _: fn(&V) -> &T) {
                 // We can't just take ownership of the Vec<u8> to make it a CString, so we have to
                 // create a dummy buffer and swap it to self.cstr_bytes. At the end we swap it back.
                 let mut cstr_bytes = Vec::new();
@@ -196,6 +196,6 @@ unsafe impl ShaderStage for FragmentStage {
     fn shader_type_enum() -> GLenum {gl::FRAGMENT_SHADER}
 }
 
-impl<V: ShaderBlock> Sealed for VertexStage<V> {}
+impl<V: GLSLTyGroup> Sealed for VertexStage<V> {}
 impl Sealed for GeometryStage {}
 impl Sealed for FragmentStage {}

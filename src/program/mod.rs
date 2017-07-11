@@ -3,7 +3,7 @@ mod raw;
 use self::raw::{RawShader, RawProgram};
 use self::error::{ShaderError, LinkError};
 
-use ::{ContextState, ShaderBlock};
+use ::{ContextState, GLSLTyGroup};
 
 use std::mem;
 use std::rc::Rc;
@@ -16,7 +16,7 @@ pub struct Shader<S: ShaderStage> {
     state: Rc<ContextState>
 }
 
-pub struct Program<V: ShaderBlock> {
+pub struct Program<V: GLSLTyGroup> {
     raw: RawProgram,
     state: Rc<ContextState>,
     _marker: PhantomData<V>
@@ -32,7 +32,7 @@ impl<S: ShaderStage> Shader<S> {
     }
 }
 
-impl<V: ShaderBlock> Program<V> {
+impl<V: GLSLTyGroup> Program<V> {
     pub fn new(vert: &Shader<VertexStage<V>>, geom: Option<&Shader<GeometryStage>>, frag: &Shader<FragmentStage>) -> Result<Program<V>, LinkError> {
         // Temporary variables storing the pointers to the OpenGL state for each of the shaders.
         let vsp = vert.state.as_ref() as *const _;
@@ -65,7 +65,7 @@ impl<S: ShaderStage> Drop for Shader<S> {
     }
 }
 
-impl<V: ShaderBlock> Drop for Program<V> {
+impl<V: GLSLTyGroup> Drop for Program<V> {
     fn drop(&mut self) {
         let mut program_raw = unsafe{ mem::uninitialized() };
         mem::swap(&mut program_raw, &mut self.raw);

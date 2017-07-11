@@ -9,7 +9,7 @@ use proc_macro::TokenStream;
 use syn::*;
 use quote::Tokens;
 
-#[proc_macro_derive(ShaderBlock)]
+#[proc_macro_derive(GLSLTyGroup)]
 pub fn derive_shader_block(input_tokens: TokenStream) -> TokenStream {
     let input = input_tokens.to_string();
     let item = syn::parse_derive_input(&input).expect("Attempted derive on non-item");
@@ -27,7 +27,7 @@ fn impl_shader_block(derive_input: &DeriveInput) -> Tokens {
     } = *derive_input;
 
     match *body {
-        Body::Enum(..) => panic!("ShaderBlock can only be derived on structs"),
+        Body::Enum(..) => panic!("GLSLTyGroup can only be derived on structs"),
         Body::Struct(ref variant) => {
             let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
             let gen_idents = || variant.fields().iter()
@@ -47,9 +47,9 @@ fn impl_shader_block(derive_input: &DeriveInput) -> Tokens {
                 const #dummy_const: () = {
                     extern crate gl_raii as _gl_raii;
                     #[automatically_derived]
-                    impl #impl_generics _gl_raii::ShaderBlock for #ident #ty_generics #where_clause  {
+                    impl #impl_generics _gl_raii::GLSLTyGroup for #ident #ty_generics #where_clause  {
                         fn members<M>(mut reg: M)
-                            where M: _gl_raii::BlockMemberRegistry<Block=Self>
+                            where M: _gl_raii::TyGroupMemberRegistry<Group=Self>
                         {
                             #(
                                 reg.add_member(stringify!(#idents), |t| &t.#idents_1);

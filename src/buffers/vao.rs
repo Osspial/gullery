@@ -1,7 +1,7 @@
 use gl::{self, Gl};
 use gl::types::*;
 
-use {ContextState, BlockMemberRegistry, ShaderBlock};
+use {ContextState, TyGroupMemberRegistry, GLSLTyGroup};
 use super::{Index, Buffer, BufferUsage};
 use super::raw::RawBuffer;
 use types::{GLSLType, GLPrim};
@@ -11,14 +11,14 @@ use std::rc::Rc;
 use std::cell::Cell;
 use std::marker::PhantomData;
 
-pub struct VertexArrayObj<V: ShaderBlock, I: Index> {
+pub struct VertexArrayObj<V: GLSLTyGroup, I: Index> {
     handle: GLuint,
     vertex_buffer: RawBuffer<V>,
     index_buffer: RawBuffer<I>,
     state: Rc<ContextState>
 }
 
-struct VertexAttribBuilder<'a, V: ShaderBlock> {
+struct VertexAttribBuilder<'a, V: GLSLTyGroup> {
     attrib_index: u32,
     max_attribs: u32,
     gl: &'a Gl,
@@ -30,12 +30,12 @@ pub(crate) struct VertexArrayObjTarget {
     _sendsync_optout: PhantomData<*const ()>
 }
 
-pub(crate) struct BoundVAO<'a, V: ShaderBlock, I: Index> {
+pub(crate) struct BoundVAO<'a, V: GLSLTyGroup, I: Index> {
     vao: &'a VertexArrayObj<V, I>
 }
 
 
-impl<V: ShaderBlock, I: Index> VertexArrayObj<V, I> {
+impl<V: GLSLTyGroup, I: Index> VertexArrayObj<V, I> {
     pub fn new(mut vertex_buffer: Buffer<V>, mut index_buffer: Buffer<I>) -> VertexArrayObj<V, I> {
         if vertex_buffer.state.as_ref() as *const _ != index_buffer.state.as_ref() as *const _ {
             panic!("vertex buffer and index buffer using different contexts");
@@ -86,7 +86,7 @@ impl<V: ShaderBlock, I: Index> VertexArrayObj<V, I> {
     }
 }
 
-impl<V: ShaderBlock> VertexArrayObj<V, ()> {
+impl<V: GLSLTyGroup> VertexArrayObj<V, ()> {
     #[inline]
     pub fn new_noindex(vertex_buffer: Buffer<V>) -> VertexArrayObj<V, ()> {
         let index_buffer: Buffer<()> = Buffer::with_size(BufferUsage::StaticDraw, 0, vertex_buffer.state.clone()).unwrap();
@@ -94,7 +94,7 @@ impl<V: ShaderBlock> VertexArrayObj<V, ()> {
     }
 }
 
-impl<V: ShaderBlock, I: Index> Drop for VertexArrayObj<V, I> {
+impl<V: GLSLTyGroup, I: Index> Drop for VertexArrayObj<V, I> {
     #[inline]
     fn drop(&mut self) {
         unsafe {
@@ -115,8 +115,8 @@ impl<V: ShaderBlock, I: Index> Drop for VertexArrayObj<V, I> {
     }
 }
 
-impl<'a, V: ShaderBlock> BlockMemberRegistry for VertexAttribBuilder<'a, V> {
-    type Block = V;
+impl<'a, V: GLSLTyGroup> TyGroupMemberRegistry for VertexAttribBuilder<'a, V> {
+    type Group = V;
 
     fn add_member<T: GLSLType>(&mut self, name: &str, get_type: fn(&V) -> &T) {
         let gl = self.gl;
@@ -179,7 +179,7 @@ impl VertexArrayObjTarget {
     }
 
     #[inline]
-    pub unsafe fn bind<'a, V: ShaderBlock, I: Index>(&'a self, vao: &'a VertexArrayObj<V, I>) -> BoundVAO<'a, V, I> {
+    pub unsafe fn bind<'a, V: GLSLTyGroup, I: Index>(&'a self, vao: &'a VertexArrayObj<V, I>) -> BoundVAO<'a, V, I> {
         if self.bound_vao.get() != vao.handle {
             let gl = &vao.state.gl;
             gl.BindVertexArray(vao.handle);
@@ -196,7 +196,7 @@ impl VertexArrayObjTarget {
     }
 }
 
-impl<'a, V: ShaderBlock, I: Index> BoundVAO<'a, V, I> {
+impl<'a, V: GLSLTyGroup, I: Index> BoundVAO<'a, V, I> {
     /// Perform the initial setup involved with the VAO and bind the vertex and element array
     /// buffers
     #[inline]
