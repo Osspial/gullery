@@ -1,6 +1,6 @@
 pub mod error;
 mod raw;
-use self::raw::{RawShader, RawProgram};
+use self::raw::{RawShader, RawProgram, RawProgramTarget, RawBoundProgram};
 use self::error::{ShaderError, LinkError};
 
 use ::{ContextState, GLSLTyGroup};
@@ -21,6 +21,9 @@ pub struct Program<V: GLSLTyGroup> {
     state: Rc<ContextState>,
     _marker: PhantomData<V>
 }
+
+pub(crate) struct ProgramTarget(RawProgramTarget);
+pub(crate) struct BoundProgram<'a, V: GLSLTyGroup>(RawBoundProgram<'a>, PhantomData<&'a V>);
 
 
 impl<S: ShaderStage> Shader<S> {
@@ -57,6 +60,21 @@ impl<V: GLSLTyGroup> Program<V> {
     }
 }
 
+impl ProgramTarget {
+    #[inline]
+    pub(crate) fn new() -> ProgramTarget {
+        ProgramTarget(RawProgramTarget::new())
+    }
+
+    #[inline]
+    pub unsafe fn bind<'a, V>(&'a self, program: &'a Program<V>) -> BoundProgram<'a, V>
+        where V: GLSLTyGroup
+    {
+        BoundProgram(self.0.bind(&program.raw, &program.state.gl), PhantomData)
+    }
+}
+
+
 impl<S: ShaderStage> Drop for Shader<S> {
     fn drop(&mut self) {
         let mut shader_raw = unsafe{ mem::uninitialized() };
@@ -69,7 +87,7 @@ impl<V: GLSLTyGroup> Drop for Program<V> {
     fn drop(&mut self) {
         let mut program_raw = unsafe{ mem::uninitialized() };
         mem::swap(&mut program_raw, &mut self.raw);
-        program_raw.delete(&self.state.gl);
+        program_raw.delete(&self.state);
     }
 }
 

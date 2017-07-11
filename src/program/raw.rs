@@ -1,21 +1,30 @@
 use gl::{self, Gl};
 use gl::types::*;
 
-use ::{GLSLTyGroup, TyGroupMemberRegistry};
+use ::{GLSLTyGroup, TyGroupMemberRegistry, ContextState};
 use seal::Sealed;
 use types::GLSLType;
 
 use std::{ptr, mem};
+use std::cell::Cell;
 use std::marker::PhantomData;
 
 pub struct RawShader<S: ShaderStage> {
     handle: GLuint,
-    _stage: PhantomData<S>
+    _marker: PhantomData<(S, *const ())>
 }
 
 pub struct RawProgram {
-    handle: GLuint
+    handle: GLuint,
+    _sendsync_optout: PhantomData<*const ()>
 }
+
+pub struct RawProgramTarget {
+    bound_buffer: Cell<GLuint>,
+    _sendsync_optout: PhantomData<*const ()>
+}
+
+pub struct RawBoundProgram<'a>(PhantomData<&'a RawProgram>);
 
 /// The second lifetime is needed in order to make the attach_shader function not cause various
 /// lifetime errors when used in a closure.
@@ -71,7 +80,7 @@ impl<S: ShaderStage> RawShader<S> {
             } else {
                 Ok(RawShader {
                     handle,
-                    _stage: PhantomData
+                    _marker: PhantomData
                 })
             }
         }
@@ -84,23 +93,12 @@ impl<S: ShaderStage> RawShader<S> {
     }
 }
 
-impl<'a, 'b> RawProgramShaderAttacher<'a, 'b> {
-    #[inline]
-    pub fn attach_shader<S: 'a + ShaderStage>(&mut self, shader: &'b RawShader<S>) {
-        unsafe {
-            self.gl.AttachShader(self.program.handle, shader.handle);
-            S::program_pre_link_hook(shader, &self.program, &self.gl);
-            self.attached_shaders.push(shader.handle);
-        }
-    }
-}
-
 impl RawProgram {
     pub fn new<'b, F>(attach_shaders: F, gl: &Gl) -> Result<RawProgram, String>
         where for<'a> F: FnOnce(RawProgramShaderAttacher<'a, 'b>)
     {
         unsafe {
-            let program = RawProgram{ handle: gl.CreateProgram() };
+            let program = RawProgram{ handle: gl.CreateProgram(), _sendsync_optout: PhantomData };
             let mut attached_shaders = Vec::new();
             attach_shaders(RawProgramShaderAttacher {
                 program: &program,
@@ -128,14 +126,56 @@ impl RawProgram {
                 let mut info_log = vec![0; info_log_length as usize];
                 gl.GetProgramInfoLog(program.handle, info_log_length, ptr::null_mut(), info_log.as_mut_ptr() as *mut GLchar);
 
-                program.delete(gl);
+                gl.DeleteProgram(program.handle);
                 Err(String::from_utf8_unchecked(info_log))
             }
         }
     }
 
-    pub fn delete(self, gl: &Gl) {
-        unsafe{ gl.DeleteProgram(self.handle) };
+    pub fn delete(self, state: &ContextState) {
+        unsafe {
+            state.gl.DeleteProgram(self.handle);
+            if state.program_target.0.bound_buffer.get() == self.handle {
+                state.program_target.0.reset_bind(&state.gl);
+            }
+        }
+    }
+}
+
+impl RawProgramTarget {
+    #[inline]
+    pub fn new() -> RawProgramTarget {
+        RawProgramTarget {
+            bound_buffer: Cell::new(0),
+            _sendsync_optout: PhantomData
+        }
+    }
+
+    #[inline]
+    pub unsafe fn bind<'a>(&'a self, program: &'a RawProgram, gl: &Gl) -> RawBoundProgram<'a> {
+        if self.bound_buffer.get() != program.handle {
+            self.bound_buffer.set(program.handle);
+            gl.UseProgram(program.handle);
+        }
+
+        RawBoundProgram(PhantomData)
+    }
+
+    #[inline]
+    pub unsafe fn reset_bind(&self, gl: &Gl) {
+        self.bound_buffer.set(0);
+        gl.UseProgram(0);
+    }
+}
+
+impl<'a, 'b> RawProgramShaderAttacher<'a, 'b> {
+    #[inline]
+    pub fn attach_shader<S: 'a + ShaderStage>(&mut self, shader: &'b RawShader<S>) {
+        unsafe {
+            self.gl.AttachShader(self.program.handle, shader.handle);
+            S::program_pre_link_hook(shader, &self.program, &self.gl);
+            self.attached_shaders.push(shader.handle);
+        }
     }
 }
 

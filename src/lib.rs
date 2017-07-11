@@ -33,6 +33,7 @@ pub trait GLSLTyGroup: buffers::BufferData {
 
 pub struct ContextState {
     buffer_binds: buffers::BufferBinds,
+    program_target: program::ProgramTarget,
     gl: Gl
 }
 
@@ -40,6 +41,7 @@ impl ContextState {
     pub unsafe fn new<F: Fn(&str) -> *const ()>(load_fn: F) -> Rc<ContextState> {
         Rc::new(ContextState {
             buffer_binds: buffers::BufferBinds::new(),
+            program_target: program::ProgramTarget::new(),
             gl: Gl::load_with(|s| load_fn(s) as *const _)
         })
     }
