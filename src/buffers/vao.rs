@@ -213,32 +213,7 @@ impl<'a, V: ShaderBlock, I: Index> BoundVAO<'a, V, I> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_helper::CONTEXT_STATE;
-    use quickcheck::{Arbitrary, Gen};
-
-    #[derive(Debug, Default, Clone, Copy)]
-    struct TestVertex {
-        vert: [f32; 3],
-        color: [f32; 3]
-    }
-
-    impl ShaderBlock for TestVertex {
-        fn members<M>(mut attrib_builder: M)
-            where M: BlockMemberRegistry<Block=Self>
-        {
-            attrib_builder.add_member("vert", |t| &t.vert);
-            attrib_builder.add_member("color", |t| &t.color);
-        }
-    }
-
-    impl Arbitrary for TestVertex {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            TestVertex {
-                vert: [f32::arbitrary(g), f32::arbitrary(g), f32::arbitrary(g)],
-                color: [f32::arbitrary(g), f32::arbitrary(g), f32::arbitrary(g)]
-            }
-        }
-    }
+    use test_helper::{CONTEXT_STATE, TestVertex};
 
     quickcheck!{
         fn make_vao_noindex(buffer_data: Vec<TestVertex>) -> () {

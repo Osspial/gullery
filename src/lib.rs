@@ -1,4 +1,4 @@
-#![feature(collections_range)]
+#![feature(collections_range, never_type)]
 
 extern crate gl_raw as gl;
 extern crate num_traits;
@@ -13,6 +13,7 @@ extern crate glutin;
 
 pub mod buffers;
 pub mod types;
+pub mod program;
 
 use gl::Gl;
 use std::rc::Rc;
@@ -72,6 +73,31 @@ mod seal {
 mod test_helper {
     use super::*;
     use glutin::{HeadlessRendererBuilder, HeadlessContext, GlRequest, Api};
+    use quickcheck::{Arbitrary, Gen};
+
+    #[derive(Debug, Default, Clone, Copy)]
+    pub struct TestVertex {
+        pos: [f32; 3],
+        color: [f32; 3]
+    }
+
+    impl ShaderBlock for TestVertex {
+        fn members<M>(mut attrib_builder: M)
+            where M: BlockMemberRegistry<Block=Self>
+        {
+            attrib_builder.add_member("pos", |t| &t.pos);
+            attrib_builder.add_member("color", |t| &t.color);
+        }
+    }
+
+    impl Arbitrary for TestVertex {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            TestVertex {
+                pos: [f32::arbitrary(g), f32::arbitrary(g), f32::arbitrary(g)],
+                color: [f32::arbitrary(g), f32::arbitrary(g), f32::arbitrary(g)]
+            }
+        }
+    }
 
     thread_local!{
         static CONTEXT: HeadlessContext = {
