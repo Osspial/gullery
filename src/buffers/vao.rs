@@ -22,7 +22,7 @@ struct VertexAttribBuilder<'a, V: GLSLTyGroup> {
     attrib_index: u32,
     max_attribs: u32,
     gl: &'a Gl,
-    _marker: PhantomData<V>
+    _marker: PhantomData<(*const V)>
 }
 
 pub(crate) struct VertexArrayObjTarget {
@@ -171,7 +171,7 @@ impl<'a, V: GLSLTyGroup> TyGroupMemberRegistry for VertexAttribBuilder<'a, V> {
 
 impl VertexArrayObjTarget {
     #[inline]
-    pub fn new() -> VertexArrayObjTarget {
+    pub(super) fn new() -> VertexArrayObjTarget {
         VertexArrayObjTarget {
             bound_vao: Cell::new(0),
             _sendsync_optout: PhantomData
