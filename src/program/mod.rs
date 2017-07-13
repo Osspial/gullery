@@ -1,9 +1,12 @@
 pub mod error;
 mod raw;
+
 use self::raw::{RawShader, RawProgram, RawProgramTarget, RawBoundProgram};
 use self::error::{ShaderError, LinkError};
 
-use ::{ContextState, GLSLTyGroup};
+use gl::types::*;
+
+use ::{ContextState, GLSLTyGroup, GLObject};
 
 use std::mem;
 use std::rc::Rc;
@@ -74,6 +77,20 @@ impl ProgramTarget {
     }
 }
 
+
+impl<S: ShaderStage> GLObject for Shader<S> {
+    #[inline]
+    fn handle(&self) -> GLenum {
+        self.raw.handle()
+    }
+}
+
+impl<V: GLSLTyGroup> GLObject for Program<V> {
+    #[inline]
+    fn handle(&self) -> GLenum {
+        self.raw.handle()
+    }
+}
 
 impl<S: ShaderStage> Drop for Shader<S> {
     fn drop(&mut self) {

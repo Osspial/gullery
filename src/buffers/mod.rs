@@ -1,11 +1,11 @@
 mod raw;
-pub mod vao;
 
 pub use self::raw::{RawBindTarget, BufferUsage, AllocError};
 use self::raw::{targets, RawBuffer};
 
 use gl::Gl;
-use ContextState;
+use gl::types::*;
+use {ContextState, GLObject};
 use seal::Sealed;
 
 use std::mem;
@@ -24,7 +24,6 @@ unsafe impl Index for u32 {}
 pub(crate) struct BufferBinds {
     copy_read: targets::RawCopyRead,
     copy_write: targets::RawCopyWrite,
-    vao_bind: vao::VertexArrayObjTarget,
 }
 
 impl BufferBinds {
@@ -32,7 +31,6 @@ impl BufferBinds {
         BufferBinds {
             copy_read: targets::RawCopyRead::new(),
             copy_write: targets::RawCopyWrite::new(),
-            vao_bind: vao::VertexArrayObjTarget::new()
         }
     }
 
@@ -50,7 +48,6 @@ pub struct Buffer<T: BufferData> {
     raw: RawBuffer<T>,
     state: Rc<ContextState>
 }
-impl<T: BufferData> Sealed for Buffer<T> {}
 
 impl<T: BufferData> Buffer<T> {
     #[inline]
@@ -133,6 +130,18 @@ impl<T: BufferData> Buffer<T> {
         let src_bind = unsafe{ buffer_binds.copy_read.bind(&self.raw, gl) };
         let mut dest_bind = unsafe{ buffer_binds.copy_write.bind_mut(&mut dest_buf.raw, gl) };
         src_bind.copy_to(&mut dest_bind, self_range, write_offset);
+    }
+
+    #[inline]
+    pub fn state(&self) -> &Rc<ContextState> {
+        &self.state
+    }
+}
+
+impl<T: BufferData> GLObject for Buffer<T> {
+    #[inline]
+    fn handle(&self) -> GLenum {
+        self.raw.handle()
     }
 }
 

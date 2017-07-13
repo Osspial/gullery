@@ -1,7 +1,7 @@
 use gl::{self, Gl};
 use gl::types::*;
 
-use ::{GLSLTyGroup, TyGroupMemberRegistry, ContextState};
+use ::{GLSLTyGroup, TyGroupMemberRegistry, ContextState, GLObject};
 use seal::Sealed;
 use types::GLSLType;
 
@@ -176,6 +176,20 @@ impl<'a, 'b> RawProgramShaderAttacher<'a, 'b> {
             S::program_pre_link_hook(shader, &self.program, &self.gl);
             self.attached_shaders.push(shader.handle);
         }
+    }
+}
+
+impl<S: ShaderStage> GLObject for RawShader<S> {
+    #[inline]
+    fn handle(&self) -> GLuint {
+        self.handle
+    }
+}
+
+impl GLObject for RawProgram {
+    #[inline]
+    fn handle(&self) -> GLuint {
+        self.handle
     }
 }
 

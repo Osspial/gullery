@@ -12,14 +12,20 @@ extern crate quickcheck;
 extern crate glutin;
 
 pub mod buffers;
-pub mod types;
 pub mod program;
+pub mod types;
+pub mod vao;
 
 use gl::Gl;
+use gl::types::*;
 use std::rc::Rc;
 
 use types::GLSLType;
 
+
+trait GLObject {
+    fn handle(&self) -> GLuint;
+}
 
 pub trait TyGroupMemberRegistry {
     type Group: GLSLTyGroup;
@@ -34,6 +40,7 @@ pub trait GLSLTyGroup: buffers::BufferData {
 pub struct ContextState {
     buffer_binds: buffers::BufferBinds,
     program_target: program::ProgramTarget,
+    vao_target: vao::VAOTarget,
     gl: Gl
 }
 
@@ -42,6 +49,7 @@ impl ContextState {
         Rc::new(ContextState {
             buffer_binds: buffers::BufferBinds::new(),
             program_target: program::ProgramTarget::new(),
+            vao_target: vao::VAOTarget::new(),
             gl: Gl::load_with(|s| load_fn(s) as *const _)
         })
     }

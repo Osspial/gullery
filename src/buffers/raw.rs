@@ -1,4 +1,4 @@
-use ContextState;
+use {ContextState, GLObject};
 
 use gl::{self, Gl};
 use gl::types::*;
@@ -85,14 +85,7 @@ pub unsafe trait RawBindTarget: 'static + Sized {
     }
     #[inline]
     unsafe fn bind_mut<'a, T: Copy>(&'a self, buffer: &'a mut RawBuffer<T>, gl: &'a Gl) -> RawBoundBufferMut<'a, T, Self> {
-        let handle = buffer.handle;
-        let bound_buffer = self.bound_buffer();
-        if bound_buffer.get() != handle {
-            gl.BindBuffer(Self::target(), buffer.handle);
-            bound_buffer.set(handle);
-        }
-
-        debug_assert_eq!(handle, {let mut bound = 0; gl.GetIntegerv(Self::target(), &mut bound); bound as u32});
+        self.bind(buffer, gl);
         RawBoundBufferMut {
             bind: PhantomData,
             buffer, gl
@@ -184,11 +177,6 @@ impl<T: Copy> RawBuffer<T> {
         self.size
     }
 
-    #[inline]
-    pub(crate) fn handle(&self) -> GLuint {
-        self.handle
-    }
-
     pub(crate) fn delete(self, state: &ContextState) {
         unsafe {
             if mem::size_of::<T>() != 0 {
@@ -196,6 +184,13 @@ impl<T: Copy> RawBuffer<T> {
                 state.gl.DeleteBuffers(1, &self.handle);
             }
         }
+    }
+}
+
+impl<T: Copy> GLObject for RawBuffer<T> {
+    #[inline]
+    fn handle(&self) -> GLuint {
+        self.handle
     }
 }
 
