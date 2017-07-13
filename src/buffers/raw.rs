@@ -219,16 +219,9 @@ impl<'a, T, B> RawBoundBuffer<'a, T, B>
         where C: RawBindTarget,
               R: RangeArgument<usize>
     {
-        fn bound_to_num(bound: Bound<&usize>, unbounded: usize) -> usize {
-            match bound {
-                Bound::Included(t) => *t,
-                Bound::Excluded(t) => *t - 1,
-                Bound::Unbounded   => unbounded
-            }
-        }
         if mem::size_of::<T>() != 0 {
-            let read_offset = bound_to_num(self_range.start(), 0);
-            let read_end = bound_to_num(self_range.end(), self.buffer.size);
+            let read_offset = ::bound_to_num(self_range.start(), 0);
+            let read_end = ::bound_to_num(self_range.end(), self.buffer.size);
             assert!(read_end <= isize::max_value() as usize);
 
             let size = read_end.checked_sub(read_end)

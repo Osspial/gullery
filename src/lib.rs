@@ -17,6 +17,7 @@ extern crate glutin;
 pub mod buffers;
 pub mod colors;
 pub mod glsl;
+pub mod framebuffer;
 pub mod program;
 pub mod vao;
 
@@ -24,8 +25,9 @@ use gl::Gl;
 use gl::types::*;
 
 use std::rc::Rc;
+use std::collections::Bound;
 
-trait GLObject {
+pub trait GLObject {
     fn handle(&self) -> GLuint;
 }
 
@@ -33,6 +35,7 @@ pub struct ContextState {
     buffer_binds: buffers::BufferBinds,
     program_target: program::ProgramTarget,
     vao_target: vao::VAOTarget,
+    framebuffer_targets: framebuffer::FramebufferTargets,
     gl: Gl
 }
 
@@ -42,6 +45,7 @@ impl ContextState {
             buffer_binds: buffers::BufferBinds::new(),
             program_target: program::ProgramTarget::new(),
             vao_target: vao::VAOTarget::new(),
+            framebuffer_targets: framebuffer::FramebufferTargets::new(),
             gl: Gl::load_with(|s| load_fn(s) as *const _)
         })
     }
@@ -129,5 +133,15 @@ mod test_helper {
         pub static CONTEXT_STATE: Rc<ContextState> = CONTEXT.with(|context| unsafe {
             ContextState::new(|s| context.get_proc_address(s))
         });
+    }
+}
+
+/// Free-floating function used in a couple of submodules that really has no proper place in this
+/// library, but isn't in std so it needs to go somewhere.
+fn bound_to_num(bound: Bound<&usize>, unbounded: usize) -> usize {
+    match bound {
+        Bound::Included(t) => *t,
+        Bound::Excluded(t) => *t - 1,
+        Bound::Unbounded   => unbounded
     }
 }

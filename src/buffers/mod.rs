@@ -24,7 +24,7 @@ pub(crate) struct BufferBinds {
 }
 
 impl BufferBinds {
-    pub(crate) unsafe fn new() -> BufferBinds {
+    pub(crate) fn new() -> BufferBinds {
         BufferBinds {
             copy_read: targets::RawCopyRead::new(),
             copy_write: targets::RawCopyWrite::new(),

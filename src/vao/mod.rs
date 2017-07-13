@@ -31,6 +31,26 @@ impl<V: TypeGroup, I: Index> VertexArrayObj<V, I> {
         }
     }
 
+    #[inline]
+    pub fn vertex_buffer(&self) -> &Buffer<V> {
+        &self.vertex_buffer
+    }
+
+    #[inline]
+    pub fn vertex_buffer_mut(&mut self) -> &mut Buffer<V> {
+        &mut self.vertex_buffer
+    }
+
+    #[inline]
+    pub fn index_buffer(&self) -> &Buffer<I> {
+        &self.index_buffer
+    }
+
+    #[inline]
+    pub fn index_buffer_mut(&mut self) -> &mut Buffer<I> {
+        &mut self.index_buffer
+    }
+
     pub fn unwrap(mut self) -> (Buffer<V>, Buffer<I>) {
         unsafe {
             self.destroy_in_place();
@@ -73,6 +93,12 @@ impl VAOTarget {
             vao,
             bind: self.0.bind(&vao.raw, &vao.vertex_buffer, &vao.index_buffer, &vao.vertex_buffer.state().gl)
         }
+    }
+}
+
+impl<'a, V: TypeGroup, I: Index> BoundVAO<'a, V, I> {
+    pub fn vao(&self) -> &VertexArrayObj<V, I> {
+        self.vao
     }
 }
 

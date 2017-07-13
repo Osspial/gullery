@@ -6,7 +6,10 @@ use seal::Sealed;
 use num_traits::{Num, PrimInt};
 
 
-pub unsafe trait ColorFormat: Copy + Sealed {
+pub unsafe trait ColorFormat: Copy + Into<<Self as ColorFormat>::Channels> + Sealed {
+    type Scalar: Scalar;
+    type Channels: Copy + AsRef<[Self::Scalar]>;
+
     fn internal_format() -> GLenum;
     fn pixel_format() -> GLenum;
     fn pixel_type() -> GLenum;
@@ -63,11 +66,70 @@ macro_rules! basic_format {
             pub r: $prim
         }
 
+        impl $rgba {
+            #[inline]
+            pub fn new(r: $prim, g: $prim, b: $prim, a: $prim) -> $rgba {
+                $rgba {
+                    r, g, b, a
+                }
+            }
+        }
+        impl $rgb {
+            #[inline]
+            pub fn new(r: $prim, g: $prim, b: $prim) -> $rgb {
+                $rgb {
+                    r, g, b
+                }
+            }
+        }
+        impl $rg {
+            #[inline]
+            pub fn new(r: $prim, g: $prim) -> $rg {
+                $rg {
+                    r, g
+                }
+            }
+        }
+        impl $r {
+            #[inline]
+            pub fn new(r: $prim) -> $r {
+                $r {
+                    r
+                }
+            }
+        }
+
         impl Sealed for $rgba {}
         impl Sealed for $rgb {}
         impl Sealed for $rg {}
         impl Sealed for $r {}
+        impl From<$rgba> for [$prim; 4] {
+            #[inline]
+            fn from(colors: $rgba) -> [$prim; 4] {
+                [colors.r, colors.g, colors.b, colors.a]
+            }
+        }
+        impl From<$rgb> for [$prim; 3] {
+            #[inline]
+            fn from(colors: $rgb) -> [$prim; 3] {
+                [colors.r, colors.g, colors.b]
+            }
+        }
+        impl From<$rg> for [$prim; 2] {
+            #[inline]
+            fn from(colors: $rg) -> [$prim; 2] {
+                [colors.r, colors.g]
+            }
+        }
+        impl From<$r> for [$prim; 1] {
+            #[inline]
+            fn from(colors: $r) -> [$prim; 1] {
+                [colors.r]
+            }
+        }
         unsafe impl ColorFormat for $rgba {
+            type Scalar = $prim;
+            type Channels = [$prim; 4];
             #[inline]
             fn internal_format() -> GLenum {gl::$rgba_enum}
             #[inline]
@@ -85,6 +147,8 @@ macro_rules! basic_format {
             fn pixels_per_struct() -> usize {1}
         }
         unsafe impl ColorFormat for $rgb {
+            type Scalar = $prim;
+            type Channels = [$prim; 3];
             #[inline]
             fn internal_format() -> GLenum {gl::$rgb_enum}
             #[inline]
@@ -102,6 +166,8 @@ macro_rules! basic_format {
             fn pixels_per_struct() -> usize {1}
         }
         unsafe impl ColorFormat for $rg {
+            type Scalar = $prim;
+            type Channels = [$prim; 2];
             #[inline]
             fn internal_format() -> GLenum {gl::$rg_enum}
             #[inline]
@@ -119,6 +185,8 @@ macro_rules! basic_format {
             fn pixels_per_struct() -> usize {1}
         }
         unsafe impl ColorFormat for $r {
+            type Scalar = $prim;
+            type Channels = [$prim; 1];
             #[inline]
             fn internal_format() -> GLenum {gl::$r_enum}
             #[inline]
