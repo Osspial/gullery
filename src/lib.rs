@@ -19,6 +19,7 @@ pub mod colors;
 pub mod glsl;
 pub mod framebuffer;
 pub mod program;
+pub mod textures;
 pub mod vao;
 
 use gl::Gl;
@@ -71,6 +72,7 @@ mod seal {
     impl Sealed for f32 {}
     impl Sealed for f64 {}
     impl Sealed for () {}
+    impl Sealed for ! {}
 
     impl<S: Scalar> Sealed for Matrix2<S> {}
     impl<S: Scalar> Sealed for Matrix3<S> {}
