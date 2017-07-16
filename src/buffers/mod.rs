@@ -12,8 +12,8 @@ use std::mem;
 use std::rc::Rc;
 use std::collections::range::RangeArgument;
 
-pub trait BufferData: 'static + Copy + Default {}
-impl<T: 'static + Copy + Default> BufferData for T {}
+pub trait BufferData: 'static + Copy {}
+impl<T: 'static + Copy> BufferData for T {}
 pub unsafe trait Index: BufferData + Sealed {}
 
 unsafe impl Index for () {}

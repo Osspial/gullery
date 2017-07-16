@@ -1,17 +1,19 @@
 extern crate gl_raii;
+extern crate cgmath;
 #[macro_use]
 extern crate gl_raii_macros;
 
-use gl_raii::types::GLSLType;
+use gl_raii::types_transparent::GLSLTypeTransparent;
+use cgmath::{Vector3, Vector4};
 
-#[derive(GLSLTyGroup, Default, Clone, Copy)]
+#[derive(GLSLTyGroup, Clone, Copy)]
 pub struct TestBlock {
-    pub vec3: [f32; 3],
-    pub vec4: [f32; 4]
+    pub vec3: Vector3<f32>,
+    pub vec4: Vector4<f32>
 }
 
-#[derive(GLSLTyGroup, Default, Clone, Copy)]
-pub struct TestBlockGeneric<T: GLSLType> {
+#[derive(GLSLTyGroup, Clone, Copy)]
+pub struct TestBlockGeneric<T: GLSLTypeTransparent> {
     pub glsl_type: T,
     pub float: f32
 }

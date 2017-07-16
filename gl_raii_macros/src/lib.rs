@@ -39,6 +39,7 @@ fn impl_shader_block(derive_input: &DeriveInput) -> Tokens {
                 });
             let idents = gen_idents();
             let idents_1 = gen_idents();
+            let idents_2 = gen_idents();
 
             let dummy_const = Ident::new(format!("_IMPL_SHADER_BLOCK_FOR_{}", ident));
 
@@ -54,6 +55,12 @@ fn impl_shader_block(derive_input: &DeriveInput) -> Tokens {
                             #(
                                 reg.add_member(stringify!(#idents), |t| &t.#idents_1);
                             )*
+                        }
+
+                        fn garbage() -> Self {
+                            #ident {
+                                #(#idents_2: _gl_raii::types_transparent::GLSLTypeTransparent::garbage()),*
+                            }
                         }
                     }
                 };

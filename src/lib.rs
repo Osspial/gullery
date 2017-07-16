@@ -1,9 +1,10 @@
-#![feature(collections_range, never_type)]
+#![feature(collections_range, never_type, specialization)]
 
 extern crate gl_raw as gl;
-extern crate num_traits;
 #[macro_use]
 extern crate derive_more;
+extern crate num_traits;
+extern crate cgmath;
 
 #[cfg(test)]
 #[macro_use]
@@ -13,14 +14,14 @@ extern crate glutin;
 
 pub mod buffers;
 pub mod program;
-pub mod types;
+pub mod types_transparent;
 pub mod vao;
 
 use gl::Gl;
 use gl::types::*;
 use std::rc::Rc;
 
-use types::GLSLType;
+use types_transparent::GLSLTypeTransparent;
 
 
 trait GLObject {
@@ -29,12 +30,15 @@ trait GLObject {
 
 pub trait TyGroupMemberRegistry {
     type Group: GLSLTyGroup;
-    fn add_member<T: GLSLType>(&mut self, name: &str, get_type: fn(&Self::Group) -> &T);
+    fn add_member<T>(&mut self, name: &str, get_type: fn(&Self::Group) -> &T)
+        where T: GLSLTypeTransparent;
 }
 
 pub trait GLSLTyGroup: buffers::BufferData {
     fn members<M>(reg: M)
         where M: TyGroupMemberRegistry<Group=Self>;
+
+    fn garbage() -> Self;
 }
 
 pub struct ContextState {
@@ -56,6 +60,7 @@ impl ContextState {
 }
 
 mod seal {
+    use cgmath::*;
     pub trait Sealed {}
     impl Sealed for u8 {}
     impl Sealed for u16 {}
@@ -71,6 +76,17 @@ mod seal {
     impl Sealed for f64 {}
     impl Sealed for () {}
 
+    impl<S: BaseFloat> Sealed for Matrix2<S> {}
+    impl<S: BaseFloat> Sealed for Matrix3<S> {}
+    impl<S: BaseFloat> Sealed for Matrix4<S> {}
+    impl<S: BaseFloat> Sealed for Point1<S> {}
+    impl<S: BaseFloat> Sealed for Point2<S> {}
+    impl<S: BaseFloat> Sealed for Point3<S> {}
+    impl<S: BaseFloat> Sealed for Vector1<S> {}
+    impl<S: BaseFloat> Sealed for Vector2<S> {}
+    impl<S: BaseFloat> Sealed for Vector3<S> {}
+    impl<S: BaseFloat> Sealed for Vector4<S> {}
+
     macro_rules! impl_sealed_arrays {
         ($($len:expr),+) => {$(
             impl<S: Sealed> Sealed for [S; $len] {}
@@ -84,11 +100,12 @@ mod test_helper {
     use super::*;
     use glutin::{HeadlessRendererBuilder, HeadlessContext, GlRequest, Api};
     use quickcheck::{Arbitrary, Gen};
+    use cgmath::Point3;
 
-    #[derive(Debug, Default, Clone, Copy)]
+    #[derive(Debug, Clone, Copy)]
     pub struct TestVertex {
-        pos: [f32; 3],
-        color: [f32; 3]
+        pos: Point3<f32>,
+        color: Point3<f32>
     }
 
     impl GLSLTyGroup for TestVertex {
@@ -98,13 +115,20 @@ mod test_helper {
             attrib_builder.add_member("pos", |t| &t.pos);
             attrib_builder.add_member("color", |t| &t.color);
         }
+
+        fn garbage() -> TestVertex {
+            TestVertex {
+                pos: Point3::garbage(),
+                color: Point3::garbage()
+            }
+        }
     }
 
     impl Arbitrary for TestVertex {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
             TestVertex {
-                pos: [f32::arbitrary(g), f32::arbitrary(g), f32::arbitrary(g)],
-                color: [f32::arbitrary(g), f32::arbitrary(g), f32::arbitrary(g)]
+                pos: Point3::new(f32::arbitrary(g), f32::arbitrary(g), f32::arbitrary(g)),
+                color: Point3::new(f32::arbitrary(g), f32::arbitrary(g), f32::arbitrary(g))
             }
         }
     }

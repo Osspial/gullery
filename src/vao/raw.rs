@@ -2,7 +2,7 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use {ContextState, GLObject, GLSLTyGroup, TyGroupMemberRegistry};
-use types::{GLSLType, GLPrim};
+use types_transparent::{GLSLTypeTransparent, GLPrim};
 use buffers::{Buffer, Index};
 
 use std::mem;
@@ -114,9 +114,11 @@ impl RawVAOTarget {
 impl<'a, V: GLSLTyGroup> TyGroupMemberRegistry for VertexAttribBuilder<'a, V> {
     type Group = V;
 
-    fn add_member<T: GLSLType>(&mut self, name: &str, get_type: fn(&V) -> &T) {
+    fn add_member<T>(&mut self, name: &str, get_type: fn(&V) -> &T)
+        where T: GLSLTypeTransparent
+    {
         let gl = self.gl;
-        let vertex = V::default();
+        let vertex = V::garbage();
 
         let attrib_ptr = get_type(&vertex) as *const T;
         let attrib_offset = attrib_ptr as *const u8 as isize - &vertex as *const V as *const u8 as isize;
