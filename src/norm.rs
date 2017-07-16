@@ -1,6 +1,7 @@
 use gl;
 use gl::types::*;
 
+use {GLPrim, GLSLTypeTransparent};
 use num_traits::Num;
 use num_traits::float::Float;
 use num_traits::identities::{Zero, One};
@@ -16,67 +17,12 @@ use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign, R
 
 use seal::Sealed;
 
-/// The Rust representation of a GLSL type.
-pub unsafe trait GLSLTypeTransparent: 'static + Copy {
-    /// The number of primitives this type contains.
-    fn len() ->  usize;
-    /// Whether or not this type represents a matrix
-    fn matrix() ->  bool;
-    /// Get a garbage value that is an instance of `Self`. Contents don't matter, but zero is
-    /// typically returned.
-    fn garbage() -> Self;
-    /// The underlying primitive for this type
-    type GLPrim: GLPrim;
-}
-
-/// The Rust representation of an OpenGL primitive.
-pub unsafe trait GLPrim: 'static + Copy + BaseNum + Sealed {
-    /// The OpenGL constant associated with this type.
-    fn gl_enum() ->  GLenum;
-    /// If an integer, whether or not the integer is signed. If a float, false
-    fn signed() ->  bool;
-    /// Whether or not this value is normalized by GLSL into a float
-    fn normalized() ->  bool;
-}
-
-macro_rules! impl_glsl_vector {
-    ($(impl $vector:ident $num:expr;)*) => {$(
-        unsafe impl<P: GLPrim> GLSLTypeTransparent for $vector<P> {
-            #[inline]
-            fn len() -> usize {$num}
-            #[inline]
-            fn matrix() ->  bool {false}
-            #[inline]
-            fn garbage() -> $vector<P> {
-                $vector::from_value(P::zero())
-            }
-            type GLPrim = P;
-        }
-    )*}
-}
-macro_rules! impl_glsl_matrix {
-    ($(impl $matrix:ident $num:expr;)*) => {$(
-        unsafe impl<P: GLPrim + BaseFloat> GLSLTypeTransparent for $matrix<P> {
-            #[inline]
-            fn len() ->  usize {$num * $num}
-            #[inline]
-            fn matrix() ->  bool {true}
-            #[inline]
-            fn garbage() -> $matrix<P> {
-                $matrix::zero()
-            }
-            type GLPrim = P;
-        }
-    )*}
-}
-
 #[derive(Debug)]
 pub enum ParseNormalizedIntError {
     Empty,
     Invalid,
     OutOfBounds
 }
-
 
 macro_rules! normalized_int {
     ($(pub struct $name:ident($inner:ident) $to_inner:ident;)*) => ($(
@@ -276,33 +222,6 @@ macro_rules! normalized_int {
     )*);
 }
 
-unsafe impl<P: GLPrim> GLSLTypeTransparent for P {
-    #[inline]
-    fn len() ->  usize {1}
-    #[inline]
-    fn matrix() ->  bool {false}
-    #[inline]
-    fn garbage() -> P {
-        P::zero()
-    }
-    type GLPrim = P;
-}
-
-impl_glsl_vector!{
-    impl Vector1 1;
-    impl Vector2 2;
-    impl Vector3 3;
-    impl Vector4 4;
-    impl Point1 1;
-    impl Point2 2;
-    impl Point3 3;
-}
-impl_glsl_matrix!{
-    impl Matrix2 2;
-    impl Matrix3 3;
-    impl Matrix4 4;
-}
-
 normalized_int!{
     pub struct Ni8(i8) to_i8;
     pub struct Ni16(i16) to_i16;
@@ -312,54 +231,6 @@ normalized_int!{
     pub struct Nu32(u32) to_u32;
 }
 
-unsafe impl GLPrim for i8 {
-    #[inline]
-    fn gl_enum() ->  GLenum {gl::BYTE}
-    #[inline]
-    fn signed() ->  bool {true}
-    #[inline]
-    fn normalized() ->  bool {false}
-}
-unsafe impl GLPrim for u8 {
-    #[inline]
-    fn gl_enum() ->  GLenum {gl::UNSIGNED_BYTE}
-    #[inline]
-    fn signed() ->  bool {false}
-    #[inline]
-    fn normalized() ->  bool {false}
-}
-unsafe impl GLPrim for i16 {
-    #[inline]
-    fn gl_enum() ->  GLenum {gl::SHORT}
-    #[inline]
-    fn signed() ->  bool {true}
-    #[inline]
-    fn normalized() ->  bool {false}
-}
-unsafe impl GLPrim for u16 {
-    #[inline]
-    fn gl_enum() ->  GLenum {gl::UNSIGNED_SHORT}
-    #[inline]
-    fn signed() ->  bool {false}
-    #[inline]
-    fn normalized() ->  bool {false}
-}
-unsafe impl GLPrim for i32 {
-    #[inline]
-    fn gl_enum() ->  GLenum {gl::INT}
-    #[inline]
-    fn signed() ->  bool {true}
-    #[inline]
-    fn normalized() ->  bool {false}
-}
-unsafe impl GLPrim for u32 {
-    #[inline]
-    fn gl_enum() ->  GLenum {gl::UNSIGNED_INT}
-    #[inline]
-    fn signed() ->  bool {false}
-    #[inline]
-    fn normalized() ->  bool {false}
-}
 unsafe impl GLPrim for Ni8 {
     #[inline]
     fn gl_enum() ->  GLenum {gl::BYTE}
@@ -408,19 +279,3 @@ unsafe impl GLPrim for Nu32 {
     #[inline]
     fn normalized() ->  bool {true}
 }
-unsafe impl GLPrim for f32 {
-    #[inline]
-    fn gl_enum() ->  GLenum {gl::FLOAT}
-    #[inline]
-    fn signed() ->  bool {false}
-    #[inline]
-    fn normalized() ->  bool {false}
-}
-// unsafe impl GLPrim for f64 {
-//     #[inline]
-//     fn gl_enum() ->  GLenum {gl::FLOAT}
-//     #[inline]
-//     fn signed() ->  bool {false}
-//     #[inline]
-//     fn normalized() ->  bool {false}
-// }

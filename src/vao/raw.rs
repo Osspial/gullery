@@ -1,8 +1,7 @@
 use gl::{self, Gl};
 use gl::types::*;
 
-use {ContextState, GLObject, GLSLTyGroup, TyGroupMemberRegistry};
-use types_transparent::{GLSLTypeTransparent, GLPrim};
+use {ContextState, GLObject, GLSLTyGroup, TyGroupMemberRegistry, GLSLTypeTransparent, GLPrim};
 use buffers::{Buffer, Index};
 
 use std::mem;

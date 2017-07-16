@@ -13,15 +13,17 @@ extern crate quickcheck;
 extern crate glutin;
 
 pub mod buffers;
+pub mod norm;
 pub mod program;
-pub mod types_transparent;
+mod types_impl;
 pub mod vao;
 
 use gl::Gl;
 use gl::types::*;
 use std::rc::Rc;
 
-use types_transparent::GLSLTypeTransparent;
+use seal::Sealed;
+use cgmath::BaseNum;
 
 
 trait GLObject {
@@ -39,6 +41,32 @@ pub trait GLSLTyGroup: buffers::BufferData {
         where M: TyGroupMemberRegistry<Group=Self>;
 
     fn garbage() -> Self;
+}
+
+pub unsafe trait GLSLType: Copy {}
+unsafe impl<T: GLSLTypeTransparent> GLSLType for T {}
+
+/// The Rust representation of a GLSL type.
+pub unsafe trait GLSLTypeTransparent: 'static + Copy {
+    /// The number of primitives this type contains.
+    fn len() ->  usize;
+    /// Whether or not this type represents a matrix
+    fn matrix() ->  bool;
+    /// Get a garbage value that is an instance of `Self`. Contents don't matter, but zero is
+    /// typically returned.
+    fn garbage() -> Self;
+    /// The underlying primitive for this type
+    type GLPrim: GLPrim;
+}
+
+/// The Rust representation of an OpenGL primitive.
+pub unsafe trait GLPrim: 'static + Copy + BaseNum + Sealed {
+    /// The OpenGL constant associated with this type.
+    fn gl_enum() ->  GLenum;
+    /// If an integer, whether or not the integer is signed. If a float, false
+    fn signed() ->  bool;
+    /// Whether or not this value is normalized by GLSL into a float
+    fn normalized() ->  bool;
 }
 
 pub struct ContextState {

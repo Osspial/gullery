@@ -3,7 +3,7 @@ use gl::types::*;
 
 use ::{GLSLTyGroup, TyGroupMemberRegistry, ContextState, GLObject};
 use seal::Sealed;
-use types_transparent::GLSLTypeTransparent;
+use GLSLTypeTransparent;
 
 use std::{ptr, mem};
 use std::cell::Cell;
