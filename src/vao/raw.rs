@@ -113,11 +113,11 @@ impl RawVAOTarget {
 impl<'a, V: GLSLTyGroup> TyGroupMemberRegistry for VertexAttribBuilder<'a, V> {
     type Group = V;
 
-    fn add_member<T>(&mut self, name: &str, get_type: fn(&V) -> &T)
+    fn add_member<T>(&mut self, name: &str, get_type: fn(*const V) -> *const T)
         where T: GLSLTypeTransparent
     {
         let gl = self.gl;
-        let vertex = V::garbage();
+        let vertex = unsafe{ mem::zeroed() };
 
         let attrib_ptr = get_type(&vertex) as *const T;
         let attrib_offset = attrib_ptr as *const u8 as isize - &vertex as *const V as *const u8 as isize;

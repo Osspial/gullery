@@ -20,7 +20,9 @@ pub mod vao;
 
 use gl::Gl;
 use gl::types::*;
+
 use std::rc::Rc;
+use std::marker::PhantomData;
 
 use seal::Sealed;
 use cgmath::BaseNum;
@@ -32,7 +34,9 @@ trait GLObject {
 
 pub trait TyGroupMemberRegistry {
     type Group: GLSLTyGroup;
-    fn add_member<T>(&mut self, name: &str, get_type: fn(&Self::Group) -> &T)
+    /// Add a member to the registry. Note that the value pointed to by `get_type` is allowed to be
+    /// instantiated with `mem::zeroed()`, and any references inside should not be dereferenced.
+    fn add_member<T>(&mut self, name: &str, get_type: fn(*const Self::Group) -> *const T)
         where T: GLSLTypeTransparent;
 }
 
@@ -40,7 +44,23 @@ pub trait GLSLTyGroup: buffers::BufferData {
     fn members<M>(reg: M)
         where M: TyGroupMemberRegistry<Group=Self>;
 
-    fn garbage() -> Self;
+    #[inline]
+    fn num_members() -> usize {
+        struct MemberCounter<'a, G>(&'a mut usize, PhantomData<G>);
+        impl<'a, G: GLSLTyGroup> TyGroupMemberRegistry for MemberCounter<'a, G> {
+            type Group = G;
+            #[inline]
+            fn add_member<T>(&mut self, _: &str, _: fn(*const G) -> *const T)
+                where T: GLSLTypeTransparent
+            {
+                *self.0 += 1;
+            }
+        }
+
+        let mut num = 0;
+        Self::members(MemberCounter::<Self>(&mut num, PhantomData));
+        num
+    }
 }
 
 pub unsafe trait GLSLType: Copy {}
@@ -52,9 +72,6 @@ pub unsafe trait GLSLTypeTransparent: 'static + Copy {
     fn len() ->  usize;
     /// Whether or not this type represents a matrix
     fn matrix() ->  bool;
-    /// Get a garbage value that is an instance of `Self`. Contents don't matter, but zero is
-    /// typically returned.
-    fn garbage() -> Self;
     /// The underlying primitive for this type
     type GLPrim: GLPrim;
 }
@@ -140,15 +157,8 @@ mod test_helper {
         fn members<M>(mut attrib_builder: M)
             where M: TyGroupMemberRegistry<Group=Self>
         {
-            attrib_builder.add_member("pos", |t| &t.pos);
-            attrib_builder.add_member("color", |t| &t.color);
-        }
-
-        fn garbage() -> TestVertex {
-            TestVertex {
-                pos: Point3::garbage(),
-                color: Point3::garbage()
-            }
+            attrib_builder.add_member("pos", |t| unsafe{ &(*t).pos });
+            attrib_builder.add_member("color", |t| unsafe{ &(*t).color });
         }
     }
 

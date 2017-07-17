@@ -39,7 +39,6 @@ fn impl_shader_block(derive_input: &DeriveInput) -> Tokens {
                 });
             let idents = gen_idents();
             let idents_1 = gen_idents();
-            let idents_2 = gen_idents();
 
             let dummy_const = Ident::new(format!("_IMPL_SHADER_BLOCK_FOR_{}", ident));
 
@@ -48,19 +47,13 @@ fn impl_shader_block(derive_input: &DeriveInput) -> Tokens {
                 const #dummy_const: () = {
                     extern crate gl_raii as _gl_raii;
                     #[automatically_derived]
-                    impl #impl_generics _gl_raii::GLSLTyGroup for #ident #ty_generics #where_clause  {
+                    impl #impl_generics _gl_raii::GLSLTyGroup for #ident #ty_generics #where_clause {
                         fn members<M>(mut reg: M)
                             where M: _gl_raii::TyGroupMemberRegistry<Group=Self>
                         {
                             #(
-                                reg.add_member(stringify!(#idents), |t| &t.#idents_1);
+                                reg.add_member(stringify!(#idents), |t| unsafe{ &(*t).#idents_1 });
                             )*
-                        }
-
-                        fn garbage() -> Self {
-                            #ident {
-                                #(#idents_2: _gl_raii::types_transparent::GLSLTypeTransparent::garbage()),*
-                            }
                         }
                     }
                 };

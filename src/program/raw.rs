@@ -209,7 +209,7 @@ unsafe impl<V: GLSLTyGroup> ShaderStage for VertexStage<V> {
         }
         impl<'a, V: GLSLTyGroup> TyGroupMemberRegistry for VertexAttribLocBinder<'a, V> {
             type Group = V;
-            fn add_member<T>(&mut self, name: &str, _: fn(&V) -> &T)
+            fn add_member<T>(&mut self, name: &str, _: fn(*const V) -> *const T)
                 where T: GLSLTypeTransparent
             {
                 // We can't just take ownership of the Vec<u8> to make it a CString, so we have to

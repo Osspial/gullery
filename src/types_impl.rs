@@ -17,10 +17,6 @@ macro_rules! impl_glsl_vector {
             fn len() -> usize {$num}
             #[inline]
             fn matrix() ->  bool {false}
-            #[inline]
-            fn garbage() -> $vector<P> {
-                $vector::from_value(P::zero())
-            }
             type GLPrim = P;
         }
     )*}
@@ -29,18 +25,28 @@ macro_rules! impl_glsl_matrix {
     ($(impl $matrix:ident $num:expr;)*) => {$(
         unsafe impl<P: GLPrim + BaseFloat> GLSLTypeTransparent for $matrix<P> {
             #[inline]
-            fn len() ->  usize {$num * $num}
+            fn len() -> usize {$num * $num}
             #[inline]
-            fn matrix() ->  bool {true}
-            #[inline]
-            fn garbage() -> $matrix<P> {
-                $matrix::zero()
-            }
+            fn matrix() -> bool {true}
             type GLPrim = P;
         }
     )*}
 }
-
+// I'm not implementing arrays right now because that's kinda complicated and I'm not convinced
+// it's worth the effort rn.
+// macro_rules! impl_glsl_array {
+//     ($($num:expr),*) => {$(
+//         unsafe impl<T: GLSLTypeTransparent> GLSLTypeTransparent for [T; $num] {
+//             #[inline]
+//             fn len() -> usize {$num}
+//             #[inline]
+//             fn matrix() -> bool {false}
+//             type GLPrim = T::GLPrim;
+//         }
+//     )*}
+// }
+// impl_glsl_array!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+//     24, 25, 26, 27, 28, 29, 30, 31, 32);
 
 
 unsafe impl<P: GLPrim> GLSLTypeTransparent for P {
@@ -48,10 +54,6 @@ unsafe impl<P: GLPrim> GLSLTypeTransparent for P {
     fn len() ->  usize {1}
     #[inline]
     fn matrix() ->  bool {false}
-    #[inline]
-    fn garbage() -> P {
-        P::zero()
-    }
     type GLPrim = P;
 }
 
