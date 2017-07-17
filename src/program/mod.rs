@@ -6,7 +6,7 @@ use self::error::{ShaderError, LinkError};
 
 use gl::types::*;
 
-use ::{ContextState, GLSLTyGroup, GLObject};
+use {ContextState, GLSLTyGroup, GLObject, GLSLType};
 
 use std::mem;
 use std::rc::Rc;

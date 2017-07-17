@@ -3,7 +3,7 @@ extern crate cgmath;
 #[macro_use]
 extern crate gl_raii_macros;
 
-use gl_raii::types_transparent::GLSLTypeTransparent;
+use gl_raii::GLSLTypeTransparent;
 use cgmath::{Vector3, Vector4};
 
 #[derive(GLSLTyGroup, Clone, Copy)]

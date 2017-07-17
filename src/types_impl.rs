@@ -2,18 +2,11 @@ use gl;
 use gl::types::*;
 
 use {GLPrim, GLSLTypeTransparent};
-use num_traits::Num;
-use num_traits::float::Float;
-use num_traits::identities::{Zero, One};
-use num_traits::cast::{NumCast, ToPrimitive};
 
 use cgmath::{
-    Array, BaseNum, BaseFloat, PartialOrd, Vector1, Vector2, Vector3, Vector4,
+    BaseFloat, Vector1, Vector2, Vector3, Vector4,
     Point1, Point2, Point3, Matrix2, Matrix3, Matrix4
 };
-
-use std::cmp;
-use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign, Rem, RemAssign};
 
 use seal::Sealed;
 
