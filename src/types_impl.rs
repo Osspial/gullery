@@ -1,7 +1,7 @@
 use gl;
 use gl::types::*;
 
-use {GLPrim, GLSLTypeTransparent};
+use {GLPrim, GLSLTypeTransparent, GLSLTypeUniform};
 
 use cgmath::{
     BaseFloat, Vector1, Vector2, Vector3, Vector4,
@@ -74,6 +74,14 @@ impl_glsl_matrix!{
     impl Matrix4 4;
 }
 
+unsafe impl GLPrim for bool {
+    #[inline]
+    fn gl_enum() -> GLenum {gl::BOOL}
+    #[inline]
+    fn signed() -> bool {false}
+    #[inline]
+    fn normalized() -> bool {false}
+}
 unsafe impl GLPrim for i8 {
     #[inline]
     fn gl_enum() ->  GLenum {gl::BYTE}
@@ -139,3 +147,61 @@ unsafe impl GLPrim for f32 {
 //     #[inline]
 //     fn normalized() ->  bool {false}
 // }
+
+macro_rules! impl_glsl_type_uniform {
+    () => ();
+    (impl $ty:ty $(, $other_ty:ty)+ = $gl_enum:expr; $($rest:tt)*) => {
+        impl_glsl_type_uniform!{
+            impl $ty = $gl_enum;
+            impl $($other_ty),+ = $gl_enum;
+            $($rest)*
+        }
+    };
+    (impl $ty:ty = $gl_enum:expr; $($rest:tt)*) => (
+        unsafe impl GLSLTypeUniform for $ty {
+            #[inline]
+            fn uniform_gl_enum() -> GLenum {
+                $gl_enum
+            }
+        }
+        impl_glsl_type_uniform!($($rest)*);
+    )
+}
+
+impl_glsl_type_uniform!{
+    impl i32 = Self::gl_enum();
+    impl u32 = Self::gl_enum();
+    impl bool = Self::gl_enum();
+    impl f32 = Self::gl_enum();
+    impl Point1<i32>, Vector1<i32> = i32::gl_enum();
+    impl Point2<i32>, Vector2<i32> = gl::INT_VEC2;
+    impl Point3<i32>, Vector3<i32> = gl::INT_VEC3;
+    impl Vector4<i32> = gl::INT_VEC4;
+
+    impl Point1<u32>, Vector1<u32> = u32::gl_enum();
+    impl Point2<u32>, Vector2<u32> = gl::UNSIGNED_INT_VEC2;
+    impl Point3<u32>, Vector3<u32> = gl::UNSIGNED_INT_VEC3;
+    impl Vector4<u32> = gl::UNSIGNED_INT_VEC4;
+
+    impl Point1<bool>, Vector1<bool> = bool::gl_enum();
+    impl Point2<bool>, Vector2<bool> = gl::BOOL_VEC2;
+    impl Point3<bool>, Vector3<bool> = gl::BOOL_VEC3;
+    impl Vector4<bool> = gl::BOOL_VEC4;
+
+    impl Point1<f32>, Vector1<f32> = f32::gl_enum();
+    impl Point2<f32>, Vector2<f32> = gl::FLOAT_VEC2;
+    impl Point3<f32>, Vector3<f32> = gl::FLOAT_VEC3;
+    impl Vector4<f32> = gl::FLOAT_VEC4;
+    impl Matrix2<f32> = gl::FLOAT_MAT2;
+    impl Matrix3<f32> = gl::FLOAT_MAT3;
+    impl Matrix4<f32> = gl::FLOAT_MAT4;
+
+    // Only supported on on OpenGL 4.2
+    // impl Point1<f64>, Vector1<f64> = f64::gl_enum();
+    // impl Point2<f64>, Vector2<f64> = gl::DOUBLE_VEC2;
+    // impl Point3<f64>, Vector3<f64> = gl::DOUBLE_VEC3;
+    // impl Vector4<f64> = gl::DOUBLE_VEC4;
+    // impl Matrix2<f64> = gl::DOUBLE_MAT2;
+    // impl Matrix3<f64> = gl::DOUBLE_MAT3;
+    // impl Matrix4<f64> = gl::DOUBLE_MAT4;
+}

@@ -66,8 +66,9 @@ pub trait GLSLTyGroup: buffers::BufferData {
     }
 }
 
-pub unsafe trait GLSLType: Copy + Sealed {}
-unsafe impl<T: GLSLTypeTransparent> GLSLType for T {}
+pub unsafe trait GLSLTypeUniform: Copy + Sealed {
+    fn uniform_gl_enum() -> GLenum;
+}
 
 /// The Rust representation of a GLSL type.
 pub unsafe trait GLSLTypeTransparent: 'static + Copy + Sealed {
@@ -80,7 +81,7 @@ pub unsafe trait GLSLTypeTransparent: 'static + Copy + Sealed {
 }
 
 /// The Rust representation of an OpenGL primitive.
-pub unsafe trait GLPrim: 'static + Copy + BaseNum + Sealed {
+pub unsafe trait GLPrim: 'static + Copy + Sealed {
     /// The OpenGL constant associated with this type.
     fn gl_enum() ->  GLenum;
     /// If an integer, whether or not the integer is signed. If a float, false
@@ -112,6 +113,7 @@ mod seal {
     use cgmath::*;
 
     pub trait Sealed {}
+    impl Sealed for bool {}
     impl Sealed for u8 {}
     impl Sealed for u16 {}
     impl Sealed for u32 {}

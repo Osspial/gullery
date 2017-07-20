@@ -6,7 +6,7 @@ use self::error::{ShaderError, LinkError};
 
 use gl::types::*;
 
-use {ContextState, GLSLTyGroup, GLObject, GLSLType};
+use {ContextState, GLSLTyGroup, GLObject, GLSLTypeUniform};
 
 use std::mem;
 use std::rc::Rc;
@@ -41,7 +41,7 @@ pub trait Uniforms: Sized + Copy {
             type Uniforms = U;
             #[inline]
             fn add_member<T>(&mut self, _: &str, _: fn(Self::Uniforms) -> T)
-                where T: GLSLType
+                where T: GLSLTypeUniform
             {
                 *self.0 += 1;
             }
@@ -66,7 +66,7 @@ impl Uniforms for () {
 
 pub trait UniformsMemberRegistry {
     type Uniforms: Uniforms;
-    fn add_member<T: GLSLType>(&mut self, name: &str, get_member: fn(Self::Uniforms) -> T);
+    fn add_member<T: GLSLTypeUniform>(&mut self, name: &str, get_member: fn(Self::Uniforms) -> T);
 }
 
 pub(crate) struct ProgramTarget(RawProgramTarget);

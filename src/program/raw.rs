@@ -1,7 +1,7 @@
 use gl::{self, Gl};
 use gl::types::*;
 
-use {GLSLType, GLSLTyGroup, GLSLTypeTransparent, TyGroupMemberRegistry, ContextState, GLObject};
+use {GLSLTypeUniform, GLSLTyGroup, GLSLTypeTransparent, TyGroupMemberRegistry, ContextState, GLObject};
 use super::{Uniforms, UniformsMemberRegistry};
 use seal::Sealed;
 
@@ -143,7 +143,7 @@ impl RawProgram {
         }
         impl<'a, U: Uniforms> UniformsMemberRegistry for UniformsLocGetter<'a, U> {
             type Uniforms = U;
-            fn add_member<T: GLSLType>(&mut self, name: &str, _: fn(U) -> T) {
+            fn add_member<T: GLSLTypeUniform>(&mut self, name: &str, _: fn(U) -> T) {
                 let mut cstr_bytes = Vec::new();
                 mem::swap(&mut cstr_bytes, &mut self.cstr_bytes);
 
@@ -238,7 +238,7 @@ impl<'a> RawBoundProgram<'a> {
         }
         impl<'a, U: Uniforms> UniformsMemberRegistry for UniformsUploader<'a, U> {
             type Uniforms = U;
-            fn add_member<T: GLSLType>(&mut self, _: &str, get_member: fn(U) -> T) {
+            fn add_member<T: GLSLTypeUniform>(&mut self, _: &str, get_member: fn(U) -> T) {
                 use cgmath::*;
                 use norm::*;
                 use num_traits::ToPrimitive;
@@ -253,7 +253,7 @@ impl<'a> RawBoundProgram<'a> {
                 impl<'a, T> TypeSwitchTrait<T> for UniformTypeSwitch<'a> {
                     #[inline]
                     default fn run_expr(self, _: T) {
-                        // panic!("Unexpected uniform type; isn't GLSLType supposed to be sealed anyway?!")
+                        // panic!("Unexpected uniform type; isn't GLSLTypeUniform supposed to be sealed anyway?!")
                     }
                 }
                 macro_rules! impl_type_switch {
@@ -279,46 +279,35 @@ impl<'a> RawBoundProgram<'a> {
                 }
                 impl_type_switch!{
                     f32, (s, f) => s.gl.Uniform1f(s.loc, f),
-                    Vector1<f32><Nu32><Nu16><Nu8><Ni32><Ni16><Ni8>, (s, v) =>
-                        s.gl.Uniform1f(s.loc, v.x.to_f32().unwrap()),
-                    Vector2<f32><Nu32><Nu16><Nu8><Ni32><Ni16><Ni8>, (s, v) =>
-                        s.gl.Uniform2f(s.loc, v.x.to_f32().unwrap(), v.y.to_f32().unwrap()),
-                    Vector3<f32><Nu32><Nu16><Nu8><Ni32><Ni16><Ni8>, (s, v) =>
-                        s.gl.Uniform3f(s.loc, v.x.to_f32().unwrap(), v.y.to_f32().unwrap(), v.z.to_f32().unwrap()),
-                    Vector4<f32><Nu32><Nu16><Nu8><Ni32><Ni16><Ni8>, (s, v) =>
-                        s.gl.Uniform4f(s.loc, v.x.to_f32().unwrap(), v.y.to_f32().unwrap(), v.z.to_f32().unwrap(), v.w.to_f32().unwrap()),
-                    Point1<f32><Nu32><Nu16><Nu8><Ni32><Ni16><Ni8>, (s, p) =>
-                        s.gl.Uniform1f(s.loc, p.x.to_f32().unwrap()),
-                    Point2<f32><Nu32><Nu16><Nu8><Ni32><Ni16><Ni8>, (s, p) =>
-                        s.gl.Uniform2f(s.loc, p.x.to_f32().unwrap(), p.y.to_f32().unwrap()),
-                    Point3<f32><Nu32><Nu16><Nu8><Ni32><Ni16><Ni8>, (s, p) =>
-                        s.gl.Uniform3f(s.loc, p.x.to_f32().unwrap(), p.y.to_f32().unwrap(), p.z.to_f32().unwrap()),
+                    Vector1<f32>, (s, v) => s.gl.Uniform1f(s.loc, v.x),
+                    Vector2<f32>, (s, v) => s.gl.Uniform2f(s.loc, v.x, v.y),
+                    Vector3<f32>, (s, v) => s.gl.Uniform3f(s.loc, v.x, v.y, v.z),
+                    Vector4<f32>, (s, v) => s.gl.Uniform4f(s.loc, v.x, v.y, v.z, v.w),
+                    Point1<f32>, (s, p) => s.gl.Uniform1f(s.loc, p.x),
+                    Point2<f32>, (s, p) => s.gl.Uniform2f(s.loc, p.x, p.y),
+                    Point3<f32>, (s, p) => s.gl.Uniform3f(s.loc, p.x, p.y, p.z),
                     Matrix2<f32>, (s, m) => s.gl.UniformMatrix2fv(s.loc, 1, gl::FALSE, &m.x.x),
                     Matrix3<f32>, (s, m) => s.gl.UniformMatrix3fv(s.loc, 1, gl::FALSE, &m.x.x),
                     Matrix4<f32>, (s, m) => s.gl.UniformMatrix4fv(s.loc, 1, gl::FALSE, &m.x.x),
 
-                    u8, (s, u) => s.gl.Uniform1ui(s.loc, u as u32),
                     bool, (s, u) => s.gl.Uniform1ui(s.loc, u as u32),
-                    u16, (s, u) => s.gl.Uniform1ui(s.loc, u as u32),
                     u32, (s, u) => s.gl.Uniform1ui(s.loc, u),
-                    Vector1<u32><u16><u8><bool>, (s, v) => s.gl.Uniform1ui(s.loc, v.x as u32),
-                    Vector2<u32><u16><u8><bool>, (s, v) => s.gl.Uniform2ui(s.loc, v.x as u32, v.y as u32),
-                    Vector3<u32><u16><u8><bool>, (s, v) => s.gl.Uniform3ui(s.loc, v.x as u32, v.y as u32, v.z as u32),
-                    Vector4<u32><u16><u8><bool>, (s, v) => s.gl.Uniform4ui(s.loc, v.x as u32, v.y as u32, v.z as u32, v.w as u32),
-                    Point1<u32><u16><u8><bool>, (s, p) => s.gl.Uniform1ui(s.loc, p.x as u32),
-                    Point2<u32><u16><u8><bool>, (s, p) => s.gl.Uniform2ui(s.loc, p.x as u32, p.y as u32),
-                    Point3<u32><u16><u8><bool>, (s, p) => s.gl.Uniform3ui(s.loc, p.x as u32, p.y as u32, p.z as u32),
+                    Vector1<u32><bool>, (s, v) => s.gl.Uniform1ui(s.loc, v.x as u32),
+                    Vector2<u32><bool>, (s, v) => s.gl.Uniform2ui(s.loc, v.x as u32, v.y as u32),
+                    Vector3<u32><bool>, (s, v) => s.gl.Uniform3ui(s.loc, v.x as u32, v.y as u32, v.z as u32),
+                    Vector4<u32><bool>, (s, v) => s.gl.Uniform4ui(s.loc, v.x as u32, v.y as u32, v.z as u32, v.w as u32),
+                    Point1<u32><bool>, (s, p) => s.gl.Uniform1ui(s.loc, p.x as u32),
+                    Point2<u32><bool>, (s, p) => s.gl.Uniform2ui(s.loc, p.x as u32, p.y as u32),
+                    Point3<u32><bool>, (s, p) => s.gl.Uniform3ui(s.loc, p.x as u32, p.y as u32, p.z as u32),
 
-                    i8, (s, u) => s.gl.Uniform1i(s.loc, u as i32),
-                    i16, (s, u) => s.gl.Uniform1i(s.loc, u as i32),
                     i32, (s, u) => s.gl.Uniform1i(s.loc, u),
-                    Vector1<i32><i16><i8>, (s, v) => s.gl.Uniform1i(s.loc, v.x as i32),
-                    Vector2<i32><i16><i8>, (s, v) => s.gl.Uniform2i(s.loc, v.x as i32, v.y as i32),
-                    Vector3<i32><i16><i8>, (s, v) => s.gl.Uniform3i(s.loc, v.x as i32, v.y as i32, v.z as i32),
-                    Vector4<i32><i16><i8>, (s, v) => s.gl.Uniform4i(s.loc, v.x as i32, v.y as i32, v.z as i32, v.w as i32),
-                    Point1<i32><i16><i8>, (s, p) => s.gl.Uniform1i(s.loc, p.x as i32),
-                    Point2<i32><i16><i8>, (s, p) => s.gl.Uniform2i(s.loc, p.x as i32, p.y as i32),
-                    Point3<i32><i16><i8>, (s, p) => s.gl.Uniform3i(s.loc, p.x as i32, p.y as i32, p.z as i32),
+                    Vector1<i32>, (s, v) => s.gl.Uniform1i(s.loc, v.x),
+                    Vector2<i32>, (s, v) => s.gl.Uniform2i(s.loc, v.x, v.y),
+                    Vector3<i32>, (s, v) => s.gl.Uniform3i(s.loc, v.x, v.y, v.z),
+                    Vector4<i32>, (s, v) => s.gl.Uniform4i(s.loc, v.x, v.y, v.z, v.w),
+                    Point1<i32>, (s, p) => s.gl.Uniform1i(s.loc, p.x),
+                    Point2<i32>, (s, p) => s.gl.Uniform2i(s.loc, p.x, p.y),
+                    Point3<i32>, (s, p) => s.gl.Uniform3i(s.loc, p.x, p.y, p.z),
                 }
 
                 let loc = self.locs[self.loc_index];
