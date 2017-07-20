@@ -23,12 +23,14 @@ macro_rules! impl_glsl_vector {
 }
 macro_rules! impl_glsl_matrix {
     ($(impl $matrix:ident $num:expr;)*) => {$(
-        unsafe impl<P: GLPrim + BaseFloat> GLSLTypeTransparent for $matrix<P> {
+        // We aren't implementing matrix for normalized integers because that complicates uniform
+        // upload. No idea if OpenGL actually supports it either.
+        unsafe impl GLSLTypeTransparent for $matrix<f32> {
             #[inline]
             fn len() -> usize {$num * $num}
             #[inline]
             fn matrix() -> bool {true}
-            type GLPrim = P;
+            type GLPrim = f32;
         }
     )*}
 }

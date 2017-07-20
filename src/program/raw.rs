@@ -1,12 +1,13 @@
 use gl::{self, Gl};
 use gl::types::*;
 
-use ::{GLSLTyGroup, TyGroupMemberRegistry, ContextState, GLObject};
+use {GLSLType, GLSLTyGroup, GLSLTypeTransparent, TyGroupMemberRegistry, ContextState, GLObject};
+use super::{Uniforms, UniformsMemberRegistry};
 use seal::Sealed;
-use GLSLTypeTransparent;
 
 use std::{ptr, mem};
 use std::cell::Cell;
+use std::ffi::CString;
 use std::marker::PhantomData;
 
 pub struct RawShader<S: ShaderStage> {
@@ -132,6 +133,54 @@ impl RawProgram {
         }
     }
 
+    pub fn get_uniform_locations<U: Uniforms>(&self, gl: &Gl) -> U::UniformLocContainer {
+        struct UniformsLocGetter<'a, U: Uniforms> {
+            locs: &'a mut U::UniformLocContainer,
+            locs_index: usize,
+            cstr_bytes: Vec<u8>,
+            program: &'a RawProgram,
+            gl: &'a Gl
+        }
+        impl<'a, U: Uniforms> UniformsMemberRegistry for UniformsLocGetter<'a, U> {
+            type Uniforms = U;
+            fn add_member<T: GLSLType>(&mut self, name: &str, _: fn(U) -> T) {
+                let mut cstr_bytes = Vec::new();
+                mem::swap(&mut cstr_bytes, &mut self.cstr_bytes);
+
+                if name.starts_with("gl_") {
+                    panic!("Bad uniform name {}; GLSL identifiers cannot start with \"gl_\"", name);
+                }
+                cstr_bytes.extend(name.as_bytes());
+                let cstr = CString::new(cstr_bytes).expect("Null terminator in uniform name string");
+
+                let loc: GLint;
+                unsafe {
+                    loc = self.gl.GetUniformLocation(self.program.handle, cstr.as_ptr());
+                    assert_eq!(0, self.gl.GetError());
+                }
+                self.locs.as_mut()[self.locs_index] = loc;
+
+                if loc == -1 {
+                    warn!(target: "gl_raii", "Uniform ident not found in program: {}", name);
+                }
+
+                let mut cstr_bytes = cstr.into_bytes();
+                cstr_bytes.clear();
+                mem::swap(&mut cstr_bytes, &mut self.cstr_bytes);
+            }
+        }
+
+        let mut locs = U::new_loc_container();
+        U::members(UniformsLocGetter {
+            locs: &mut locs,
+            locs_index: 0,
+            cstr_bytes: Vec::new(),
+            program: self,
+            gl
+        });
+        locs
+    }
+
     pub fn delete(self, state: &ContextState) {
         unsafe {
             state.gl.DeleteProgram(self.handle);
@@ -179,6 +228,118 @@ impl<'a, 'b> RawProgramShaderAttacher<'a, 'b> {
     }
 }
 
+impl<'a> RawBoundProgram<'a> {
+    pub fn upload_uniforms<U: Uniforms>(&self, uniforms: U, locs: &[GLint], gl: &Gl) {
+        struct UniformsUploader<'a, U: Uniforms> {
+            locs: &'a [GLint],
+            loc_index: usize,
+            gl: &'a Gl,
+            uniforms: U
+        }
+        impl<'a, U: Uniforms> UniformsMemberRegistry for UniformsUploader<'a, U> {
+            type Uniforms = U;
+            fn add_member<T: GLSLType>(&mut self, _: &str, get_member: fn(U) -> T) {
+                use cgmath::*;
+                use norm::*;
+                use num_traits::ToPrimitive;
+
+                struct UniformTypeSwitch<'a> {
+                    gl: &'a Gl,
+                    loc: GLint
+                }
+                trait TypeSwitchTrait<T> {
+                    fn run_expr(self, _: T);
+                }
+                impl<'a, T> TypeSwitchTrait<T> for UniformTypeSwitch<'a> {
+                    #[inline]
+                    default fn run_expr(self, _: T) {
+                        // panic!("Unexpected uniform type; isn't GLSLType supposed to be sealed anyway?!")
+                    }
+                }
+                macro_rules! impl_type_switch {
+                    () => ();
+                    ($ty_base:ident<$gen0:ty>$(<$gen_more:ty>)+, ($self:ident, $bind:ident) => $expr:expr, $($rest:tt)*) => {
+                        impl_type_switch!(
+                            $ty_base<$gen0>, ($self, $bind) => $expr,
+                            $ty_base$(<$gen_more>)+, ($self, $bind) => $expr,
+                            $($rest)*
+                        );
+                    };
+                    ($ty:ty, ($self:ident, $bind:ident) => $expr:expr, $($rest:tt)*) => {
+                        impl<'a> TypeSwitchTrait<$ty> for UniformTypeSwitch<'a> {
+                            #[inline]
+                            fn run_expr(self, $bind: $ty) {unsafe {
+                                let $self = self;
+                                $expr
+                            }}
+                        }
+
+                        impl_type_switch!($($rest)*);
+                    };
+                }
+                impl_type_switch!{
+                    f32, (s, f) => s.gl.Uniform1f(s.loc, f),
+                    Vector1<f32><Nu32><Nu16><Nu8><Ni32><Ni16><Ni8>, (s, v) =>
+                        s.gl.Uniform1f(s.loc, v.x.to_f32().unwrap()),
+                    Vector2<f32><Nu32><Nu16><Nu8><Ni32><Ni16><Ni8>, (s, v) =>
+                        s.gl.Uniform2f(s.loc, v.x.to_f32().unwrap(), v.y.to_f32().unwrap()),
+                    Vector3<f32><Nu32><Nu16><Nu8><Ni32><Ni16><Ni8>, (s, v) =>
+                        s.gl.Uniform3f(s.loc, v.x.to_f32().unwrap(), v.y.to_f32().unwrap(), v.z.to_f32().unwrap()),
+                    Vector4<f32><Nu32><Nu16><Nu8><Ni32><Ni16><Ni8>, (s, v) =>
+                        s.gl.Uniform4f(s.loc, v.x.to_f32().unwrap(), v.y.to_f32().unwrap(), v.z.to_f32().unwrap(), v.w.to_f32().unwrap()),
+                    Point1<f32><Nu32><Nu16><Nu8><Ni32><Ni16><Ni8>, (s, p) =>
+                        s.gl.Uniform1f(s.loc, p.x.to_f32().unwrap()),
+                    Point2<f32><Nu32><Nu16><Nu8><Ni32><Ni16><Ni8>, (s, p) =>
+                        s.gl.Uniform2f(s.loc, p.x.to_f32().unwrap(), p.y.to_f32().unwrap()),
+                    Point3<f32><Nu32><Nu16><Nu8><Ni32><Ni16><Ni8>, (s, p) =>
+                        s.gl.Uniform3f(s.loc, p.x.to_f32().unwrap(), p.y.to_f32().unwrap(), p.z.to_f32().unwrap()),
+                    Matrix2<f32>, (s, m) => s.gl.UniformMatrix2fv(s.loc, 1, gl::FALSE, &m.x.x),
+                    Matrix3<f32>, (s, m) => s.gl.UniformMatrix3fv(s.loc, 1, gl::FALSE, &m.x.x),
+                    Matrix4<f32>, (s, m) => s.gl.UniformMatrix4fv(s.loc, 1, gl::FALSE, &m.x.x),
+
+                    u8, (s, u) => s.gl.Uniform1ui(s.loc, u as u32),
+                    u16, (s, u) => s.gl.Uniform1ui(s.loc, u as u32),
+                    u32, (s, u) => s.gl.Uniform1ui(s.loc, u),
+                    Vector1<u32><u16><u8>, (s, v) => s.gl.Uniform1ui(s.loc, v.x as u32),
+                    Vector2<u32><u16><u8>, (s, v) => s.gl.Uniform2ui(s.loc, v.x as u32, v.y as u32),
+                    Vector3<u32><u16><u8>, (s, v) => s.gl.Uniform3ui(s.loc, v.x as u32, v.y as u32, v.z as u32),
+                    Vector4<u32><u16><u8>, (s, v) => s.gl.Uniform4ui(s.loc, v.x as u32, v.y as u32, v.z as u32, v.w as u32),
+                    Point1<u32><u16><u8>, (s, p) => s.gl.Uniform1ui(s.loc, p.x as u32),
+                    Point2<u32><u16><u8>, (s, p) => s.gl.Uniform2ui(s.loc, p.x as u32, p.y as u32),
+                    Point3<u32><u16><u8>, (s, p) => s.gl.Uniform3ui(s.loc, p.x as u32, p.y as u32, p.z as u32),
+
+                    i8, (s, u) => s.gl.Uniform1i(s.loc, u as i32),
+                    i16, (s, u) => s.gl.Uniform1i(s.loc, u as i32),
+                    i32, (s, u) => s.gl.Uniform1i(s.loc, u),
+                    Vector1<i32><i16><i8>, (s, v) => s.gl.Uniform1i(s.loc, v.x as i32),
+                    Vector2<i32><i16><i8>, (s, v) => s.gl.Uniform2i(s.loc, v.x as i32, v.y as i32),
+                    Vector3<i32><i16><i8>, (s, v) => s.gl.Uniform3i(s.loc, v.x as i32, v.y as i32, v.z as i32),
+                    Vector4<i32><i16><i8>, (s, v) => s.gl.Uniform4i(s.loc, v.x as i32, v.y as i32, v.z as i32, v.w as i32),
+                    Point1<i32><i16><i8>, (s, p) => s.gl.Uniform1i(s.loc, p.x as i32),
+                    Point2<i32><i16><i8>, (s, p) => s.gl.Uniform2i(s.loc, p.x as i32, p.y as i32),
+                    Point3<i32><i16><i8>, (s, p) => s.gl.Uniform3i(s.loc, p.x as i32, p.y as i32, p.z as i32),
+                }
+
+                let loc = self.locs[self.loc_index];
+                if loc != -1 {
+                    let ts = UniformTypeSwitch {
+                        gl: self.gl,
+                        loc
+                    };
+                    <UniformTypeSwitch as TypeSwitchTrait<T>>::run_expr(ts, get_member(self.uniforms))
+                }
+            }
+        }
+
+        U::members(UniformsUploader {
+            locs,
+            loc_index: 0,
+            gl,
+            uniforms
+        })
+    }
+}
+
 impl<S: ShaderStage> GLObject for RawShader<S> {
     #[inline]
     fn handle(&self) -> GLuint {
@@ -198,8 +359,6 @@ unsafe impl<V: GLSLTyGroup> ShaderStage for VertexStage<V> {
     fn shader_type_enum() -> GLenum {gl::VERTEX_SHADER}
 
     unsafe fn program_pre_link_hook(_: &RawShader<Self>, program: &RawProgram, gl: &Gl) {
-        use std::ffi::CString;
-
         struct VertexAttribLocBinder<'a, V: GLSLTyGroup> {
             cstr_bytes: Vec<u8>,
             index: GLuint,

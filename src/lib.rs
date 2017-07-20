@@ -1,10 +1,13 @@
 #![feature(collections_range, never_type, specialization)]
+#![recursion_limit="256"]
 
 extern crate gl_raw as gl;
 #[macro_use]
 extern crate derive_more;
 extern crate num_traits;
 extern crate cgmath;
+#[macro_use]
+extern crate log;
 
 #[cfg(test)]
 #[macro_use]
@@ -63,15 +66,15 @@ pub trait GLSLTyGroup: buffers::BufferData {
     }
 }
 
-pub unsafe trait GLSLType: Copy {}
+pub unsafe trait GLSLType: Copy + Sealed {}
 unsafe impl<T: GLSLTypeTransparent> GLSLType for T {}
 
 /// The Rust representation of a GLSL type.
-pub unsafe trait GLSLTypeTransparent: 'static + Copy {
+pub unsafe trait GLSLTypeTransparent: 'static + Copy + Sealed {
     /// The number of primitives this type contains.
     fn len() ->  usize;
     /// Whether or not this type represents a matrix
-    fn matrix() ->  bool;
+    fn matrix() -> bool;
     /// The underlying primitive for this type
     type GLPrim: GLPrim;
 }
@@ -105,7 +108,9 @@ impl ContextState {
 }
 
 mod seal {
+    use super::*;
     use cgmath::*;
+
     pub trait Sealed {}
     impl Sealed for u8 {}
     impl Sealed for u16 {}
@@ -121,16 +126,16 @@ mod seal {
     impl Sealed for f64 {}
     impl Sealed for () {}
 
-    impl<S: BaseFloat> Sealed for Matrix2<S> {}
-    impl<S: BaseFloat> Sealed for Matrix3<S> {}
-    impl<S: BaseFloat> Sealed for Matrix4<S> {}
-    impl<S: BaseFloat> Sealed for Point1<S> {}
-    impl<S: BaseFloat> Sealed for Point2<S> {}
-    impl<S: BaseFloat> Sealed for Point3<S> {}
-    impl<S: BaseFloat> Sealed for Vector1<S> {}
-    impl<S: BaseFloat> Sealed for Vector2<S> {}
-    impl<S: BaseFloat> Sealed for Vector3<S> {}
-    impl<S: BaseFloat> Sealed for Vector4<S> {}
+    impl<S: GLPrim> Sealed for Matrix2<S> {}
+    impl<S: GLPrim> Sealed for Matrix3<S> {}
+    impl<S: GLPrim> Sealed for Matrix4<S> {}
+    impl<S: GLPrim> Sealed for Point1<S> {}
+    impl<S: GLPrim> Sealed for Point2<S> {}
+    impl<S: GLPrim> Sealed for Point3<S> {}
+    impl<S: GLPrim> Sealed for Vector1<S> {}
+    impl<S: GLPrim> Sealed for Vector2<S> {}
+    impl<S: GLPrim> Sealed for Vector3<S> {}
+    impl<S: GLPrim> Sealed for Vector4<S> {}
 
     macro_rules! impl_sealed_arrays {
         ($($len:expr),+) => {$(

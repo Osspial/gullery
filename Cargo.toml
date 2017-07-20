@@ -8,6 +8,7 @@ gl_raw = {path = "./gl_raw"}
 derive_more = "0.6"
 num-traits = "0.1"
 cgmath = "^0.14"
+log = "0.3"
 
 [dev-dependencies]
 glutin = "0.8"
