@@ -66,16 +66,12 @@ macro_rules! normalized_int {
         impl ToPrimitive for $name {
             #[inline]
             fn to_i64(&self) -> Option<i64> {
-                Some(self.0 as i64)
+                self.0.to_i64()
             }
             #[inline]
             #[allow(unused_comparisons)]
             fn to_u64(&self) -> Option<u64> {
-                if self.0 < 0 {
-                    None
-                } else {
-                    Some(self.0 as u64)
-                }
+                self.0.to_u64()
             }
 
             #[inline]
@@ -83,12 +79,12 @@ macro_rules! normalized_int {
                 // Technically, this is using the OpenGL >4.2 method of normalizing, even if the
                 // user has a version of OpenGL less than that. However, the difference shouldn't
                 // be drastic enough to matter. See more info here: https://www.khronos.org/opengl/wiki/Normalized_Integer
-                Some(self.0 as f32 / $inner::max_value() as f32)
+                Some(f32::max(-1.0, self.0 as f32 / $inner::max_value() as f32))
             }
 
             #[inline]
             fn to_f64(&self) -> Option<f64> {
-                Some(self.0 as f64 / $inner::max_value() as f64)
+                Some(f64::max(-1.0, self.0 as f64 / $inner::max_value() as f64))
             }
         }
 
