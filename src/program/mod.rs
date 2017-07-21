@@ -2,9 +2,11 @@ pub mod error;
 mod raw;
 
 use self::raw::{RawShader, RawProgram, RawProgramTarget, RawBoundProgram};
-use self::error::{ShaderError, LinkError};
+use self::error::{ShaderError, LinkError, ProgramWarning};
 
 use gl::types::*;
+
+use w_result::*;
 
 use {ContextState, GLSLTyGroup, GLObject, GLSLTypeUniform};
 
@@ -86,7 +88,7 @@ impl<S: ShaderStage> Shader<S> {
 }
 
 impl<V: GLSLTyGroup, U: Uniforms> Program<V, U> {
-    pub fn new(vert: &Shader<VertexStage<V>>, geom: Option<&Shader<GeometryStage>>, frag: &Shader<FragmentStage>) -> Result<Program<V, U>, LinkError> {
+    pub fn new(vert: &Shader<VertexStage<V>>, geom: Option<&Shader<GeometryStage>>, frag: &Shader<FragmentStage>) -> WResult<Program<V, U>, ProgramWarning, LinkError> {
         // Temporary variables storing the pointers to the OpenGL state for each of the shaders.
         let vsp = vert.state.as_ref() as *const _;
         let fsp = frag.state.as_ref() as *const _;
@@ -102,14 +104,20 @@ impl<V: GLSLTyGroup, U: Uniforms> Program<V, U> {
                 rpsa.attach_shader(&geom.raw);
             }
             rpsa.attach_shader(&frag.raw);
-        }, &vert.state.gl).map_err(|e| LinkError(e))?;
+        }, &vert.state.gl).map_err(|e| LinkError(e));
 
-        Ok(Program {
-            uniform_locs: raw.get_uniform_locations::<U>(&vert.state.gl),
-            raw,
-            state: vert.state.clone(),
-            _marker: PhantomData
-        })
+        match raw {
+            Ok(raw) => {
+                let (uniform_locs, warnings) = raw.get_uniform_locations::<U>(&vert.state.gl);
+                WOk(Program {
+                    uniform_locs,
+                    raw,
+                    state: vert.state.clone(),
+                    _marker: PhantomData
+                }, warnings)
+            },
+            Err(raw_error) => WErr(raw_error)
+        }
     }
 }
 
@@ -211,11 +219,16 @@ mod tests {
     }
 
     impl Uniforms for TestUniforms {
+        type UniformLocContainer = [GLint; 2];
         fn members<R>(mut reg: R)
             where R: UniformsMemberRegistry<Uniforms=TestUniforms>
         {
-            reg.add_member("color_tint", |t| unsafe{ &(*t).color_tint });
-            reg.add_member("offset", |t| unsafe{ &(*t).offset });
+            reg.add_member("color_tint", |t| t.color_tint);
+            reg.add_member("offset", |t| t.offset);
+        }
+
+        fn new_loc_container() -> [GLint; 2] {
+            [0; 2]
         }
     }
 
@@ -225,10 +238,16 @@ mod tests {
             let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();
             let fragment_shader = Shader::new(FRAGMENT_SHADER, state.clone()).unwrap();
 
-            let program = Program::<TestVertex, TestUniforms>::new(&vertex_shader, None, &fragment_shader).unwrap();
+            let program = Program::<TestVertex, TestUniforms>::new(&vertex_shader, None, &fragment_shader).unwrap_werr();
             for loc in &program.uniform_locs {
                 assert_ne!(-1, *loc);
             }
+
+            let program_bind = unsafe{ state.program_target.bind(&program) };
+            program_bind.upload_uniforms(TestUniforms {
+                color_tint: Vector3::new(1.0, 1.0, 1.0),
+                offset: Vector3::new(0.0, 1.0, 0.0)
+            })
         })
     }
 }

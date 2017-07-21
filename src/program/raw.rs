@@ -3,6 +3,7 @@ use gl::types::*;
 
 use {GLSLTypeUniform, GLSLTyGroup, GLSLTypeTransparent, TyGroupMemberRegistry, ContextState, GLObject};
 use super::{Uniforms, UniformsMemberRegistry};
+use super::error::ProgramWarning;
 use seal::Sealed;
 
 use std::{ptr, mem};
@@ -133,11 +134,12 @@ impl RawProgram {
         }
     }
 
-    pub fn get_uniform_locations<U: Uniforms>(&self, gl: &Gl) -> U::UniformLocContainer {
+    pub fn get_uniform_locations<U: Uniforms>(&self, gl: &Gl) -> (U::UniformLocContainer, Vec<ProgramWarning>) {
         struct UniformsLocGetter<'a, U: Uniforms> {
             locs: &'a mut U::UniformLocContainer,
             locs_index: usize,
             cstr_bytes: Vec<u8>,
+            warnings: &'a mut Vec<ProgramWarning>,
             program: &'a RawProgram,
             gl: &'a Gl
         }
@@ -157,12 +159,17 @@ impl RawProgram {
                 unsafe {
                     loc = self.gl.GetUniformLocation(self.program.handle, cstr.as_ptr());
                     assert_eq!(0, self.gl.GetError());
+
+                    if loc == -1 {
+                        self.warnings.push(ProgramWarning::IdentNotFound(name.to_string()));
+                    } else {
+                        let mut uniform_type = 0;
+                        self.gl.GetActiveUniformsiv(self.program.handle, 1, &(loc as u32), gl::UNIFORM_TYPE, &mut uniform_type);
+                        let mut array_length = 0;
+                        self.gl.GetActiveUniformsiv(self.program.handle, 1, &(loc as u32), gl::UNIFORM_SIZE, &mut array_length);
+                    }
                 }
                 self.locs.as_mut()[self.locs_index] = loc;
-
-                if loc == -1 {
-                    warn!(target: "gl_raii", "Uniform ident not found in program: {}", name);
-                }
 
                 let mut cstr_bytes = cstr.into_bytes();
                 cstr_bytes.clear();
@@ -171,14 +178,16 @@ impl RawProgram {
         }
 
         let mut locs = U::new_loc_container();
+        let mut warnings = Vec::new();
         U::members(UniformsLocGetter {
             locs: &mut locs,
             locs_index: 0,
             cstr_bytes: Vec::new(),
+            warnings: &mut warnings,
             program: self,
             gl
         });
-        locs
+        (locs, warnings)
     }
 
     pub fn delete(self, state: &ContextState) {
@@ -240,8 +249,6 @@ impl<'a> RawBoundProgram<'a> {
             type Uniforms = U;
             fn add_member<T: GLSLTypeUniform>(&mut self, _: &str, get_member: fn(U) -> T) {
                 use cgmath::*;
-                use norm::*;
-                use num_traits::ToPrimitive;
 
                 struct UniformTypeSwitch<'a> {
                     gl: &'a Gl,
@@ -318,6 +325,8 @@ impl<'a> RawBoundProgram<'a> {
                     };
                     <UniformTypeSwitch as TypeSwitchTrait<T>>::run_expr(ts, get_member(self.uniforms))
                 }
+
+                debug_assert_eq!(0, unsafe{ self.gl.GetError() });
             }
         }
 

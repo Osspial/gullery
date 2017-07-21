@@ -1,7 +1,7 @@
 use gl::{self, Gl};
 use gl::types::*;
 
-use {ContextState, GLObject, GLSLTyGroup, TyGroupMemberRegistry, GLSLTypeTransparent, GLPrim};
+use {ContextState, GLObject, GLSLTyGroup, TyGroupMemberRegistry, GLSLTypeTransparent, GLScalar};
 use buffers::{Buffer, Index};
 
 use std::mem;
@@ -127,18 +127,18 @@ impl<'a, V: GLSLTyGroup> TyGroupMemberRegistry for VertexAttribBuilder<'a, V> {
         let attrib_offset = attrib_offset as usize;
         assert!(attrib_offset + mem::size_of::<T>() <= mem::size_of::<V>());
 
-        let attrib_size = T::len() * mem::size_of::<T::GLPrim>();
+        let attrib_size = T::prim_tag().len() * mem::size_of::<T::Scalar>();
         assert!(attrib_size <= mem::size_of::<T>());
 
         unsafe {
             if self.attrib_index < self.max_attribs {
                 gl.EnableVertexAttribArray(self.attrib_index);
-                if T::GLPrim::gl_enum() != gl::DOUBLE {
+                if T::Scalar::gl_enum() != gl::DOUBLE {
                     gl.VertexAttribPointer(
                         self.attrib_index,
-                        T::len() as GLint,
-                        T::GLPrim::gl_enum(),
-                        T::GLPrim::normalized() as GLboolean,
+                        T::prim_tag().len() as GLint,
+                        T::Scalar::gl_enum(),
+                        T::Scalar::normalized() as GLboolean,
                         mem::size_of::<V>() as GLsizei,
                         attrib_offset as *const GLvoid
                     );
@@ -147,7 +147,7 @@ impl<'a, V: GLSLTyGroup> TyGroupMemberRegistry for VertexAttribBuilder<'a, V> {
                     // gl.VertexAttribLPointer(
                     //     self.attrib_index,
                     //     T::len() as GLint,
-                    //     T::GLPrim::gl_enum(),
+                    //     T::GLScalar::gl_enum(),
                     //     mem::size_of::<V>() as GLsizei,
                     //     attrib_offset as *const GLvoid
                     // );

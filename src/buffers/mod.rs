@@ -12,10 +12,7 @@ use std::mem;
 use std::rc::Rc;
 use std::collections::range::RangeArgument;
 
-pub trait BufferData: 'static + Copy {}
-impl<T: 'static + Copy> BufferData for T {}
-pub unsafe trait Index: BufferData + Sealed {}
-
+pub unsafe trait Index: 'static + Copy + Sealed {}
 unsafe impl Index for () {}
 unsafe impl Index for u8 {}
 unsafe impl Index for u16 {}
@@ -44,12 +41,12 @@ impl BufferBinds {
     }
 }
 
-pub struct Buffer<T: BufferData> {
+pub struct Buffer<T: 'static + Copy> {
     raw: RawBuffer<T>,
     state: Rc<ContextState>
 }
 
-impl<T: BufferData> Buffer<T> {
+impl<T: 'static + Copy> Buffer<T> {
     #[inline]
     pub fn with_size(usage: BufferUsage, size: usize, state: Rc<ContextState>) -> Result<Buffer<T>, AllocError> {
         let (raw, result) = {
@@ -138,14 +135,14 @@ impl<T: BufferData> Buffer<T> {
     }
 }
 
-impl<T: BufferData> GLObject for Buffer<T> {
+impl<T: 'static + Copy> GLObject for Buffer<T> {
     #[inline]
     fn handle(&self) -> GLenum {
         self.raw.handle()
     }
 }
 
-impl<T: BufferData> Drop for Buffer<T> {
+impl<T: 'static + Copy> Drop for Buffer<T> {
     fn drop(&mut self) {
         let mut buffer = unsafe{ mem::uninitialized() };
         mem::swap(&mut buffer, &mut self.raw);

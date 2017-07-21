@@ -6,8 +6,7 @@ extern crate gl_raw as gl;
 extern crate derive_more;
 extern crate num_traits;
 extern crate cgmath;
-#[macro_use]
-extern crate log;
+extern crate w_result;
 
 #[cfg(test)]
 #[macro_use]
@@ -28,7 +27,6 @@ use std::rc::Rc;
 use std::marker::PhantomData;
 
 use seal::Sealed;
-use cgmath::BaseNum;
 
 
 trait GLObject {
@@ -43,7 +41,7 @@ pub trait TyGroupMemberRegistry {
         where T: GLSLTypeTransparent;
 }
 
-pub trait GLSLTyGroup: buffers::BufferData {
+pub trait GLSLTyGroup: 'static + Copy {
     fn members<M>(reg: M)
         where M: TyGroupMemberRegistry<Group=Self>;
 
@@ -67,27 +65,19 @@ pub trait GLSLTyGroup: buffers::BufferData {
 }
 
 pub unsafe trait GLSLTypeUniform: Copy + Sealed {
-    fn uniform_gl_enum() -> GLenum;
+    fn uniform_tag() -> GLSLTypeTag;
 }
 
-/// The Rust representation of a GLSL type.
+/// Rust representation of a transparent GLSL type.
 pub unsafe trait GLSLTypeTransparent: 'static + Copy + Sealed {
-    /// The number of primitives this type contains.
-    fn len() ->  usize;
-    /// Whether or not this type represents a matrix
-    fn matrix() -> bool;
-    /// The underlying primitive for this type
-    type GLPrim: GLPrim;
+    type Scalar: GLScalar;
+    /// The OpenGL constant associated with this type.
+    fn prim_tag() -> GLSLBasicTag;
 }
 
-/// The Rust representation of an OpenGL primitive.
-pub unsafe trait GLPrim: 'static + Copy + Sealed {
-    /// The OpenGL constant associated with this type.
-    fn gl_enum() ->  GLenum;
-    /// If an integer, whether or not the integer is signed. If a float, false
-    fn signed() ->  bool;
-    /// Whether or not this value is normalized by GLSL into a float
-    fn normalized() ->  bool;
+pub unsafe trait GLScalar: GLSLTypeTransparent {
+    fn gl_enum() -> GLenum;
+    fn normalized() -> bool;
 }
 
 pub struct ContextState {
@@ -95,6 +85,92 @@ pub struct ContextState {
     program_target: program::ProgramTarget,
     vao_target: vao::VAOTarget,
     gl: Gl
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GLSLTypeTag {
+    Single(GLSLBasicTag),
+    Array(GLSLBasicTag, usize)
+}
+
+
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GLSLBasicTag {
+    Float = gl::FLOAT,
+    Vec2 = gl::FLOAT_VEC2,
+    Vec3 = gl::FLOAT_VEC3,
+    Vec4 = gl::FLOAT_VEC4,
+    // Double = gl::DOUBLE,
+    // Dvec2 = gl::DOUBLE_VEC2,
+    // Dvec3 = gl::DOUBLE_VEC3,
+    // Dvec4 = gl::DOUBLE_VEC4,
+    Int = gl::INT,
+    IVec2 = gl::INT_VEC2,
+    IVec3 = gl::INT_VEC3,
+    IVec4 = gl::INT_VEC4,
+    UInt = gl::UNSIGNED_INT,
+    UVec2 = gl::UNSIGNED_INT_VEC2,
+    UVec3 = gl::UNSIGNED_INT_VEC3,
+    UVec4 = gl::UNSIGNED_INT_VEC4,
+    Bool = gl::BOOL,
+    BVec2 = gl::BOOL_VEC2,
+    BVec3 = gl::BOOL_VEC3,
+    BVec4 = gl::BOOL_VEC4,
+    Mat2 = gl::FLOAT_MAT2,
+    Mat3 = gl::FLOAT_MAT3,
+    Mat4 = gl::FLOAT_MAT4,
+    // Mat2x3 = gl::FLOAT_MAT2x3,
+    // Mat2x4 = gl::FLOAT_MAT2x4,
+    // Mat3x2 = gl::FLOAT_MAT3x2,
+    // Mat3x4 = gl::FLOAT_MAT3x4,
+    // Mat4x2 = gl::FLOAT_MAT4x2,
+    // Mat4x3 = gl::FLOAT_MAT4x3,
+    // DMat2 = gl::DOUBLE_MAT2,
+    // DMat3 = gl::DOUBLE_MAT3,
+    // DMat4 = gl::DOUBLE_MAT4,
+    // DMat2x3 = gl::DOUBLE_MAT2x3,
+    // DMat2x4 = gl::DOUBLE_MAT2x4,
+    // DMat3x2 = gl::DOUBLE_MAT3x2,
+    // DMat3x4 = gl::DOUBLE_MAT3x4,
+    // DMat4x2 = gl::DOUBLE_MAT4x2,
+    // DMat4x3 = gl::DOUBLE_MAT4x3,
+    // Sampler1D = gl::SAMPLER_1D,
+    // Sampler2D = gl::SAMPLER_2D,
+    // Sampler3D = gl::SAMPLER_3D,
+    // SamplerCube = gl::SAMPLER_CUBE,
+    // Sampler1DShadow = gl::SAMPLER_1D_SHADOW,
+    // Sampler2DShadow = gl::SAMPLER_2D_SHADOW,
+    // Sampler1DArray = gl::SAMPLER_1D_ARRAY,
+    // Sampler2DArray = gl::SAMPLER_2D_ARRAY,
+    // Sampler1DArrayShadow = gl::SAMPLER_1D_ARRAY_SHADOW,
+    // Sampler2DArrayShadow = gl::SAMPLER_2D_ARRAY_SHADOW,
+    // Sampler2DMS = gl::SAMPLER_2D_MULTISAMPLE,
+    // Sampler2DMSArray = gl::SAMPLER_2D_MULTISAMPLE_ARRAY,
+    // SamplerCubeShadow = gl::SAMPLER_CUBE_SHADOW,
+    // SamplerBuffer = gl::SAMPLER_BUFFER,
+    // Sampler2DRect = gl::SAMPLER_2D_RECT,
+    // Sampler2DRectShadow = gl::SAMPLER_2D_RECT_SHADOW,
+    // ISampler1D = gl::INT_SAMPLER_1D,
+    // ISampler2D = gl::INT_SAMPLER_2D,
+    // ISampler3D = gl::INT_SAMPLER_3D,
+    // ISamplerCube = gl::INT_SAMPLER_CUBE,
+    // ISampler1DArray = gl::INT_SAMPLER_1D_ARRAY,
+    // ISampler2DArray = gl::INT_SAMPLER_2D_ARRAY,
+    // ISampler2DMS = gl::INT_SAMPLER_2D_MULTISAMPLE,
+    // ISampler2DMSArray = gl::INT_SAMPLER_2D_MULTISAMPLE_ARRAY,
+    // ISamplerBuffer = gl::INT_SAMPLER_BUFFER,
+    // ISampler2DRect = gl::INT_SAMPLER_2D_RECT,
+    // USampler1D = gl::UNSIGNED_INT_SAMPLER_1D,
+    // USampler2D = gl::UNSIGNED_INT_SAMPLER_2D,
+    // USampler3D = gl::UNSIGNED_INT_SAMPLER_3D,
+    // USamplerCube = gl::UNSIGNED_INT_SAMPLER_CUBE,
+    // USampler1DArray = gl::UNSIGNED_INT_SAMPLER_1D_ARRAY,
+    // USampler2DArray = gl::UNSIGNED_INT_SAMPLER_2D_ARRAY,
+    // USampler2DMS = gl::UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE,
+    // USampler2DMSArray = gl::UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE_ARRAY,
+    // USamplerBuffer = gl::UNSIGNED_INT_SAMPLER_BUFFER,
+    // USampler2DRect = gl::UNSIGNED_INT_SAMPLER_2D_RECT,
 }
 
 impl ContextState {
@@ -107,6 +183,7 @@ impl ContextState {
         })
     }
 }
+
 
 mod seal {
     use super::*;
@@ -128,16 +205,16 @@ mod seal {
     impl Sealed for f64 {}
     impl Sealed for () {}
 
-    impl<S: GLPrim> Sealed for Matrix2<S> {}
-    impl<S: GLPrim> Sealed for Matrix3<S> {}
-    impl<S: GLPrim> Sealed for Matrix4<S> {}
-    impl<S: GLPrim> Sealed for Point1<S> {}
-    impl<S: GLPrim> Sealed for Point2<S> {}
-    impl<S: GLPrim> Sealed for Point3<S> {}
-    impl<S: GLPrim> Sealed for Vector1<S> {}
-    impl<S: GLPrim> Sealed for Vector2<S> {}
-    impl<S: GLPrim> Sealed for Vector3<S> {}
-    impl<S: GLPrim> Sealed for Vector4<S> {}
+    impl<S: GLScalar> Sealed for Matrix2<S> {}
+    impl<S: GLScalar> Sealed for Matrix3<S> {}
+    impl<S: GLScalar> Sealed for Matrix4<S> {}
+    impl<S: GLScalar> Sealed for Point1<S> {}
+    impl<S: GLScalar> Sealed for Point2<S> {}
+    impl<S: GLScalar> Sealed for Point3<S> {}
+    impl<S: GLScalar> Sealed for Vector1<S> {}
+    impl<S: GLScalar> Sealed for Vector2<S> {}
+    impl<S: GLScalar> Sealed for Vector3<S> {}
+    impl<S: GLScalar> Sealed for Vector4<S> {}
 
     macro_rules! impl_sealed_arrays {
         ($($len:expr),+) => {$(

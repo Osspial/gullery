@@ -1,7 +1,6 @@
-use gl;
 use gl::types::*;
 
-use GLPrim;
+use {GLScalar, GLSLBasicTag, GLSLTypeTransparent};
 use num_traits::Num;
 use num_traits::float::Float;
 use num_traits::identities::{Zero, One};
@@ -212,6 +211,19 @@ macro_rules! normalized_int {
         }
 
         impl Sealed for $name {}
+
+        unsafe impl GLScalar for $name {
+            #[inline]
+            fn gl_enum() -> GLenum {$inner::gl_enum()}
+            #[inline]
+            fn normalized() -> bool {true}
+        }
+
+        unsafe impl GLSLTypeTransparent for $name {
+            type Scalar = $name;
+            #[inline]
+            fn prim_tag() -> GLSLBasicTag {GLSLBasicTag::Float}
+        }
     )*);
 }
 
@@ -222,53 +234,4 @@ normalized_int!{
     pub struct Nu8(u8) to_u8;
     pub struct Nu16(u16) to_u16;
     pub struct Nu32(u32) to_u32;
-}
-
-unsafe impl GLPrim for Ni8 {
-    #[inline]
-    fn gl_enum() ->  GLenum {gl::BYTE}
-    #[inline]
-    fn signed() ->  bool {true}
-    #[inline]
-    fn normalized() ->  bool {true}
-}
-unsafe impl GLPrim for Nu8 {
-    #[inline]
-    fn gl_enum() ->  GLenum {gl::UNSIGNED_BYTE}
-    #[inline]
-    fn signed() ->  bool {false}
-    #[inline]
-    fn normalized() ->  bool {true}
-}
-unsafe impl GLPrim for Ni16 {
-    #[inline]
-    fn gl_enum() ->  GLenum {gl::SHORT}
-    #[inline]
-    fn signed() ->  bool {true}
-    #[inline]
-    fn normalized() ->  bool {true}
-}
-unsafe impl GLPrim for Nu16 {
-    #[inline]
-    fn gl_enum() ->  GLenum {gl::UNSIGNED_SHORT}
-    #[inline]
-    fn signed() ->  bool {false}
-    #[inline]
-    fn normalized() ->  bool {true}
-}
-unsafe impl GLPrim for Ni32 {
-    #[inline]
-    fn gl_enum() ->  GLenum {gl::INT}
-    #[inline]
-    fn signed() ->  bool {true}
-    #[inline]
-    fn normalized() ->  bool {true}
-}
-unsafe impl GLPrim for Nu32 {
-    #[inline]
-    fn gl_enum() ->  GLenum {gl::UNSIGNED_INT}
-    #[inline]
-    fn signed() ->  bool {false}
-    #[inline]
-    fn normalized() ->  bool {true}
 }
