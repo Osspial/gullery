@@ -1,7 +1,8 @@
 use gl::{self, Gl};
 use gl::types::*;
 
-use {GLSLTypeUniform, GLSLTyGroup, GLSLTypeTransparent, TyGroupMemberRegistry, ContextState, GLObject};
+use {ContextState, GLObject};
+use glsl::{TypeUniform, TypeGroup, TypeTransparent, TyGroupMemberRegistry};
 use super::{Uniforms, UniformsMemberRegistry};
 use super::error::ProgramWarning;
 use seal::Sealed;
@@ -45,7 +46,7 @@ pub unsafe trait ShaderStage: Sized + Sealed {
     unsafe fn program_pre_link_hook(_: &RawShader<Self>, _: &RawProgram, _: &Gl) {}
 }
 
-pub enum VertexStage<V: GLSLTyGroup> {#[doc(hidden)]_Unused(!, V)}
+pub enum VertexStage<V: TypeGroup> {#[doc(hidden)]_Unused(!, V)}
 pub enum GeometryStage {}
 pub enum FragmentStage {}
 
@@ -145,7 +146,7 @@ impl RawProgram {
         }
         impl<'a, U: Uniforms> UniformsMemberRegistry for UniformsLocGetter<'a, U> {
             type Uniforms = U;
-            fn add_member<T: GLSLTypeUniform>(&mut self, name: &str, _: fn(U) -> T) {
+            fn add_member<T: TypeUniform>(&mut self, name: &str, _: fn(U) -> T) {
                 let mut cstr_bytes = Vec::new();
                 mem::swap(&mut cstr_bytes, &mut self.cstr_bytes);
 
@@ -247,7 +248,7 @@ impl<'a> RawBoundProgram<'a> {
         }
         impl<'a, U: Uniforms> UniformsMemberRegistry for UniformsUploader<'a, U> {
             type Uniforms = U;
-            fn add_member<T: GLSLTypeUniform>(&mut self, _: &str, get_member: fn(U) -> T) {
+            fn add_member<T: TypeUniform>(&mut self, _: &str, get_member: fn(U) -> T) {
                 use cgmath::*;
 
                 struct UniformTypeSwitch<'a> {
@@ -260,7 +261,7 @@ impl<'a> RawBoundProgram<'a> {
                 impl<'a, T> TypeSwitchTrait<T> for UniformTypeSwitch<'a> {
                     #[inline]
                     default fn run_expr(self, _: T) {
-                        // panic!("Unexpected uniform type; isn't GLSLTypeUniform supposed to be sealed anyway?!")
+                        // panic!("Unexpected uniform type; isn't TypeUniform supposed to be sealed anyway?!")
                     }
                 }
                 macro_rules! impl_type_switch {
@@ -353,22 +354,22 @@ impl GLObject for RawProgram {
     }
 }
 
-unsafe impl<V: GLSLTyGroup> ShaderStage for VertexStage<V> {
+unsafe impl<V: TypeGroup> ShaderStage for VertexStage<V> {
     #[inline]
     fn shader_type_enum() -> GLenum {gl::VERTEX_SHADER}
 
     unsafe fn program_pre_link_hook(_: &RawShader<Self>, program: &RawProgram, gl: &Gl) {
-        struct VertexAttribLocBinder<'a, V: GLSLTyGroup> {
+        struct VertexAttribLocBinder<'a, V: TypeGroup> {
             cstr_bytes: Vec<u8>,
             index: GLuint,
             program: &'a RawProgram,
             gl: &'a Gl,
             _marker: PhantomData<V>
         }
-        impl<'a, V: GLSLTyGroup> TyGroupMemberRegistry for VertexAttribLocBinder<'a, V> {
+        impl<'a, V: TypeGroup> TyGroupMemberRegistry for VertexAttribLocBinder<'a, V> {
             type Group = V;
             fn add_member<T>(&mut self, name: &str, _: fn(*const V) -> *const T)
-                where T: GLSLTypeTransparent
+                where T: TypeTransparent
             {
                 // We can't just take ownership of the Vec<u8> to make it a CString, so we have to
                 // create a dummy buffer and swap it to self.cstr_bytes. At the end we swap it back.
@@ -410,6 +411,6 @@ unsafe impl ShaderStage for FragmentStage {
     fn shader_type_enum() -> GLenum {gl::FRAGMENT_SHADER}
 }
 
-impl<V: GLSLTyGroup> Sealed for VertexStage<V> {}
+impl<V: TypeGroup> Sealed for VertexStage<V> {}
 impl Sealed for GeometryStage {}
 impl Sealed for FragmentStage {}

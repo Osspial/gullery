@@ -1,14 +1,15 @@
 use gl::{self, Gl};
 use gl::types::*;
 
-use {ContextState, GLObject, GLSLTyGroup, TyGroupMemberRegistry, GLSLTypeTransparent, GLScalar};
+use {ContextState, GLObject};
+use glsl::{TypeGroup, TyGroupMemberRegistry, TypeTransparent, Scalar};
 use buffers::{Buffer, Index};
 
 use std::mem;
 use std::cell::Cell;
 use std::marker::PhantomData;
 
-pub struct RawVAO<V: GLSLTyGroup> {
+pub struct RawVAO<V: TypeGroup> {
     handle: GLuint,
     /// Handle of the bound vertex buffer
     vbuf: Cell<GLuint>,
@@ -22,9 +23,9 @@ pub struct RawVAOTarget {
     _sendsync_optout: PhantomData<*const ()>
 }
 
-pub struct RawBoundVAO<'a, V: GLSLTyGroup>(PhantomData<(&'a RawVAO<V>, *const ())>);
+pub struct RawBoundVAO<'a, V: TypeGroup>(PhantomData<(&'a RawVAO<V>, *const ())>);
 
-struct VertexAttribBuilder<'a, V: GLSLTyGroup> {
+struct VertexAttribBuilder<'a, V: TypeGroup> {
     attrib_index: u32,
     max_attribs: u32,
     gl: &'a Gl,
@@ -32,7 +33,7 @@ struct VertexAttribBuilder<'a, V: GLSLTyGroup> {
 }
 
 
-impl<V: GLSLTyGroup> RawVAO<V> {
+impl<V: TypeGroup> RawVAO<V> {
     #[inline]
     pub fn new(gl: &Gl) -> RawVAO<V> {
         unsafe {
@@ -71,7 +72,7 @@ impl RawVAOTarget {
 
     #[inline]
     pub unsafe fn bind<'a, V, I>(&'a self, vao: &'a RawVAO<V>, vbuf: &Buffer<V>, ibuf: &Buffer<I>, gl: &Gl) -> RawBoundVAO<'a, V>
-        where V: GLSLTyGroup,
+        where V: TypeGroup,
               I: Index
     {
         if self.bound_vao.get() != vao.handle {
@@ -110,11 +111,11 @@ impl RawVAOTarget {
     }
 }
 
-impl<'a, V: GLSLTyGroup> TyGroupMemberRegistry for VertexAttribBuilder<'a, V> {
+impl<'a, V: TypeGroup> TyGroupMemberRegistry for VertexAttribBuilder<'a, V> {
     type Group = V;
 
     fn add_member<T>(&mut self, name: &str, get_type: fn(*const V) -> *const T)
-        where T: GLSLTypeTransparent
+        where T: TypeTransparent
     {
         let gl = self.gl;
         let vertex = unsafe{ mem::zeroed() };
@@ -147,7 +148,7 @@ impl<'a, V: GLSLTyGroup> TyGroupMemberRegistry for VertexAttribBuilder<'a, V> {
                     // gl.VertexAttribLPointer(
                     //     self.attrib_index,
                     //     T::len() as GLint,
-                    //     T::GLScalar::gl_enum(),
+                    //     T::Scalar::gl_enum(),
                     //     mem::size_of::<V>() as GLsizei,
                     //     attrib_offset as *const GLvoid
                     // );
@@ -166,7 +167,7 @@ impl<'a, V: GLSLTyGroup> TyGroupMemberRegistry for VertexAttribBuilder<'a, V> {
     }
 }
 
-impl<V: GLSLTyGroup> GLObject for RawVAO<V> {
+impl<V: TypeGroup> GLObject for RawVAO<V> {
     #[inline]
     fn handle(&self) -> GLuint {
         self.handle

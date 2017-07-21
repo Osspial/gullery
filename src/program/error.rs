@@ -1,6 +1,7 @@
+use glsl::TypeTag;
+
 use std::error::Error;
 use std::fmt::{self, Display};
-use GLSLTypeTag;
 
 #[derive(Debug, Clone)]
 pub struct ShaderError(pub(super) String);
@@ -13,8 +14,8 @@ pub struct LinkError(pub(super) String);
 pub enum ProgramWarning {
     IdentNotFound(String),
     MismatchedTypes {
-        expected: GLSLTypeTag,
-        found: GLSLTypeTag
+        expected: TypeTag,
+        found: TypeTag
     }
 }
 

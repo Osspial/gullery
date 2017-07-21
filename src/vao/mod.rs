@@ -1,31 +1,29 @@
 mod raw;
 use self::raw::*;
 
-// use gl::types::*;
-
-use GLSLTyGroup;
+use glsl::TypeGroup;
 use buffers::{Index, Buffer, BufferUsage};
 
 use std::{mem, ptr};
 
-pub struct VertexArrayObj<V: GLSLTyGroup, I: Index> {
+pub struct VertexArrayObj<V: TypeGroup, I: Index> {
     raw: RawVAO<V>,
     vertex_buffer: Buffer<V>,
     index_buffer: Buffer<I>
 }
 
 pub(crate) struct VAOTarget(RawVAOTarget);
-pub(crate) struct BoundVAO<'a, V: GLSLTyGroup, I: Index> {
+pub(crate) struct BoundVAO<'a, V: TypeGroup, I: Index> {
     vao: &'a VertexArrayObj<V, I>,
     bind: RawBoundVAO<'a, V>
 }
 
-impl<V: GLSLTyGroup, I: Index> VertexArrayObj<V, I> {
+impl<V: TypeGroup, I: Index> VertexArrayObj<V, I> {
     pub fn new(vertex_buffer: Buffer<V>, index_buffer: Buffer<I>) -> VertexArrayObj<V, I> {
         if vertex_buffer.state().as_ref() as *const _ != index_buffer.state().as_ref() as *const _ {
              panic!("vertex buffer and index buffer using different contexts");
         }
-        
+
         VertexArrayObj {
             raw: RawVAO::new(&vertex_buffer.state().gl),
             vertex_buffer,
@@ -52,7 +50,7 @@ impl<V: GLSLTyGroup, I: Index> VertexArrayObj<V, I> {
     }
 }
 
-impl<V: GLSLTyGroup> VertexArrayObj<V, ()> {
+impl<V: TypeGroup> VertexArrayObj<V, ()> {
     #[inline]
     pub fn new_noindex(vertex_buffer: Buffer<V>) -> VertexArrayObj<V, ()> {
         let index_buffer: Buffer<()> = Buffer::with_size(BufferUsage::StaticDraw, 0, vertex_buffer.state().clone()).unwrap();
@@ -68,7 +66,7 @@ impl VAOTarget {
 
     #[inline]
     pub unsafe fn bind<'a, V, I>(&'a self, vao: &'a VertexArrayObj<V, I>) -> BoundVAO<'a, V, I>
-        where V: GLSLTyGroup,
+        where V: TypeGroup,
               I: Index
     {
         BoundVAO {
@@ -78,7 +76,7 @@ impl VAOTarget {
     }
 }
 
-impl<V: GLSLTyGroup, I: Index> Drop for VertexArrayObj<V, I> {
+impl<V: TypeGroup, I: Index> Drop for VertexArrayObj<V, I> {
     fn drop(&mut self) {
         unsafe{ self.destroy_in_place() }
     }

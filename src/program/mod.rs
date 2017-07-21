@@ -8,7 +8,8 @@ use gl::types::*;
 
 use w_result::*;
 
-use {ContextState, GLSLTyGroup, GLObject, GLSLTypeUniform};
+use {ContextState, GLObject};
+use glsl::{TypeUniform, TypeGroup};
 
 use std::mem;
 use std::rc::Rc;
@@ -21,7 +22,7 @@ pub struct Shader<S: ShaderStage> {
     state: Rc<ContextState>
 }
 
-pub struct Program<V: GLSLTyGroup, U: Uniforms = ()> {
+pub struct Program<V: TypeGroup, U: Uniforms = ()> {
     raw: RawProgram,
     uniform_locs: U::UniformLocContainer,
     state: Rc<ContextState>,
@@ -43,7 +44,7 @@ pub trait Uniforms: Sized + Copy {
             type Uniforms = U;
             #[inline]
             fn add_member<T>(&mut self, _: &str, _: fn(Self::Uniforms) -> T)
-                where T: GLSLTypeUniform
+                where T: TypeUniform
             {
                 *self.0 += 1;
             }
@@ -68,11 +69,11 @@ impl Uniforms for () {
 
 pub trait UniformsMemberRegistry {
     type Uniforms: Uniforms;
-    fn add_member<T: GLSLTypeUniform>(&mut self, name: &str, get_member: fn(Self::Uniforms) -> T);
+    fn add_member<T: TypeUniform>(&mut self, name: &str, get_member: fn(Self::Uniforms) -> T);
 }
 
 pub(crate) struct ProgramTarget(RawProgramTarget);
-pub(crate) struct BoundProgram<'a, V: 'a + GLSLTyGroup, U: 'a + Uniforms> {
+pub(crate) struct BoundProgram<'a, V: 'a + TypeGroup, U: 'a + Uniforms> {
     raw: RawBoundProgram<'a>,
     program: &'a Program<V, U>
 }
@@ -87,7 +88,7 @@ impl<S: ShaderStage> Shader<S> {
     }
 }
 
-impl<V: GLSLTyGroup, U: Uniforms> Program<V, U> {
+impl<V: TypeGroup, U: Uniforms> Program<V, U> {
     pub fn new(vert: &Shader<VertexStage<V>>, geom: Option<&Shader<GeometryStage>>, frag: &Shader<FragmentStage>) -> WResult<Program<V, U>, ProgramWarning, LinkError> {
         // Temporary variables storing the pointers to the OpenGL state for each of the shaders.
         let vsp = vert.state.as_ref() as *const _;
@@ -129,7 +130,7 @@ impl ProgramTarget {
 
     #[inline]
     pub unsafe fn bind<'a, V, U>(&'a self, program: &'a Program<V, U>) -> BoundProgram<'a, V, U>
-        where V: GLSLTyGroup,
+        where V: TypeGroup,
               U: Uniforms
     {
         BoundProgram {
@@ -139,7 +140,7 @@ impl ProgramTarget {
     }
 }
 
-impl<'a, V: GLSLTyGroup, U: Uniforms> BoundProgram<'a, V, U> {
+impl<'a, V: TypeGroup, U: Uniforms> BoundProgram<'a, V, U> {
     #[inline]
     pub fn upload_uniforms(&self, uniforms: U) {
         self.raw.upload_uniforms(uniforms, self.program.uniform_locs.as_ref(), &self.program.state.gl)
@@ -154,7 +155,7 @@ impl<S: ShaderStage> GLObject for Shader<S> {
     }
 }
 
-impl<V: GLSLTyGroup> GLObject for Program<V> {
+impl<V: TypeGroup> GLObject for Program<V> {
     #[inline]
     fn handle(&self) -> GLenum {
         self.raw.handle()
@@ -169,7 +170,7 @@ impl<S: ShaderStage> Drop for Shader<S> {
     }
 }
 
-impl<V: GLSLTyGroup, U: Uniforms> Drop for Program<V, U> {
+impl<V: TypeGroup, U: Uniforms> Drop for Program<V, U> {
     fn drop(&mut self) {
         let mut program_raw = unsafe{ mem::uninitialized() };
         mem::swap(&mut program_raw, &mut self.raw);
