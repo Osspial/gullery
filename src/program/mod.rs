@@ -26,7 +26,7 @@ pub struct Program<V: TypeGroup, U: Uniforms = ()> {
     raw: RawProgram,
     uniform_locs: U::UniformLocContainer,
     state: Rc<ContextState>,
-    _marker: PhantomData<(V, U)>
+    _marker: PhantomData<(*const V, *const U)>
 }
 
 pub trait Uniforms: Sized + Copy {
@@ -108,8 +108,8 @@ impl<V: TypeGroup, U: Uniforms> Program<V, U> {
         }, &vert.state.gl).map_err(|e| LinkError(e));
 
         match raw {
-            Ok(raw) => {
-                let (uniform_locs, warnings) = raw.get_uniform_locations::<U>(&vert.state.gl);
+            WOk(raw, mut warnings) => {
+                let uniform_locs = raw.get_uniform_locations::<U>(&vert.state.gl, &mut warnings);
                 WOk(Program {
                     uniform_locs,
                     raw,
@@ -117,7 +117,7 @@ impl<V: TypeGroup, U: Uniforms> Program<V, U> {
                     _marker: PhantomData
                 }, warnings)
             },
-            Err(raw_error) => WErr(raw_error)
+            WErr(raw_error) => WErr(raw_error)
         }
     }
 }

@@ -2,7 +2,7 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use {ContextState, GLObject};
-use glsl::{TypeUniform, TypeGroup, TypeTransparent, TyGroupMemberRegistry};
+use glsl::{TypeUniform, TypeGroup, TypeTag, TypeBasicTag, TypeTransparent, TyGroupMemberRegistry};
 use super::{Uniforms, UniformsMemberRegistry};
 use super::error::ProgramWarning;
 use seal::Sealed;
@@ -11,6 +11,8 @@ use std::{ptr, mem};
 use std::cell::Cell;
 use std::ffi::CString;
 use std::marker::PhantomData;
+
+use w_result::*;
 
 pub struct RawShader<S: ShaderStage> {
     handle: GLuint,
@@ -29,12 +31,17 @@ pub struct RawProgramTarget {
 
 pub struct RawBoundProgram<'a>(PhantomData<&'a RawProgram>);
 
+struct AttachedShader {
+    handle: GLuint,
+    post_link_hook: unsafe fn(&RawProgram, &Gl, &mut Vec<ProgramWarning>)
+}
+
 /// The second lifetime is needed in order to make the attach_shader function not cause various
 /// lifetime errors when used in a closure.
 pub struct RawProgramShaderAttacher<'a, 'b> {
     program: &'a RawProgram,
     gl: &'a Gl,
-    attached_shaders: &'a mut Vec<GLuint>,
+    attached_shaders: &'a mut Vec<AttachedShader>,
     _marker: PhantomData<&'b ()>
 }
 
@@ -43,7 +50,10 @@ pub unsafe trait ShaderStage: Sized + Sealed {
 
     #[inline]
     #[doc(hidden)]
-    unsafe fn program_pre_link_hook(_: &RawShader<Self>, _: &RawProgram, _: &Gl) {}
+    unsafe fn program_pre_link_hook(_: &RawProgram, _: &Gl) {}
+    #[inline]
+    #[doc(hidden)]
+    unsafe fn program_post_link_hook(_: &RawProgram, _: &Gl, _: &mut Vec<ProgramWarning>) {}
 }
 
 pub enum VertexStage<V: TypeGroup> {#[doc(hidden)]_Unused(!, V)}
@@ -97,12 +107,13 @@ impl<S: ShaderStage> RawShader<S> {
 }
 
 impl RawProgram {
-    pub fn new<'b, F>(attach_shaders: F, gl: &Gl) -> Result<RawProgram, String>
+    pub fn new<'b, F>(attach_shaders: F, gl: &Gl) -> WResult<RawProgram, ProgramWarning, String>
         where for<'a> F: FnOnce(RawProgramShaderAttacher<'a, 'b>)
     {
         unsafe {
             let program = RawProgram{ handle: gl.CreateProgram(), _sendsync_optout: PhantomData };
-            let mut attached_shaders = Vec::new();
+            let (mut warnings, mut attached_shaders) = (Vec::new(), Vec::new());
+
             attach_shaders(RawProgramShaderAttacher {
                 program: &program,
                 gl,
@@ -118,10 +129,11 @@ impl RawProgram {
             gl.GetProgramiv(program.handle, gl::LINK_STATUS, &mut is_linked);
 
             if is_linked == gl::TRUE as GLint {
-                for shader_handle in attached_shaders {
-                    gl.DetachShader(program.handle, shader_handle);
+                for AttachedShader{handle, post_link_hook} in attached_shaders {
+                    gl.DetachShader(program.handle, handle);
+                    post_link_hook(&program, gl, &mut warnings);
                 }
-                Ok(program)
+                WOk(program, warnings)
             } else {
                 let mut info_log_length = 0;
                 gl.GetProgramiv(program.handle, gl::INFO_LOG_LENGTH, &mut info_log_length);
@@ -130,12 +142,12 @@ impl RawProgram {
                 gl.GetProgramInfoLog(program.handle, info_log_length, ptr::null_mut(), info_log.as_mut_ptr() as *mut GLchar);
 
                 gl.DeleteProgram(program.handle);
-                Err(String::from_utf8_unchecked(info_log))
+                WErr(String::from_utf8_unchecked(info_log))
             }
         }
     }
 
-    pub fn get_uniform_locations<U: Uniforms>(&self, gl: &Gl) -> (U::UniformLocContainer, Vec<ProgramWarning>) {
+    pub fn get_uniform_locations<U: Uniforms>(&self, gl: &Gl, warnings: &mut Vec<ProgramWarning>) -> U::UniformLocContainer {
         struct UniformsLocGetter<'a, U: Uniforms> {
             locs: &'a mut U::UniformLocContainer,
             locs_index: usize,
@@ -179,16 +191,15 @@ impl RawProgram {
         }
 
         let mut locs = U::new_loc_container();
-        let mut warnings = Vec::new();
         U::members(UniformsLocGetter {
             locs: &mut locs,
             locs_index: 0,
             cstr_bytes: Vec::new(),
-            warnings: &mut warnings,
+            warnings,
             program: self,
             gl
         });
-        (locs, warnings)
+        locs
     }
 
     pub fn delete(self, state: &ContextState) {
@@ -232,8 +243,11 @@ impl<'a, 'b> RawProgramShaderAttacher<'a, 'b> {
     pub fn attach_shader<S: 'a + ShaderStage>(&mut self, shader: &'b RawShader<S>) {
         unsafe {
             self.gl.AttachShader(self.program.handle, shader.handle);
-            S::program_pre_link_hook(shader, &self.program, &self.gl);
-            self.attached_shaders.push(shader.handle);
+            S::program_pre_link_hook(&self.program, &self.gl);
+            self.attached_shaders.push(AttachedShader {
+                handle: shader.handle,
+                post_link_hook: S::program_post_link_hook
+            });
         }
     }
 }
@@ -261,7 +275,7 @@ impl<'a> RawBoundProgram<'a> {
                 impl<'a, T> TypeSwitchTrait<T> for UniformTypeSwitch<'a> {
                     #[inline]
                     default fn run_expr(self, _: T) {
-                        // panic!("Unexpected uniform type; isn't TypeUniform supposed to be sealed anyway?!")
+                        panic!("Unexpected uniform type; isn't TypeUniform supposed to be sealed anyway?!")
                     }
                 }
                 macro_rules! impl_type_switch {
@@ -358,7 +372,7 @@ unsafe impl<V: TypeGroup> ShaderStage for VertexStage<V> {
     #[inline]
     fn shader_type_enum() -> GLenum {gl::VERTEX_SHADER}
 
-    unsafe fn program_pre_link_hook(_: &RawShader<Self>, program: &RawProgram, gl: &Gl) {
+    unsafe fn program_pre_link_hook(program: &RawProgram, gl: &Gl) {
         struct VertexAttribLocBinder<'a, V: TypeGroup> {
             cstr_bytes: Vec<u8>,
             index: GLuint,
@@ -400,6 +414,61 @@ unsafe impl<V: TypeGroup> ShaderStage for VertexStage<V> {
             program, gl,
             _marker: PhantomData
         })
+    }
+
+    unsafe fn program_post_link_hook(program: &RawProgram, gl: &Gl, warnings: &mut Vec<ProgramWarning>) {
+        struct VertexAttribTypeChecker<'a, V: TypeGroup> {
+            index: GLuint,
+            program: &'a RawProgram,
+            gl: &'a Gl,
+            warnings: &'a mut Vec<ProgramWarning>,
+            _marker: PhantomData<V>
+        }
+        impl<'a, V: TypeGroup> TyGroupMemberRegistry for VertexAttribTypeChecker<'a, V> {
+            type Group = V;
+            fn add_member<T>(&mut self, name: &str, _: fn(*const V) -> *const T)
+                where T: TypeTransparent
+            {
+                let (mut size, mut ty) = (0, 0);
+                unsafe {
+                    self.gl.GetActiveAttrib(
+                        self.program.handle,
+                        self.index,
+                        0,
+                        ptr::null_mut(),
+                        &mut size,
+                        &mut ty,
+                        ptr::null_mut()
+                    );
+
+                    assert_eq!(0, self.gl.GetError());
+                }
+
+                let prim_tag = TypeBasicTag::from_gl_enum(ty).expect(&format!("unsupported GLSL type in attribute {}", name));
+                let shader_ty = match size {
+                    1 => TypeTag::Single(prim_tag),
+                    _ => TypeTag::Array(prim_tag, size as usize)
+                };
+                let rust_ty = TypeTag::Single(T::prim_tag());
+
+                if shader_ty != rust_ty {
+                    self.warnings.push(ProgramWarning::MismatchedTypes {
+                        ident: name.to_string(),
+                        shader_ty,
+                        rust_ty
+                    });
+                }
+                self.index += 1;
+            }
+        }
+
+        V::members(VertexAttribTypeChecker {
+            index: 0,
+            program: program,
+            gl,
+            warnings,
+            _marker: PhantomData
+        });
     }
 }
 unsafe impl ShaderStage for GeometryStage {

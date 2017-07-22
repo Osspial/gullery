@@ -47,9 +47,9 @@ fn impl_shader_block(derive_input: &DeriveInput) -> Tokens {
                 const #dummy_const: () = {
                     extern crate gl_raii as _gl_raii;
                     #[automatically_derived]
-                    impl #impl_generics _gl_raii::TypeGroup for #ident #ty_generics #where_clause {
+                    impl #impl_generics _gl_raii::glsl::TypeGroup for #ident #ty_generics #where_clause {
                         fn members<M>(mut reg: M)
-                            where M: _gl_raii::TyGroupMemberRegistry<Group=Self>
+                            where M: _gl_raii::glsl::TyGroupMemberRegistry<Group=Self>
                         {
                             #(
                                 reg.add_member(stringify!(#idents), |t| unsafe{ &(*t).#idents_1 });

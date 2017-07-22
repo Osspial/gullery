@@ -14,8 +14,9 @@ pub struct LinkError(pub(super) String);
 pub enum ProgramWarning {
     IdentNotFound(String),
     MismatchedTypes {
-        expected: TypeTag,
-        found: TypeTag
+        ident: String,
+        shader_ty: TypeTag,
+        rust_ty: TypeTag
     }
 }
 
@@ -36,7 +37,7 @@ impl Display for ProgramWarning {
         use self::ProgramWarning::*;
         match *self {
             IdentNotFound(ref ident) => write!(f, "Identifier not found: {}", ident),
-            MismatchedTypes{expected, found} => write!(f, "Mismatched type; expected {}, found {}", expected, found)
+            MismatchedTypes{ref ident, shader_ty, rust_ty} => write!(f, "Mismatched type in {}; shader has {}, but Rust repr has {}", ident, shader_ty, rust_ty)
         }
     }
 }
