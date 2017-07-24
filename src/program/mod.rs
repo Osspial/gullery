@@ -187,7 +187,7 @@ mod tests {
     const VERTEX_SHADER: &str = r#"
         #version 330
 
-        in vec3 pos;
+        in vec2 pos;
         in vec3 color;
 
         uniform vec3 color_tint;
@@ -196,7 +196,7 @@ mod tests {
         smooth out vec4 vertex_color;
 
         void main() {
-            gl_Position = vec4(pos + offset, 1.0);
+            gl_Position = vec4(vec3(pos, 0.0) + offset, 1.0);
             vertex_color = vec4(color * color_tint, 1.0);
         }
     "#;

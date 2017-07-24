@@ -97,11 +97,11 @@ mod test_helper {
     use glsl::{TypeGroup, TyGroupMemberRegistry};
     use glutin::{HeadlessRendererBuilder, HeadlessContext, GlRequest, GlContext, Api};
     use quickcheck::{Arbitrary, Gen};
-    use cgmath::Point3;
+    use cgmath::{Point2, Point3};
 
     #[derive(Debug, Clone, Copy)]
     pub struct TestVertex {
-        pos: Point3<f32>,
+        pos: Point2<f32>,
         color: Point3<f32>
     }
 
@@ -117,7 +117,7 @@ mod test_helper {
     impl Arbitrary for TestVertex {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
             TestVertex {
-                pos: Point3::new(f32::arbitrary(g), f32::arbitrary(g), f32::arbitrary(g)),
+                pos: Point2::new(f32::arbitrary(g), f32::arbitrary(g)),
                 color: Point3::new(f32::arbitrary(g), f32::arbitrary(g), f32::arbitrary(g))
             }
         }

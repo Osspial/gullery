@@ -419,9 +419,7 @@ unsafe impl<V: TypeGroup> ShaderStage for VertexStage<V> {
 
     unsafe fn program_post_link_hook(program: &RawProgram, gl: &Gl, warnings: &mut Vec<ProgramWarning>) {
         struct VertexAttribTypeChecker<'a, V: TypeGroup> {
-            index: GLuint,
-            program: &'a RawProgram,
-            gl: &'a Gl,
+            attrib_types: &'a mut Vec<(String, TypeTag)>,
             warnings: &'a mut Vec<ProgramWarning>,
             _marker: PhantomData<V>
         }
@@ -430,46 +428,69 @@ unsafe impl<V: TypeGroup> ShaderStage for VertexStage<V> {
             fn add_member<T>(&mut self, name: &str, _: fn(*const V) -> *const T)
                 where T: TypeTransparent
             {
-                let (mut size, mut ty) = (0, 0);
-                unsafe {
-                    self.gl.GetActiveAttrib(
-                        self.program.handle,
-                        self.index,
-                        0,
-                        ptr::null_mut(),
-                        &mut size,
-                        &mut ty,
-                        ptr::null_mut()
-                    );
+                let mut attrib_index = None;
+                for (i, &(ref attrib_name, shader_ty)) in self.attrib_types.iter().enumerate() {
+                    if attrib_name.as_str() == name {
+                        let rust_ty = TypeTag::Single(T::prim_tag());
+                        attrib_index = Some(i);
 
-                    assert_eq!(0, self.gl.GetError());
+                        if shader_ty != rust_ty {
+                            self.warnings.push(ProgramWarning::MismatchedTypes {
+                                ident: name.to_string(),
+                                shader_ty,
+                                rust_ty
+                            });
+                        }
+                        break;
+                    }
                 }
 
+                if let Some(index) = attrib_index {
+                    self.attrib_types.remove(index);
+                }
+            }
+        }
+
+        unsafe {
+            let (mut num_attribs, mut max_name_buffer_len) = (0, 0);
+            gl.GetProgramiv(program.handle, gl::ACTIVE_ATTRIBUTES, &mut num_attribs);
+            gl.GetProgramiv(program.handle, gl::ACTIVE_ATTRIBUTE_MAX_LENGTH, &mut max_name_buffer_len);
+            let mut attrib_types = Vec::with_capacity(num_attribs as usize);
+
+            for attrib in 0..num_attribs {
+                let (mut size, mut ty, mut name_len) = (0, 0, 0);
+                let mut name_buffer: Vec<u8> = vec![0; max_name_buffer_len as usize];
+
+                gl.GetActiveAttrib(
+                    program.handle,
+                    attrib as GLuint,
+                    max_name_buffer_len,
+                    &mut name_len,
+                    &mut size,
+                    &mut ty,
+                    name_buffer.as_mut_ptr() as *mut i8
+                );
+                name_buffer.truncate(name_len as usize);
+                let name = String::from_utf8(name_buffer).unwrap();
                 let prim_tag = TypeBasicTag::from_gl_enum(ty).expect(&format!("unsupported GLSL type in attribute {}", name));
                 let shader_ty = match size {
                     1 => TypeTag::Single(prim_tag),
                     _ => TypeTag::Array(prim_tag, size as usize)
                 };
-                let rust_ty = TypeTag::Single(T::prim_tag());
 
-                if shader_ty != rust_ty {
-                    self.warnings.push(ProgramWarning::MismatchedTypes {
-                        ident: name.to_string(),
-                        shader_ty,
-                        rust_ty
-                    });
-                }
-                self.index += 1;
+                attrib_types.push((name, shader_ty));
+            }
+
+            V::members(VertexAttribTypeChecker {
+                attrib_types: &mut attrib_types,
+                warnings,
+                _marker: PhantomData
+            });
+
+            for (name, _) in attrib_types {
+                warnings.push(ProgramWarning::UnusedAttrib(name));
             }
         }
-
-        V::members(VertexAttribTypeChecker {
-            index: 0,
-            program: program,
-            gl,
-            warnings,
-            _marker: PhantomData
-        });
     }
 }
 unsafe impl ShaderStage for GeometryStage {
