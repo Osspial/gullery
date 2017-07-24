@@ -15,6 +15,7 @@ extern crate quickcheck;
 extern crate glutin;
 
 pub mod buffers;
+pub mod colors;
 pub mod glsl;
 pub mod program;
 pub mod vao;
