@@ -375,7 +375,7 @@ unsafe impl<V: TypeGroup> ShaderStage for VertexStage<V> {
     unsafe fn program_pre_link_hook(program: &RawProgram, gl: &Gl) {
         struct VertexAttribLocBinder<'a, V: TypeGroup> {
             cstr_bytes: Vec<u8>,
-            index: GLuint,
+            location: GLuint,
             program: &'a RawProgram,
             gl: &'a Gl,
             _marker: PhantomData<V>
@@ -397,7 +397,7 @@ unsafe impl<V: TypeGroup> ShaderStage for VertexStage<V> {
                 let cstr = CString::new(cstr_bytes).expect("Null terminator in member name string");
 
                 unsafe {
-                    self.gl.BindAttribLocation(self.program.handle, self.index, cstr.as_ptr());
+                    self.gl.BindAttribLocation(self.program.handle, self.location, cstr.as_ptr());
                     assert_eq!(0, self.gl.GetError());
                 }
 
@@ -405,12 +405,13 @@ unsafe impl<V: TypeGroup> ShaderStage for VertexStage<V> {
                 cstr_bytes.clear();
 
                 mem::swap(&mut cstr_bytes, &mut self.cstr_bytes);
+                self.location += 1;
             }
         }
 
         V::members(VertexAttribLocBinder {
             cstr_bytes: Vec::new(),
-            index: 0,
+            location: 0,
             program, gl,
             _marker: PhantomData
         })
