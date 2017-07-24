@@ -95,7 +95,7 @@ mod seal {
 mod test_helper {
     use super::*;
     use glsl::{TypeGroup, TyGroupMemberRegistry};
-    use glutin::{HeadlessRendererBuilder, HeadlessContext, GlRequest, Api};
+    use glutin::{HeadlessRendererBuilder, HeadlessContext, GlRequest, GlContext, Api};
     use quickcheck::{Arbitrary, Gen};
     use cgmath::Point3;
 
