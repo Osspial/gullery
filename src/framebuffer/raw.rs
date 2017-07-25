@@ -5,7 +5,7 @@ use glsl::{TypeGroup, Scalar};
 use buffers::Index;
 use vao::BoundVAO;
 use program::{BoundProgram, Uniforms};
-use colors::RGBAf32;
+use colors::Rgba;
 
 use std::mem;
 use std::cell::Cell;
@@ -129,9 +129,8 @@ impl<'a, F> RawBoundFramebufferDraw<'a, F>
     where F: RawFramebuffer
 {
     #[inline]
-    pub(crate) fn clear_color(&mut self, color: RGBAf32) {
-        let color_array: [f32; 4] = color.into();
-        unsafe{ self.gl.ClearBufferfv(gl::COLOR, 0, color_array.as_ptr()) }
+    pub(crate) fn clear_color(&mut self, color: Rgba<f32>) {
+        unsafe{ self.gl.ClearBufferfv(gl::COLOR, 0, &color.r) }
     }
 
     #[inline]

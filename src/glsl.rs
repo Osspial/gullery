@@ -67,6 +67,9 @@ pub unsafe trait Scalar: TypeTransparent {
     fn normalized() -> bool;
 }
 
+pub unsafe trait ScalarNum: Scalar + Num {}
+unsafe impl<S: Scalar + Num> ScalarNum for S {}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TypeTag {
     Single(TypeBasicTag),

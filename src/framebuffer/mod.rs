@@ -7,7 +7,7 @@ use glsl::TypeGroup;
 use buffers::Index;
 use vao::VertexArrayObj;
 use program::{Program, Uniforms};
-use colors::RGBAf32;
+use colors::Rgba;
 
 use std::rc::Rc;
 use std::collections::range::RangeArgument;
@@ -35,7 +35,7 @@ pub trait Framebuffer: Sealed {
     fn raw_mut(&mut self) -> (&mut Self::Raw, &ContextState);
 
     #[inline]
-    fn clear_color(&mut self, color: RGBAf32) {
+    fn clear_color(&mut self, color: Rgba<f32>) {
         let (raw_mut, state) = self.raw_mut();
         unsafe {
             let mut framebuffer_bind = state.framebuffer_targets.draw.bind(raw_mut, &state.gl);

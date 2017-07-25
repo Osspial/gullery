@@ -57,7 +57,7 @@ fn main() {
         match event {
             Event::WindowEvent{event, ..} => match event {
                 WindowEvent::Resized(_, _) => {
-                    default_framebuffer.clear_color(RGBAf32::new(0.0, 0.0, 0.0, 1.0));
+                    default_framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0));
                     default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, ());
 
                     window.context().swap_buffers().unwrap();
