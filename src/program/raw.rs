@@ -451,45 +451,43 @@ unsafe impl<V: TypeGroup> ShaderStage for VertexStage<V> {
             }
         }
 
-        unsafe {
-            let (mut num_attribs, mut max_name_buffer_len) = (0, 0);
-            gl.GetProgramiv(program.handle, gl::ACTIVE_ATTRIBUTES, &mut num_attribs);
-            gl.GetProgramiv(program.handle, gl::ACTIVE_ATTRIBUTE_MAX_LENGTH, &mut max_name_buffer_len);
-            let mut attrib_types = Vec::with_capacity(num_attribs as usize);
+        let (mut num_attribs, mut max_name_buffer_len) = (0, 0);
+        gl.GetProgramiv(program.handle, gl::ACTIVE_ATTRIBUTES, &mut num_attribs);
+        gl.GetProgramiv(program.handle, gl::ACTIVE_ATTRIBUTE_MAX_LENGTH, &mut max_name_buffer_len);
+        let mut attrib_types = Vec::with_capacity(num_attribs as usize);
 
-            for attrib in 0..num_attribs {
-                let (mut size, mut ty, mut name_len) = (0, 0, 0);
-                let mut name_buffer: Vec<u8> = vec![0; max_name_buffer_len as usize];
+        for attrib in 0..num_attribs {
+            let (mut size, mut ty, mut name_len) = (0, 0, 0);
+            let mut name_buffer: Vec<u8> = vec![0; max_name_buffer_len as usize];
 
-                gl.GetActiveAttrib(
-                    program.handle,
-                    attrib as GLuint,
-                    max_name_buffer_len,
-                    &mut name_len,
-                    &mut size,
-                    &mut ty,
-                    name_buffer.as_mut_ptr() as *mut i8
-                );
-                name_buffer.truncate(name_len as usize);
-                let name = String::from_utf8(name_buffer).unwrap();
-                let prim_tag = TypeBasicTag::from_gl_enum(ty).expect(&format!("unsupported GLSL type in attribute {}", name));
-                let shader_ty = match size {
-                    1 => TypeTag::Single(prim_tag),
-                    _ => TypeTag::Array(prim_tag, size as usize)
-                };
+            gl.GetActiveAttrib(
+                program.handle,
+                attrib as GLuint,
+                max_name_buffer_len,
+                &mut name_len,
+                &mut size,
+                &mut ty,
+                name_buffer.as_mut_ptr() as *mut i8
+            );
+            name_buffer.truncate(name_len as usize);
+            let name = String::from_utf8(name_buffer).unwrap();
+            let prim_tag = TypeBasicTag::from_gl_enum(ty).expect(&format!("unsupported GLSL type in attribute {}", name));
+            let shader_ty = match size {
+                1 => TypeTag::Single(prim_tag),
+                _ => TypeTag::Array(prim_tag, size as usize)
+            };
 
-                attrib_types.push((name, shader_ty));
-            }
+            attrib_types.push((name, shader_ty));
+        }
 
-            V::members(VertexAttribTypeChecker {
-                attrib_types: &mut attrib_types,
-                warnings,
-                _marker: PhantomData
-            });
+        V::members(VertexAttribTypeChecker {
+            attrib_types: &mut attrib_types,
+            warnings,
+            _marker: PhantomData
+        });
 
-            for (name, _) in attrib_types {
-                warnings.push(ProgramWarning::UnusedAttrib(name));
-            }
+        for (name, _) in attrib_types {
+            warnings.push(ProgramWarning::UnusedAttrib(name));
         }
     }
 }

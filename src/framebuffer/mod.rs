@@ -3,7 +3,7 @@ use self::raw::*;
 pub use self::raw::DrawMode;
 
 use ContextState;
-use glsl::{TypeGroup, Scalar};
+use glsl::TypeGroup;
 use buffers::Index;
 use vao::VertexArrayObj;
 use program::{Program, Uniforms};
@@ -15,7 +15,7 @@ use std::collections::range::RangeArgument;
 use seal::Sealed;
 
 pub(crate) struct FramebufferTargets {
-    read: RawFramebufferTargetRead,
+    // read: RawFramebufferTargetRead,
     draw: RawFramebufferTargetDraw
 }
 
@@ -76,7 +76,7 @@ impl FramebufferTargets {
     #[inline]
     pub fn new() -> FramebufferTargets {
         FramebufferTargets {
-            read: RawFramebufferTargetRead::new(),
+            // read: RawFramebufferTargetRead::new(),
             draw: RawFramebufferTargetDraw::new()
         }
     }

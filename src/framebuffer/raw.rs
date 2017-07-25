@@ -5,7 +5,7 @@ use glsl::{TypeGroup, Scalar};
 use buffers::Index;
 use vao::BoundVAO;
 use program::{BoundProgram, Uniforms};
-use colors::{ColorFormat, RGBAf32};
+use colors::RGBAf32;
 
 use std::mem;
 use std::cell::Cell;
@@ -22,9 +22,9 @@ unsafe impl RawFramebuffer for RawDefaultFramebuffer {
     fn handle(&self) -> GLuint {0}
 }
 
-pub struct RawFramebufferTargetRead {
-    bound_fb: Cell<GLuint>
-}
+// pub struct RawFramebufferTargetRead {
+//     bound_fb: Cell<GLuint>
+// }
 
 pub struct RawFramebufferTargetDraw {
     bound_fb: Cell<GLuint>
@@ -48,12 +48,12 @@ pub enum DrawMode {
     // Patches
 }
 
-pub struct RawBoundFramebufferRead<'a, F>
-    where F: 'a + RawFramebuffer
-{
-    _fb: PhantomData<&'a F>,
-    gl: &'a Gl
-}
+// pub struct RawBoundFramebufferRead<'a, F>
+//     where F: 'a + RawFramebuffer
+// {
+//     _fb: PhantomData<&'a F>,
+//     gl: &'a Gl
+// }
 
 pub struct RawBoundFramebufferDraw<'a, F>
     where F: 'a + RawFramebuffer
@@ -62,35 +62,35 @@ pub struct RawBoundFramebufferDraw<'a, F>
     gl: &'a Gl
 }
 
-impl RawFramebufferTargetRead {
-    #[inline]
-    pub fn new() -> RawFramebufferTargetRead {
-        RawFramebufferTargetRead {
-            bound_fb: Cell::new(0)
-        }
-    }
+// impl RawFramebufferTargetRead {
+//     #[inline]
+//     pub fn new() -> RawFramebufferTargetRead {
+//         RawFramebufferTargetRead {
+//             bound_fb: Cell::new(0)
+//         }
+//     }
 
-    #[inline]
-    pub unsafe fn bind<'a, F>(&'a self, framebuffer: &'a F, gl: &'a Gl) -> RawBoundFramebufferRead<'a, F>
-        where F: RawFramebuffer
-    {
-        if self.bound_fb.get() != framebuffer.handle() {
-            self.bound_fb.set(framebuffer.handle());
-            gl.BindFramebuffer(gl::READ_FRAMEBUFFER, framebuffer.handle());
-        }
+//     #[inline]
+//     pub unsafe fn bind<'a, F>(&'a self, framebuffer: &'a F, gl: &'a Gl) -> RawBoundFramebufferRead<'a, F>
+//         where F: RawFramebuffer
+//     {
+//         if self.bound_fb.get() != framebuffer.handle() {
+//             self.bound_fb.set(framebuffer.handle());
+//             gl.BindFramebuffer(gl::READ_FRAMEBUFFER, framebuffer.handle());
+//         }
 
-        RawBoundFramebufferRead {
-            _fb: PhantomData,
-            gl
-        }
-    }
+//         RawBoundFramebufferRead {
+//             _fb: PhantomData,
+//             gl
+//         }
+//     }
 
-    #[inline]
-    unsafe fn reset_bind(&self, gl: &Gl) {
-        self.bound_fb.set(0);
-        gl.BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
-    }
-}
+//     #[inline]
+//     unsafe fn reset_bind(&self, gl: &Gl) {
+//         self.bound_fb.set(0);
+//         gl.BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
+//     }
+// }
 
 impl RawFramebufferTargetDraw {
     #[inline]
@@ -115,15 +115,15 @@ impl RawFramebufferTargetDraw {
         }
     }
 
-    #[inline]
-    unsafe fn reset_bind(&self, gl: &Gl) {
-        self.bound_fb.set(0);
-        gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
-    }
+    // #[inline]
+    // unsafe fn reset_bind(&self, gl: &Gl) {
+    //     self.bound_fb.set(0);
+    //     gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
+    // }
 }
 
-impl<'a, F> RawBoundFramebufferRead<'a, F>
-    where F: RawFramebuffer {}
+// impl<'a, F> RawBoundFramebufferRead<'a, F>
+//     where F: RawFramebuffer {}
 
 impl<'a, F> RawBoundFramebufferDraw<'a, F>
     where F: RawFramebuffer

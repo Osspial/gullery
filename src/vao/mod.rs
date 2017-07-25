@@ -15,7 +15,7 @@ pub struct VertexArrayObj<V: TypeGroup, I: Index> {
 pub(crate) struct VAOTarget(RawVAOTarget);
 pub(crate) struct BoundVAO<'a, V: TypeGroup, I: Index> {
     vao: &'a VertexArrayObj<V, I>,
-    bind: RawBoundVAO<'a, V>
+    _bind: RawBoundVAO<'a, V>
 }
 
 impl<V: TypeGroup, I: Index> VertexArrayObj<V, I> {
@@ -91,7 +91,7 @@ impl VAOTarget {
     {
         BoundVAO {
             vao,
-            bind: self.0.bind(&vao.raw, &vao.vertex_buffer, &vao.index_buffer, &vao.vertex_buffer.state().gl)
+            _bind: self.0.bind(&vao.raw, &vao.vertex_buffer, &vao.index_buffer, &vao.vertex_buffer.state().gl)
         }
     }
 }

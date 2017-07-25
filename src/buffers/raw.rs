@@ -5,7 +5,6 @@ use gl::types::*;
 
 use std::{ptr, mem};
 use std::ops::Deref;
-use std::collections::Bound;
 use std::collections::range::RangeArgument;
 use std::cell::Cell;
 use std::marker::PhantomData;
