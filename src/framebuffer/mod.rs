@@ -44,7 +44,7 @@ pub trait Framebuffer: Sealed {
     }
 
     #[inline]
-    fn draw<R, V, I, U>(&mut self, mode: DrawMode, range: R, vao: &VertexArrayObj<V, I>, program: &Program<V, U>)
+    fn draw<R, V, I, U>(&mut self, mode: DrawMode, range: R, vao: &VertexArrayObj<V, I>, program: &Program<V, U>, uniforms: U)
         where R: RangeArgument<usize>,
               V: TypeGroup,
               I: Index,
@@ -53,7 +53,10 @@ pub trait Framebuffer: Sealed {
         let (raw_mut, state) = self.raw_mut();
         unsafe {
             let vao_bind = state.vao_target.bind(vao);
+
             let program_bind = state.program_target.bind(program);
+            program_bind.upload_uniforms(uniforms);
+
             let mut framebuffer_bind = state.framebuffer_targets.draw.bind(raw_mut, &state.gl);
             framebuffer_bind.draw(mode, range, &vao_bind, &program_bind);
         }
