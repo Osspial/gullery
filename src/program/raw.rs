@@ -405,7 +405,7 @@ unsafe impl<V: TypeGroup> ShaderStage for VertexStage<V> {
                 cstr_bytes.clear();
 
                 mem::swap(&mut cstr_bytes, &mut self.cstr_bytes);
-                self.location += 1;
+                self.location += T::prim_tag().num_attrib_slots() as u32;
             }
         }
 

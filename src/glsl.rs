@@ -463,6 +463,87 @@ impl TypeBasicTag {
         }
     }
 
+    pub fn num_attrib_slots(self) -> usize {
+        use self::TypeBasicTag::*;
+        match self {
+            // DMat2x3 |
+            // Mat2x3  |
+            // DMat2x4 |
+            // Mat2x4  |
+            // DMat2   |
+            Mat2   => 2,
+            // DMat3x2 |
+            // Mat3x2  |
+            // DMat3x4 |
+            // Mat3x4  |
+            // DMat3   |
+            Mat3   => 3,
+            // DMat4x2 |
+            // Mat4x2  |
+            // DMat4x3 |
+            // Mat4x3  |
+            // DMat4   |
+            Mat4   => 4,
+
+            // Sampler1D |
+            // Sampler2D |
+            // Sampler3D |
+            // SamplerCube |
+            // Sampler1DShadow |
+            // Sampler2DShadow |
+            // Sampler1DArray |
+            // Sampler2DArray |
+            // Sampler1DArrayShadow |
+            // Sampler2DArrayShadow |
+            // Sampler2DMS |
+            // Sampler2DMSArray |
+            // SamplerCubeShadow |
+            // SamplerBuffer |
+            // Sampler2DRect |
+            // Sampler2DRectShadow |
+            // ISampler1D |
+            // ISampler2D |
+            // ISampler3D |
+            // ISamplerCube |
+            // ISampler1DArray |
+            // ISampler2DArray |
+            // ISampler2DMS |
+            // ISampler2DMSArray |
+            // ISamplerBuffer |
+            // ISampler2DRect |
+            // USampler1D |
+            // USampler2D |
+            // USampler3D |
+            // USamplerCube |
+            // USampler1DArray |
+            // USampler2DArray |
+            // USampler2DMS |
+            // USampler2DMSArray |
+            // USamplerBuffer |
+            // USampler2DRect |
+            // Double |
+            // Dvec2  |
+            // Dvec3  |
+            // Dvec4  |
+            Int    |
+            Float  |
+            UInt   |
+            Bool   |
+            Vec2   |
+            IVec2  |
+            UVec2  |
+            BVec2  |
+            Vec3   |
+            IVec3  |
+            UVec3  |
+            BVec3  |
+            Vec4   |
+            IVec4  |
+            UVec4  |
+            BVec4 => 1,
+        }
+    }
+
     pub fn vectorize(self, len: u8) -> Option<TypeBasicTag> {
         use self::TypeBasicTag::*;
         match (self, len) {

@@ -26,7 +26,7 @@ pub struct RawVAOTarget {
 pub struct RawBoundVAO<'a, V: TypeGroup>(PhantomData<(&'a RawVAO<V>, *const ())>);
 
 struct VertexAttribBuilder<'a, V: TypeGroup> {
-    attrib_index: u32,
+    attrib_loc: u32,
     max_attribs: u32,
     gl: &'a Gl,
     _marker: PhantomData<(*const V)>
@@ -90,7 +90,7 @@ impl RawVAOTarget {
 
             // Set the vertex attributes to point to the newly bound vertex buffer
             V::members(VertexAttribBuilder {
-                attrib_index: 0,
+                attrib_loc: 0,
                 max_attribs: max_attribs as u32,
                 gl,
                 _marker: PhantomData
@@ -128,33 +128,43 @@ impl<'a, V: TypeGroup> TyGroupMemberRegistry for VertexAttribBuilder<'a, V> {
         let attrib_offset = attrib_offset as usize;
         assert!(attrib_offset + mem::size_of::<T>() <= mem::size_of::<V>());
 
-        let attrib_size = T::prim_tag().len() * mem::size_of::<T::Scalar>();
+        let ty_attrib_slots = T::prim_tag().num_attrib_slots();
+
+        let attrib_len = T::prim_tag().len() / ty_attrib_slots;
+        let attrib_size = attrib_len * mem::size_of::<T::Scalar>();
         assert!(attrib_size <= mem::size_of::<T>());
 
+
         unsafe {
-            if self.attrib_index < self.max_attribs {
-                gl.EnableVertexAttribArray(self.attrib_index);
-                if T::Scalar::gl_enum() != gl::DOUBLE {
-                    gl.VertexAttribPointer(
-                        self.attrib_index,
-                        T::prim_tag().len() as GLint,
-                        T::Scalar::gl_enum(),
-                        T::Scalar::normalized() as GLboolean,
-                        mem::size_of::<V>() as GLsizei,
-                        attrib_offset as *const GLvoid
-                    );
-                } else {
-                    panic!("Attempting to use OpenGL 4 feature")
-                    // gl.VertexAttribLPointer(
-                    //     self.attrib_index,
-                    //     T::len() as GLint,
-                    //     T::Scalar::gl_enum(),
-                    //     mem::size_of::<V>() as GLsizei,
-                    //     attrib_offset as *const GLvoid
-                    // );
+            if self.attrib_loc < self.max_attribs {
+                // Enable all vertex attributes necessary. For matrices, there will be more than one
+                // attribute so that's why this loop is needed.
+                for slot in 0..ty_attrib_slots as u32 {
+                    gl.EnableVertexAttribArray(self.attrib_loc + slot);
+                    let slot_offset = slot as usize * attrib_size;
+
+                    if T::Scalar::gl_enum() != gl::DOUBLE {
+                        gl.VertexAttribPointer(
+                            self.attrib_loc + slot,
+                            attrib_len as GLint,
+                            T::Scalar::gl_enum(),
+                            T::Scalar::normalized() as GLboolean,
+                            mem::size_of::<V>() as GLsizei,
+                            (attrib_offset + slot_offset) as *const GLvoid
+                        );
+                    } else {
+                        panic!("Attempting to use OpenGL 4 feature")
+                        // gl.VertexAttribLPointer(
+                        //     self.attrib_loc,
+                        //     T::len() as GLint,
+                        //     T::Scalar::gl_enum(),
+                        //     mem::size_of::<V>() as GLsizei,
+                        //     attrib_offset as *const GLvoid
+                        // );
+                    }
                 }
 
-                self.attrib_index += 1;
+                self.attrib_loc += ty_attrib_slots as u32;
             } else {
                 panic!(
                     "Too many attributes on field {}; GL implementation has maximum of {}",
