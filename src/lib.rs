@@ -37,17 +37,20 @@ pub struct ContextState {
     program_target: program::ProgramTarget,
     vao_target: vao::VAOTarget,
     framebuffer_targets: framebuffer::FramebufferTargets,
+    sampler_units: textures::SamplerUnits,
     gl: Gl
 }
 
 impl ContextState {
     pub unsafe fn new<F: Fn(&str) -> *const ()>(load_fn: F) -> Rc<ContextState> {
+        let gl = Gl::load_with(|s| load_fn(s) as *const _);
         Rc::new(ContextState {
             buffer_binds: buffers::BufferBinds::new(),
             program_target: program::ProgramTarget::new(),
             vao_target: vao::VAOTarget::new(),
             framebuffer_targets: framebuffer::FramebufferTargets::new(),
-            gl: Gl::load_with(|s| load_fn(s) as *const _)
+            sampler_units: textures::SamplerUnits::new(&gl),
+            gl
         })
     }
 }
@@ -73,6 +76,7 @@ mod seal {
     impl Sealed for f64 {}
     impl Sealed for () {}
     impl Sealed for ! {}
+    impl<'a, T> Sealed for &'a [T] {}
 
     impl<S: Scalar> Sealed for Matrix2<S> {}
     impl<S: Scalar> Sealed for Matrix3<S> {}

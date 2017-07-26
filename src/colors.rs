@@ -6,13 +6,12 @@ use seal::Sealed;
 use num_traits::{Num, PrimInt};
 
 
-pub unsafe trait ColorFormat: Copy + Into<Rgba<<Self as ColorFormat>::Scalar>> + Sealed {
+pub unsafe trait ColorFormat: 'static + Copy + Into<Rgba<<Self as ColorFormat>::Scalar>> + Sealed {
     type Scalar: ScalarNum;
 
     fn internal_format() -> GLenum;
     fn pixel_format() -> GLenum;
     fn pixel_type() -> GLenum;
-    fn pixels_per_struct() -> usize;
 }
 
 fn is_integer<N: Num>() -> bool {
@@ -129,8 +128,6 @@ macro_rules! basic_format {
             fn pixel_type() -> GLenum {
                 <$prim as Scalar>::gl_enum()
             }
-            #[inline]
-            fn pixels_per_struct() -> usize {1}
         }
         unsafe impl ColorFormat for Rgb<$prim> {
             type Scalar = $prim;
@@ -147,8 +144,6 @@ macro_rules! basic_format {
             fn pixel_type() -> GLenum {
                 <$prim as Scalar>::gl_enum()
             }
-            #[inline]
-            fn pixels_per_struct() -> usize {1}
         }
         unsafe impl ColorFormat for Rg<$prim> {
             type Scalar = $prim;
@@ -165,8 +160,6 @@ macro_rules! basic_format {
             fn pixel_type() -> GLenum {
                 <$prim as Scalar>::gl_enum()
             }
-            #[inline]
-            fn pixels_per_struct() -> usize {1}
         }
         unsafe impl ColorFormat for Red<$prim> {
             type Scalar = $prim;
@@ -183,8 +176,6 @@ macro_rules! basic_format {
             fn pixel_type() -> GLenum {
                 <$prim as Scalar>::gl_enum()
             }
-            #[inline]
-            fn pixels_per_struct() -> usize {1}
         }
     )*}
 }
