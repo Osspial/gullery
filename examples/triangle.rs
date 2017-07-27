@@ -11,15 +11,21 @@ use gl_raii::program::*;
 use gl_raii::vao::*;
 use gl_raii::glsl::*;
 use gl_raii::colors::*;
+use gl_raii::textures::*;
 
 use cgmath::*;
+use std::iter;
 
 use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuilder, ContextBuilder, GlWindow};
 
 #[derive(TypeGroup, Clone, Copy)]
 struct Vertex {
-    pos: Vector2<f32>,
-    color: Vector4<Nu8>,
+    pos: Vector2<f32>
+}
+
+#[derive(Clone, Copy, Uniforms)]
+struct TriUniforms<'a> {
+    texture: &'a Texture<Rgb<Nu8>, targets::SimpleTex<Dims2D>>
 }
 
 fn main() {
@@ -35,22 +41,30 @@ fn main() {
     let vertex_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[
         Vertex {
             pos: Vector2::new(-1.0, -1.0),
-            color: Vector4::new(Nu8(255), Nu8(255), Nu8(255), Nu8(255))
         },
         Vertex {
             pos: Vector2::new( 0.0,  1.0),
-            color: Vector4::new(Nu8(255), Nu8(128), Nu8(255), Nu8(255))
         },
         Vertex {
             pos: Vector2::new( 1.0,  -1.0),
-            color: Vector4::new(Nu8(0), Nu8(255), Nu8(255), Nu8(255))
         },
     ], state.clone()).unwrap();
     let vao = VertexArrayObj::new_noindex(vertex_buffer);
 
+    let mut image = Vec::new();
+    for i in 0..512u32*512 {
+        image.push(Rgb::new(Nu8(255), Nu8(255), Nu8((i % 255) as u8)));
+    }
+    let texture = Texture::with_images(Dims2D::new(512, 512), iter::once(&image[..]), state.clone()).unwrap();
+
+    let uniforms = TriUniforms {
+        texture: &texture
+    };
+
     let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();
     let fragment_shader = Shader::new(FRAGMENT_SHADER, state.clone()).unwrap();
-    let program = Program::new(&vertex_shader, None, &fragment_shader).unwrap_werr();
+    let program = Program::new(&vertex_shader, None, &fragment_shader).unwrap_discard();
+
 
     let mut default_framebuffer = DefaultFramebuffer::new(state.clone());
     events_loop.run_forever(|event| {
@@ -58,7 +72,7 @@ fn main() {
             Event::WindowEvent{event, ..} => match event {
                 WindowEvent::Resized(_, _) => {
                     default_framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0));
-                    default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, ());
+                    default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniforms);
 
                     window.context().swap_buffers().unwrap();
                 }
@@ -76,23 +90,24 @@ const VERTEX_SHADER: &str = r#"
     #version 330
 
     in vec2 pos;
-    in vec4 color;
-    out vec3 vert_color;
+    out vec2 tex_coord;
 
     void main() {
+        tex_coord = pos;
         gl_Position = vec4(pos, 0.0, 1.0);
-        vert_color = color.rgb;
     }
 "#;
 
 const FRAGMENT_SHADER: &str = r#"
     #version 330
 
-    in vec3 vert_color;
+    in vec2 tex_coord;
     out vec4 frag_color;
 
+    uniform sampler2D tex;
+
     void main() {
-        frag_color = vec4(vert_color, 1.0);
+        frag_color = texture(tex, tex_coord);
     }
 "#;
 

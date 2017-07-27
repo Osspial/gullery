@@ -1,13 +1,10 @@
 use super::*;
 pub struct SimpleTex<D: Dims>(PhantomData<D>);
-
 pub struct CubemapTex;
-
 pub struct RectTex;
-
 // pub struct BufferTex;
-
 pub struct MultisampleTex;
+
 
 impl<D: Dims> Sealed for SimpleTex<D> {}
 unsafe impl<C, D> TextureTypeSingleImage<C> for SimpleTex<D>
@@ -22,7 +19,7 @@ unsafe impl<C, D> TextureType<C> for SimpleTex<D>
         panic!("use specialized version instead.")
     }
 }
-unsafe impl<C> TextureType<C> for SimpleTex<Dims1d>
+unsafe impl<C> TextureType<C> for SimpleTex<Dims1D>
     where C: ColorFormat
 {
     #[inline]
@@ -30,7 +27,7 @@ unsafe impl<C> TextureType<C> for SimpleTex<Dims1d>
         gl::TEXTURE_1D
     }
 }
-unsafe impl<C> TextureType<C> for SimpleTex<Dims2d>
+unsafe impl<C> TextureType<C> for SimpleTex<Dims2D>
     where C: ColorFormat
 {
     #[inline]
@@ -38,7 +35,7 @@ unsafe impl<C> TextureType<C> for SimpleTex<Dims2d>
         gl::TEXTURE_2D
     }
 }
-unsafe impl<C> TextureType<C> for SimpleTex<Dims3d>
+unsafe impl<C> TextureType<C> for SimpleTex<Dims3D>
     where C: ColorFormat
 {
     #[inline]
@@ -46,7 +43,7 @@ unsafe impl<C> TextureType<C> for SimpleTex<Dims3d>
         gl::TEXTURE_3D
     }
 }
-unsafe impl<C> ArrayTextureType<C> for SimpleTex<Dims1d>
+unsafe impl<C> ArrayTextureType<C> for SimpleTex<Dims1D>
     where C: ColorFormat
 {
     #[inline]
@@ -54,7 +51,7 @@ unsafe impl<C> ArrayTextureType<C> for SimpleTex<Dims1d>
         gl::TEXTURE_1D_ARRAY
     }
 }
-unsafe impl<C> ArrayTextureType<C> for SimpleTex<Dims2d>
+unsafe impl<C> ArrayTextureType<C> for SimpleTex<Dims2D>
     where C: ColorFormat
 {
     #[inline]
@@ -68,7 +65,7 @@ unsafe impl<C> TextureType<C> for CubemapTex
     where C: ColorFormat
 {
     type MipSelector = u8;
-    type Dims = Dims2d;
+    type Dims = Dims2D;
 
     #[inline]
     fn bind_target() -> GLenum {
@@ -90,7 +87,7 @@ unsafe impl<C> TextureType<C> for RectTex
     where C: ColorFormat
 {
     type MipSelector = ();
-    type Dims = Dims2d;
+    type Dims = Dims2D;
 
     #[inline]
     fn bind_target() -> GLenum {
@@ -101,10 +98,10 @@ unsafe impl<C> TextureType<C> for RectTex
 // impl Sealed for BufferTex {}
 // unsafe impl TextureType for BufferTex {
 //     type MipSelector = ();
-//     type Dims = Dims1d;
+//     type Dims = Dims1D;
 
 //     #[inline]
-//     fn dims(&self) -> &Dims1d {
+//     fn dims(&self) -> &Dims1D {
 //         &self.dims
 //     }
 //     #[inline]
@@ -120,7 +117,7 @@ unsafe impl<C> TextureType<C> for MultisampleTex
     where C: ColorFormat
 {
     type MipSelector = ();
-    type Dims = Dims2d;
+    type Dims = Dims2D;
 
     #[inline]
     fn bind_target() -> GLenum {

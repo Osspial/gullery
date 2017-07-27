@@ -6,6 +6,7 @@ use glsl::{TypeUniform, TypeGroup, TypeTag, TypeBasicTag, TypeTransparent, TyGro
 use super::{Uniforms, UniformsMemberRegistry};
 use super::error::ProgramWarning;
 use seal::Sealed;
+use textures::SamplerUnits;
 
 use std::{ptr, mem};
 use std::cell::Cell;
@@ -253,10 +254,12 @@ impl<'a, 'b> RawProgramShaderAttacher<'a, 'b> {
 }
 
 impl<'a> RawBoundProgram<'a> {
-    pub fn upload_uniforms<U: Uniforms>(&self, uniforms: U, locs: &[GLint], gl: &Gl) {
+    pub(crate) fn upload_uniforms<U: Uniforms>(&self, uniforms: U, locs: &[GLint], sampler_units: &SamplerUnits, gl: &Gl) {
         struct UniformsUploader<'a, U: Uniforms> {
             locs: &'a [GLint],
             loc_index: usize,
+            unit: u32,
+            sampler_units: &'a SamplerUnits,
             gl: &'a Gl,
             uniforms: U
         }
@@ -264,10 +267,14 @@ impl<'a> RawBoundProgram<'a> {
             type Uniforms = U;
             fn add_member<T: TypeUniform>(&mut self, _: &str, get_member: fn(U) -> T) {
                 use cgmath::*;
+                use colors::ColorFormat;
+                use textures::{Texture, TextureType};
 
                 struct UniformTypeSwitch<'a> {
                     gl: &'a Gl,
-                    loc: GLint
+                    loc: GLint,
+                    sampler_units: &'a SamplerUnits,
+                    unit: &'a mut u32
                 }
                 trait TypeSwitchTrait<T> {
                     fn run_expr(self, _: T);
@@ -332,11 +339,28 @@ impl<'a> RawBoundProgram<'a> {
                     Point3<i32>, (s, p) => s.gl.Uniform3i(s.loc, p.x, p.y, p.z),
                 }
 
+                impl<'a, C, T> TypeSwitchTrait<&'a Texture<C, T>> for UniformTypeSwitch<'a>
+                    where C: ColorFormat,
+                          T: TextureType<C>,
+                          &'a Texture<C, T>: TypeUniform
+                {
+                    #[inline]
+                    fn run_expr(self, tex: &'a Texture<C, T>) {
+                        unsafe {
+                            self.gl.Uniform1ui(self.loc, *self.unit);
+                            self.sampler_units.bind(*self.unit, tex, self.gl);
+                        }
+                        *self.unit += 1;
+                    }
+                }
+
                 let loc = self.locs[self.loc_index];
                 if loc != -1 {
                     let ts = UniformTypeSwitch {
                         gl: self.gl,
-                        loc
+                        loc,
+                        sampler_units: self.sampler_units,
+                        unit: &mut self.unit
                     };
                     <UniformTypeSwitch as TypeSwitchTrait<T>>::run_expr(ts, get_member(self.uniforms))
                 }
@@ -348,6 +372,8 @@ impl<'a> RawBoundProgram<'a> {
         U::members(UniformsUploader {
             locs,
             loc_index: 0,
+            unit: 0,
+            sampler_units,
             gl,
             uniforms
         })
@@ -467,7 +493,7 @@ unsafe impl<V: TypeGroup> ShaderStage for VertexStage<V> {
                 &mut name_len,
                 &mut size,
                 &mut ty,
-                name_buffer.as_mut_ptr() as *mut i8
+                name_buffer.as_mut_ptr() as *mut GLchar
             );
             name_buffer.truncate(name_len as usize);
             let name = String::from_utf8(name_buffer).unwrap();

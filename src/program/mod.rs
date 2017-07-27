@@ -143,7 +143,7 @@ impl ProgramTarget {
 impl<'a, V: TypeGroup, U: Uniforms> BoundProgram<'a, V, U> {
     #[inline]
     pub fn upload_uniforms(&self, uniforms: U) {
-        self.raw.upload_uniforms(uniforms, self.program.uniform_locs.as_ref(), &self.program.state.gl)
+        self.raw.upload_uniforms(uniforms, self.program.uniform_locs.as_ref(), &self.program.state.sampler_units, &self.program.state.gl)
     }
 }
 
