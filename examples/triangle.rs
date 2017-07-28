@@ -25,7 +25,7 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct TriUniforms<'a> {
-    texture: &'a Texture<Rgb<Nu8>, targets::SimpleTex<Dims2D>>
+    tex: &'a Texture<Rgb<Nu8>, targets::SimpleTex<Dims2D>>
 }
 
 fn main() {
@@ -60,10 +60,10 @@ fn main() {
     for i in 0..512u32*512 {
         image.push(Rgb::new(Nu8(255), Nu8(255), Nu8((i % 255) as u8)));
     }
-    let texture = Texture::with_images(Dims2D::new(512, 512), iter::once(&image[..]), state.clone()).unwrap();
+    let texture: Texture<_, targets::SimpleTex<Dims2D>> = Texture::with_images(Dims2D::new(512, 512), iter::once(&image[..]), state.clone()).unwrap();
 
     let uniforms = TriUniforms {
-        texture: &texture
+        tex: &texture
     };
 
     let mut default_framebuffer = DefaultFramebuffer::new(state.clone());

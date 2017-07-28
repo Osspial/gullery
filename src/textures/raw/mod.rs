@@ -190,9 +190,14 @@ impl RawSamplerUnits {
         }
     }
 
+    // #[inline]
+    // pub fn active_unit(&self) -> u32 {
+    //     self.active_unit.get()
+    // }
+
     #[inline]
-    pub fn active_unit(&self) -> u32 {
-        self.active_unit.get()
+    pub fn num_units(&self) -> u32 {
+        self.sampler_units.len() as u32
     }
 
     #[inline]

@@ -42,8 +42,13 @@ impl<C, T> Texture<C, T>
         let mut raw = RawTexture::new(dims, &state.gl);
 
         {
-            let active_unit = state.sampler_units.0.active_unit();
-            let mut bind = unsafe{ state.sampler_units.0.bind_mut(active_unit, &mut raw, &state.gl) };
+            // We use the last texture unit to make sure that a program never accidentally uses a texture bound
+            // during modification.
+            //
+            // (If you're reading this source code because your program is accidentally using a texture because
+            // it's using the last texture, congratulations! You have waaay to many textures. Scale it back yo)
+            let last_unit = state.sampler_units.0.num_units() - 1;
+            let mut bind = unsafe{ state.sampler_units.0.bind_mut(last_unit, &mut raw, &state.gl) };
 
             for (level, image) in images.into_iter().enumerate() {
                 bind.alloc_image(level as u8, Some(image))?;
@@ -63,11 +68,11 @@ impl<C, T> Texture<C, T>
           T: TextureType<C>
 {
     pub fn new(dims: T::Dims, mips: T::MipSelector, state: Rc<ContextState>) -> Texture<C, T> {
-        let active_unit = state.sampler_units.0.active_unit();
 
         let mut raw = RawTexture::new(dims, &state.gl);
         {
-            let mut bind = unsafe{ state.sampler_units.0.bind_mut(active_unit, &mut raw, &state.gl) };
+            let last_unit = state.sampler_units.0.num_units() - 1;
+            let mut bind = unsafe{ state.sampler_units.0.bind_mut(last_unit, &mut raw, &state.gl) };
             for level in mips.iter_less() {
                 bind.alloc_image::<!>(level, None).expect("Image allocation failed without data. Please file bug report");
             }

@@ -348,8 +348,9 @@ impl<'a> RawBoundProgram<'a> {
                 {
                     #[inline]
                     fn run_expr(self, tex: &'a Texture<C, T>) {
+
                         unsafe {
-                            self.gl.Uniform1ui(self.loc, *self.unit);
+                            self.gl.Uniform1i(self.loc, *self.unit as GLint);
                             self.sampler_units.bind(*self.unit, tex, self.gl);
                         }
                         *self.unit += 1;
@@ -364,7 +365,7 @@ impl<'a> RawBoundProgram<'a> {
                         sampler_units: self.sampler_units,
                         unit: &mut self.unit
                     };
-                    <UniformTypeSwitch as TypeSwitchTrait<T>>::run_expr(ts, get_member(self.uniforms))
+                    <UniformTypeSwitch as TypeSwitchTrait<T>>::run_expr(ts, get_member(self.uniforms));
                 }
 
                 debug_assert_eq!(0, unsafe{ self.gl.GetError() });
