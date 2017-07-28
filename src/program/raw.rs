@@ -3,7 +3,7 @@ use gl::types::*;
 
 use {ContextState, GLObject};
 use glsl::{TypeUniform, TypeGroup, TypeTag, TypeBasicTag, TypeTransparent, TyGroupMemberRegistry};
-use super::{Uniforms, UniformsMemberRegistry};
+use uniforms::{Uniforms, UniformLocContainer, UniformsMemberRegistry};
 use super::error::ProgramWarning;
 use seal::Sealed;
 use textures::SamplerUnits;
@@ -148,9 +148,11 @@ impl RawProgram {
         }
     }
 
-    pub fn get_uniform_locations<U: Uniforms>(&self, gl: &Gl, warnings: &mut Vec<ProgramWarning>) -> U::UniformLocContainer {
-        struct UniformsLocGetter<'a, U: Uniforms> {
-            locs: &'a mut U::UniformLocContainer,
+    pub fn get_uniform_locations<U: Uniforms>(&self, gl: &Gl, warnings: &mut Vec<ProgramWarning>) -> U::ULC {
+        struct UniformsLocGetter<'a, U: Uniforms>
+            where U::ULC: 'a
+        {
+            locs: &'a mut U::ULC,
             locs_index: usize,
             cstr_bytes: Vec<u8>,
             warnings: &'a mut Vec<ProgramWarning>,
@@ -191,7 +193,7 @@ impl RawProgram {
             }
         }
 
-        let mut locs = U::new_loc_container();
+        let mut locs = U::ULC::new_zeroed();
         U::members(UniformsLocGetter {
             locs: &mut locs,
             locs_index: 0,

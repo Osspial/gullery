@@ -84,6 +84,11 @@ fn impl_uniforms(derive_input: &DeriveInput) -> Tokens {
         Body::Enum(..) => panic!("TypeGroup can only be derived on structs"),
         Body::Struct(ref variant) => {
             let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+            let static_generics = Generics {
+                lifetimes: generics.lifetimes.iter().cloned().map(|mut ld| {ld.lifetime = Lifetime::new("'static"); ld}).collect(),
+                ..generics.clone()
+            };
+            let (_, static_ty_generics, _) = static_generics.split_for_impl();
             let gen_idents = || variant.fields().iter()
                 .cloned()
                 .enumerate()
@@ -102,20 +107,16 @@ fn impl_uniforms(derive_input: &DeriveInput) -> Tokens {
                 const #dummy_const: () = {
                     extern crate gl_raii as _gl_raii;
                     #[automatically_derived]
-                    impl #impl_generics _gl_raii::program::Uniforms for #ident #ty_generics #where_clause {
-                        type UniformLocContainer = [i32; #num_members];
+                    impl #impl_generics _gl_raii::uniforms::Uniforms for #ident #ty_generics #where_clause {
+                        type ULC = [i32; #num_members];
+                        type Static = #ident #static_ty_generics;
                         #[inline]
                         fn members<M>(mut reg: M)
-                            where M: _gl_raii::program::UniformsMemberRegistry<Uniforms=Self>
+                            where M: _gl_raii::uniforms::UniformsMemberRegistry<Uniforms=Self>
                         {
                             #(
                                 reg.add_member(stringify!(#idents), |t| t.#idents_1);
                             )*
-                        }
-
-                        #[inline]
-                        fn new_loc_container() -> [i32; #num_members] {
-                            [0; #num_members]
                         }
                     }
                 };

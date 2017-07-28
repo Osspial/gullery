@@ -20,6 +20,7 @@ pub mod glsl;
 pub mod framebuffer;
 pub mod program;
 pub mod textures;
+pub mod uniforms;
 pub mod vao;
 
 use gl::Gl;

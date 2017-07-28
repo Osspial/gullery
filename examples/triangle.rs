@@ -51,6 +51,11 @@ fn main() {
     ], state.clone()).unwrap();
     let vao = VertexArrayObj::new_noindex(vertex_buffer);
 
+
+    let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();
+    let fragment_shader = Shader::new(FRAGMENT_SHADER, state.clone()).unwrap();
+    let program = Program::new(&vertex_shader, None, &fragment_shader).unwrap_discard();
+
     let mut image = Vec::new();
     for i in 0..512u32*512 {
         image.push(Rgb::new(Nu8(255), Nu8(255), Nu8((i % 255) as u8)));
@@ -60,11 +65,6 @@ fn main() {
     let uniforms = TriUniforms {
         texture: &texture
     };
-
-    let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();
-    let fragment_shader = Shader::new(FRAGMENT_SHADER, state.clone()).unwrap();
-    let program = Program::new(&vertex_shader, None, &fragment_shader).unwrap_discard();
-
 
     let mut default_framebuffer = DefaultFramebuffer::new(state.clone());
     events_loop.run_forever(|event| {
@@ -110,4 +110,3 @@ const FRAGMENT_SHADER: &str = r#"
         frag_color = texture(tex, tex_coord);
     }
 "#;
-

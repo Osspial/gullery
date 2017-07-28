@@ -6,7 +6,8 @@ use ContextState;
 use glsl::TypeGroup;
 use buffers::Index;
 use vao::VertexArrayObj;
-use program::{Program, Uniforms};
+use uniforms::Uniforms;
+use program::Program;
 use colors::Rgba;
 
 use std::rc::Rc;
@@ -44,7 +45,7 @@ pub trait Framebuffer: Sealed {
     }
 
     #[inline]
-    fn draw<R, V, I, U>(&mut self, mode: DrawMode, range: R, vao: &VertexArrayObj<V, I>, program: &Program<V, U>, uniforms: U)
+    fn draw<R, V, I, U>(&mut self, mode: DrawMode, range: R, vao: &VertexArrayObj<V, I>, program: &Program<V, U::Static>, uniforms: U)
         where R: RangeArgument<usize>,
               V: TypeGroup,
               I: Index,

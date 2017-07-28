@@ -9,7 +9,8 @@ use gl::types::*;
 use w_result::*;
 
 use {ContextState, GLObject};
-use glsl::{TypeUniform, TypeGroup};
+use glsl::TypeGroup;
+use uniforms::Uniforms;
 
 use std::mem;
 use std::rc::Rc;
@@ -22,58 +23,15 @@ pub struct Shader<S: ShaderStage> {
     state: Rc<ContextState>
 }
 
-pub struct Program<V: TypeGroup, U: Uniforms = ()> {
+pub struct Program<V: TypeGroup, U: 'static + Uniforms> {
     raw: RawProgram,
-    uniform_locs: U::UniformLocContainer,
+    uniform_locs: U::ULC,
     state: Rc<ContextState>,
-    _marker: PhantomData<(*const V, *const U)>
-}
-
-pub trait Uniforms: Sized + Copy {
-    type UniformLocContainer: 'static + AsRef<[GLint]> + AsMut<[GLint]>;
-
-    fn members<R>(reg: R)
-        where R: UniformsMemberRegistry<Uniforms=Self>;
-
-    fn new_loc_container() -> Self::UniformLocContainer;
-
-    #[inline]
-    fn num_members() -> usize {
-        struct MemberCounter<'a, U>(&'a mut usize, PhantomData<U>);
-        impl<'a, U: Uniforms> UniformsMemberRegistry for MemberCounter<'a, U> {
-            type Uniforms = U;
-            #[inline]
-            fn add_member<T>(&mut self, _: &str, _: fn(Self::Uniforms) -> T)
-                where T: TypeUniform
-            {
-                *self.0 += 1;
-            }
-        }
-
-        let mut num = 0;
-        Self::members(MemberCounter::<Self>(&mut num, PhantomData));
-        num
-    }
-}
-
-impl Uniforms for () {
-    type UniformLocContainer = [GLint; 0];
-
-    #[inline]
-    fn members<R>(_: R)
-        where R: UniformsMemberRegistry<Uniforms=()> {}
-
-    #[inline]
-    fn new_loc_container() -> [GLint; 0] {[]}
-}
-
-pub trait UniformsMemberRegistry {
-    type Uniforms: Uniforms;
-    fn add_member<T: TypeUniform>(&mut self, name: &str, get_member: fn(Self::Uniforms) -> T);
+    _marker: PhantomData<*const V>
 }
 
 pub(crate) struct ProgramTarget(RawProgramTarget);
-pub(crate) struct BoundProgram<'a, V: 'a + TypeGroup, U: 'a + Uniforms> {
+pub(crate) struct BoundProgram<'a, V: 'a + TypeGroup, U: 'static + Uniforms> {
     raw: RawBoundProgram<'a>,
     program: &'a Program<V, U>
 }
@@ -142,7 +100,9 @@ impl ProgramTarget {
 
 impl<'a, V: TypeGroup, U: Uniforms> BoundProgram<'a, V, U> {
     #[inline]
-    pub fn upload_uniforms(&self, uniforms: U) {
+    pub fn upload_uniforms<N>(&self, uniforms: N)
+        where N: Uniforms<ULC=U::ULC, Static=U>
+    {
         self.raw.upload_uniforms(uniforms, self.program.uniform_locs.as_ref(), &self.program.state.sampler_units, &self.program.state.gl)
     }
 }
@@ -155,7 +115,7 @@ impl<S: ShaderStage> GLObject for Shader<S> {
     }
 }
 
-impl<V: TypeGroup> GLObject for Program<V> {
+impl<V: TypeGroup, U: Uniforms> GLObject for Program<V, U> {
     #[inline]
     fn handle(&self) -> GLenum {
         self.raw.handle()

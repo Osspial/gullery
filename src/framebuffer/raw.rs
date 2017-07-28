@@ -4,7 +4,8 @@ use gl::types::*;
 use glsl::{TypeGroup, Scalar};
 use buffers::Index;
 use vao::BoundVAO;
-use program::{BoundProgram, Uniforms};
+use uniforms::Uniforms;
+use program::BoundProgram;
 use colors::Rgba;
 
 use std::mem;
