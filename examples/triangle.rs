@@ -60,7 +60,10 @@ fn main() {
     for i in 0..512u32*512 {
         image.push(Rgb::new(Nu8(255), Nu8(255), Nu8((i % 255) as u8)));
     }
-    let texture = Texture::with_images(Dims2D::new(512, 512), iter::once(&image[..]), state.clone()).unwrap();
+    let mut texture = Texture::with_images(Dims2D::new(512, 512), iter::once(&image[..]), state.clone()).unwrap();
+
+    let sub_image = vec![Rgb::new(Nu8(255), Nu8(0), Nu8(128)); 256*256];
+    texture.sub_image(0, Vector2::new(256, 256), Dims2D::new(256, 256), &sub_image[..]);
 
     let uniforms = TriUniforms {
         tex: &texture

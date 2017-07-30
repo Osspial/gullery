@@ -120,6 +120,14 @@ impl<C, T> Texture<C, T>
     pub fn dims(&self) -> T::Dims {
         self.raw.dims()
     }
+
+    pub fn sub_image<'a, I>(&mut self, level: T::MipSelector, offset: <T::Dims as Dims>::Offset, sub_dims: T::Dims, image: I)
+        where I: Image<'a, C, T>
+    {
+        let last_unit = self.state.sampler_units.0.num_units() - 1;
+        let mut bind = unsafe{ self.state.sampler_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
+        bind.sub_image(level, offset, sub_dims, image);
+    }
 }
 
 impl SamplerUnits {

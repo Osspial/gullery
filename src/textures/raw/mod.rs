@@ -332,78 +332,70 @@ impl<'a, C, T> RawBoundTextureMut<'a, C, T>
         }
     }
 
-    // pub fn sub_image<'b, I>(
-    //     &mut self,
-    //     level: T::MipSelector,
-    //     image: I,
-    //     offset: <T::Dims as Dims>::Offset,
-    //     sub_dims: T::Dims
-    // ) -> Result<(), TextureError>
-    //     where I: Image<'b, C, T>
-    // {
-    //     use self::DimsTag::*;
+    pub fn sub_image<'b, I>(
+        &mut self,
+        level: T::MipSelector,
+        offset: <T::Dims as Dims>::Offset,
+        sub_dims: T::Dims,
+        image: I,
+    )
+        where I: Image<'b, C, T>
+    {
+        use self::DimsTag::*;
 
-    //     let mut result = Ok(());
+        image.variants(|_, data| {
+            let num_pixels = data.len() as u32;
+            if num_pixels != sub_dims.num_pixels() {
+                panic!("expected {} pixels, found {} pixels", sub_dims.num_pixels(), num_pixels);
+            }
+        });
 
-    //     image.variants(|_, data| {
-    //         let num_pixels = data.len() as u32;
-    //         if num_pixels != sub_dims.num_pixels() {
-    //             result = Err(TextureError::ImageLenMismatch {
-    //                 expected: sub_dims.num_pixels() as usize,
-    //                 found: num_pixels as usize
-    //             });
-    //         }
-    //     });
-    //     result?;
+        assert!((level.to_glint() as u8) < self.tex.num_mips());
+        match (self.tex.dims.into(), sub_dims.into()) {
+            (One(tex_dims), One(sub_dims)) => {
+                assert!(sub_dims.width + offset[0] <= tex_dims.width);
+            },
+            (Two(tex_dims), Two(sub_dims)) => {
+                assert!(sub_dims.width + offset[0] <= tex_dims.width);
+                assert!(sub_dims.height + offset[1] <= tex_dims.height);
+            },
+            (Three(tex_dims), Three(sub_dims)) => {
+                assert!(sub_dims.width + offset[0] <= tex_dims.width);
+                assert!(sub_dims.height + offset[1] <= tex_dims.height);
+                assert!(sub_dims.depth + offset[2] <= tex_dims.depth);
+            },
+            _ => unreachable!()
+        }
 
-    //     assert!((level.to_glint() as u8) < self.tex.num_mips());
-    //     match (self.tex.dims.into(), sub_dims.into()) {
-    //         (One(tex_dims), One(sub_dims)) => {
-    //             assert!(sub_dims.width <= tex_dims.width);
-    //         },
-    //         (Two(tex_dims), Two(sub_dims)) => {
-    //             assert!(sub_dims.width <= tex_dims.width);
-    //             assert!(sub_dims.height <= tex_dims.height);
-    //         },
-    //         (Three(tex_dims), Three(sub_dims)) => {
-    //             assert!(sub_dims.width <= tex_dims.width);
-    //             assert!(sub_dims.height <= tex_dims.height);
-    //             assert!(sub_dims.depth <= tex_dims.depth);
-    //         },
-    //         _ => unreachable!()
-    //     }
-
-    //     unsafe {
-    //         match sub_dims.into() {
-    //             One(dims) => image.variants(|image_bind, data| self.gl.TexSubImage1D(
-    //                 image_bind, level.to_glint(),
-    //                 offset[0] as GLint,
-    //                 dims.width as GLsizei,
-    //                 C::pixel_format(), C::pixel_type(), data.as_ptr() as *const GLvoid
-    //             )),
-    //             Two(dims) => image.variants(|image_bind, data| self.gl.TexSubImage2D(
-    //                 image_bind, level.to_glint(),
-    //                 offset[0] as GLint,
-    //                 offset[1] as GLint,
-    //                 dims.width as GLsizei,
-    //                 dims.height as GLsizei,
-    //                 C::pixel_format(), C::pixel_type(), data.as_ptr() as *const GLvoid
-    //             )),
-    //             Three(dims) => image.variants(|image_bind, data| self.gl.TexSubImage3D(
-    //                 image_bind, level.to_glint(),
-    //                 offset[0] as GLint,
-    //                 offset[1] as GLint,
-    //                 offset[2] as GLint,
-    //                 dims.width as GLsizei,
-    //                 dims.height as GLsizei,
-    //                 dims.depth as GLsizei,
-    //                 C::pixel_format(), C::pixel_type(), data.as_ptr() as *const GLvoid
-    //             ))
-    //         }
-    //     }
-
-    //     Ok(())
-    // }
+        unsafe {
+            match sub_dims.into() {
+                One(dims) => image.variants(|image_bind, data| self.gl.TexSubImage1D(
+                    image_bind, level.to_glint(),
+                    offset[0] as GLint,
+                    dims.width as GLsizei,
+                    C::pixel_format(), C::pixel_type(), data.as_ptr() as *const GLvoid
+                )),
+                Two(dims) => image.variants(|image_bind, data| self.gl.TexSubImage2D(
+                    image_bind, level.to_glint(),
+                    offset[0] as GLint,
+                    offset[1] as GLint,
+                    dims.width as GLsizei,
+                    dims.height as GLsizei,
+                    C::pixel_format(), C::pixel_type(), data.as_ptr() as *const GLvoid
+                )),
+                Three(dims) => image.variants(|image_bind, data| self.gl.TexSubImage3D(
+                    image_bind, level.to_glint(),
+                    offset[0] as GLint,
+                    offset[1] as GLint,
+                    offset[2] as GLint,
+                    dims.width as GLsizei,
+                    dims.height as GLsizei,
+                    dims.depth as GLsizei,
+                    C::pixel_format(), C::pixel_type(), data.as_ptr() as *const GLvoid
+                ))
+            }
+        }
+    }
 }
 
 
