@@ -1,6 +1,6 @@
 mod raw;
 
-pub use self::raw::{RawBindTarget, BufferUsage, AllocError};
+pub use self::raw::{RawBindTarget, BufferUsage};
 use self::raw::{targets, RawBuffer};
 
 use gl::Gl;
@@ -48,8 +48,8 @@ pub struct Buffer<T: 'static + Copy> {
 
 impl<T: 'static + Copy> Buffer<T> {
     #[inline]
-    pub fn with_size(usage: BufferUsage, size: usize, state: Rc<ContextState>) -> Result<Buffer<T>, AllocError> {
-        let (raw, result) = {
+    pub fn with_size(usage: BufferUsage, size: usize, state: Rc<ContextState>) -> Buffer<T> {
+        let raw = {
             let ContextState {
                 ref buffer_binds,
                 ref gl,
@@ -57,19 +57,19 @@ impl<T: 'static + Copy> Buffer<T> {
             } = *state;
 
             let mut raw = RawBuffer::new(gl);
-            let result = {
+            {
                 let mut bind = unsafe{ buffer_binds.copy_write.bind_mut(&mut raw, gl) };
                 bind.alloc_size(size, usage)
-            };
-            (raw, result)
+            }
+            raw
         };
 
-        result.map(|_| Buffer{raw, state})
+        Buffer{raw, state}
     }
 
     #[inline]
-    pub fn with_data(usage: BufferUsage, data: &[T], state: Rc<ContextState>) -> Result<Buffer<T>, AllocError> {
-        let (raw, result) = {
+    pub fn with_data(usage: BufferUsage, data: &[T], state: Rc<ContextState>) -> Buffer<T> {
+        let raw = {
             let ContextState {
                 ref buffer_binds,
                 ref gl,
@@ -77,14 +77,14 @@ impl<T: 'static + Copy> Buffer<T> {
             } = *state;
 
             let mut raw = RawBuffer::new(gl);
-            let result = {
+            {
                 let mut bind = unsafe{ buffer_binds.copy_write.bind_mut(&mut raw, gl) };
                 bind.alloc_upload(data, usage)
-            };
-            (raw, result)
+            }
+            raw
         };
 
-        result.map(|_| Buffer{raw, state})
+        Buffer{raw, state}
     }
 
     #[inline]

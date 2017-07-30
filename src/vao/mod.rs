@@ -73,7 +73,7 @@ impl<V: TypeGroup, I: Index> VertexArrayObj<V, I> {
 impl<V: TypeGroup> VertexArrayObj<V, ()> {
     #[inline]
     pub fn new_noindex(vertex_buffer: Buffer<V>) -> VertexArrayObj<V, ()> {
-        let index_buffer: Buffer<()> = Buffer::with_size(BufferUsage::StaticDraw, 0, vertex_buffer.state().clone()).unwrap();
+        let index_buffer: Buffer<()> = Buffer::with_size(BufferUsage::StaticDraw, 0, vertex_buffer.state().clone());
         VertexArrayObj::new(vertex_buffer, index_buffer)
     }
 }

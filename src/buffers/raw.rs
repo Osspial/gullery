@@ -8,8 +8,6 @@ use std::ops::Deref;
 use std::collections::range::RangeArgument;
 use std::cell::Cell;
 use std::marker::PhantomData;
-use std::error::Error;
-use std::fmt::{self, Display};
 
 pub struct RawBuffer<T: Copy> {
     handle: GLuint,
@@ -56,11 +54,6 @@ pub enum BufferUsage {
     DynamicDraw = (gl::DYNAMIC_DRAW - USAGE_OFFSET) as u8,
     DynamicRead = (gl::DYNAMIC_READ - USAGE_OFFSET) as u8,
     DynamicCopy = (gl::DYNAMIC_COPY - USAGE_OFFSET) as u8
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum AllocError {
-    OutOfMemory
 }
 
 pub unsafe trait RawBindTarget: 'static + Sized {
@@ -263,7 +256,7 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
     }
 
     #[inline]
-    pub(crate) fn alloc_size(&mut self, size: usize, usage: BufferUsage) -> Result<(), AllocError> {
+    pub(crate) fn alloc_size(&mut self, size: usize, usage: BufferUsage) {
         assert!(size <= isize::max_value() as usize);
         if mem::size_of::<T>() != 0 {
             unsafe {self.gl.BufferData(
@@ -276,19 +269,18 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
             let error = unsafe{ self.gl.GetError() };
             if error == 0 {
                 self.buffer.size = size;
-                Ok(())
             } else {
-                assert_eq!(error, gl::OUT_OF_MEMORY);
-                self.buffer.size = 0;
-                Err(AllocError::OutOfMemory)
+                if error == gl::OUT_OF_MEMORY {
+                    panic!("OpenGL out of memory!");
+                } else {
+                    panic!("Unexpected OpenGL error: {}", error);
+                }
             }
-        } else {
-            Ok(())
         }
     }
 
     #[inline]
-    pub(crate) fn alloc_upload(&mut self, data: &[T], usage: BufferUsage) -> Result<(), AllocError> {
+    pub(crate) fn alloc_upload(&mut self, data: &[T], usage: BufferUsage) {
         assert!(data.len() <= isize::max_value() as usize);
         if mem::size_of::<T>() != 0 {
             unsafe {self.gl.BufferData(
@@ -301,14 +293,13 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
             let error = unsafe{ self.gl.GetError() };
             if error == 0 {
                 self.buffer.size = data.len();
-                Ok(())
             } else {
-                assert_eq!(error, gl::OUT_OF_MEMORY);
-                self.buffer.size = 0;
-                Err(AllocError::OutOfMemory)
+                if error == gl::OUT_OF_MEMORY {
+                    panic!("OpenGL out of memory!");
+                } else {
+                    panic!("Unexpected OpenGL error: {}", error);
+                }
             }
-        } else {
-            Ok(())
         }
     }
 }
@@ -329,21 +320,5 @@ impl BufferUsage {
     fn to_gl_enum(self) -> GLenum {
         let discriminant: u8 = unsafe{ mem::transmute(self) };
         discriminant as GLenum + USAGE_OFFSET
-    }
-}
-
-impl Display for AllocError {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "{}", self.description())
-    }
-}
-
-impl Error for AllocError {
-    #[inline]
-    fn description(&self) -> &str {
-        match *self {
-            AllocError::OutOfMemory => "Not enough VRAM for allocation"
-        }
     }
 }

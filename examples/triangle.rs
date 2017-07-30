@@ -48,7 +48,7 @@ fn main() {
         Vertex {
             pos: Vector2::new( 1.0,  -1.0),
         },
-    ], state.clone()).unwrap();
+    ], state.clone());
     let vao = VertexArrayObj::new_noindex(vertex_buffer);
 
 
@@ -60,7 +60,7 @@ fn main() {
     for i in 0..512u32*512 {
         image.push(Rgb::new(Nu8(255), Nu8(255), Nu8((i % 255) as u8)));
     }
-    let texture: Texture<_, targets::SimpleTex<Dims2D>> = Texture::with_images(Dims2D::new(512, 512), iter::once(&image[..]), state.clone()).unwrap();
+    let texture = Texture::with_images(Dims2D::new(512, 512), iter::once(&image[..]), state.clone()).unwrap();
 
     let uniforms = TriUniforms {
         tex: &texture

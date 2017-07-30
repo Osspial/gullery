@@ -1,8 +1,13 @@
 use super::*;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SimpleTex<D: Dims>(PhantomData<D>);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CubemapTex;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RectTex;
+// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 // pub struct BufferTex;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MultisampleTex;
 
 
@@ -65,7 +70,7 @@ unsafe impl<C> TextureType<C> for CubemapTex
     where C: ColorFormat
 {
     type MipSelector = u8;
-    type Dims = Dims2D;
+    type Dims = DimsSquare;
 
     #[inline]
     fn bind_target() -> GLenum {

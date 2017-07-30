@@ -1,10 +1,7 @@
-pub mod error;
 pub mod targets;
 
 use gl::{self, Gl};
 use gl::types::*;
-
-use self::error::TextureError;
 
 use ContextState;
 use seal::Sealed;
@@ -90,6 +87,11 @@ pub struct Dims2D {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DimsSquare {
+    pub side: u32
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Dims3D {
     pub width: u32,
     pub height: u32,
@@ -99,6 +101,7 @@ pub struct Dims3D {
 pub trait Dims: 'static + Into<DimsTag> + Copy + Sealed {
     type Offset: Index<usize, Output=u32>;
     fn num_pixels(self) -> u32;
+    fn max_size(state: &ContextState) -> Self;
 }
 
 pub unsafe trait TextureType<C: ColorFormat>: 'static + Sealed {
@@ -267,7 +270,7 @@ impl<'a, C, T> RawBoundTextureMut<'a, C, T>
     where C: ColorFormat,
           T: TextureType<C>
 {
-    pub fn alloc_image<'b, I>(&mut self, level: T::MipSelector, image: Option<I>) -> Result<(), TextureError>
+    pub fn alloc_image<'b, I>(&mut self, level: T::MipSelector, image: Option<I>)
         where I: Image<'b, C, T>
     {
         unsafe {
@@ -280,34 +283,25 @@ impl<'a, C, T> RawBoundTextureMut<'a, C, T>
 
 
             let for_each_variant = |func: fn(&Gl, GLenum, GLint, GLsizei, GLsizei, GLsizei, *const GLvoid)| {
-                let (mut width, mut height, mut depth) = match self.tex.dims.into() {
-                    DimsTag::One(dims) => (dims.width as GLsizei, 1, 1),
-                    DimsTag::Two(dims) => (dims.width as GLsizei, dims.height as GLsizei, 1),
-                    DimsTag::Three(dims) => (dims.width as GLsizei, dims.height as GLsizei, dims.depth as GLsizei)
-                };
+                let (width, height, depth) = self.tex.dims.into().to_tuple();
+
                 let dims_exponent = level_int as u32 + 1;
-                width = width.pow(dims_exponent);
-                height = height.pow(dims_exponent);
-                depth = depth.pow(dims_exponent);
+                let width_gl = width.pow(dims_exponent) as GLsizei;
+                let height_gl = height.pow(dims_exponent) as GLsizei;
+                let depth_gl = depth.pow(dims_exponent) as GLsizei;
 
                 let num_pixels_expected = (width * height * depth) as usize;
-                let mut result = Ok(());
 
                 match image {
                     Some(image_data) => image_data.variants(|image_bind, data| {
-                        if result.is_ok() && data.len() == num_pixels_expected {
-                            func(self.gl, image_bind, level_int, width, height, depth, data.as_ptr() as *const GLvoid);
+                        if data.len() == num_pixels_expected {
+                            func(self.gl, image_bind, level_int, width_gl, height_gl, depth_gl, data.as_ptr() as *const GLvoid);
                         } else {
-                            result = Err(TextureError::ImageLenMismatch {
-                                expected: num_pixels_expected,
-                                found: data.len()
-                            });
+                            panic!("Mismatched image size; expected {} pixels, found {} pixels", num_pixels_expected, data.len());
                         }
                     }),
-                    None => I::variants_static(|image_bind| func(self.gl, image_bind, level_int, width, height, depth, ptr::null()))
+                    None => I::variants_static(|image_bind| func(self.gl, image_bind, level_int, width_gl, height_gl, depth_gl, ptr::null()))
                 }
-
-                result
             };
 
             match self.tex.dims.into() {
@@ -316,14 +310,14 @@ impl<'a, C, T> RawBoundTextureMut<'a, C, T>
                         image_bind, mip_level, C::internal_format() as GLint,
                         width,
                         0, C::pixel_format(), C::pixel_type(), data
-                    ))?,
+                    )),
                 DimsTag::Two(_) => for_each_variant(|gl, image_bind, mip_level, width, height, _, data|
                     gl.TexImage2D(
                         image_bind, mip_level, C::internal_format() as GLint,
                         width,
                         height,
                         0, C::pixel_format(), C::pixel_type(), data
-                    ))?,
+                    )),
                 DimsTag::Three(_) => for_each_variant(|gl, image_bind, mip_level, width, height, depth, data|
                     gl.TexImage3D(
                         image_bind, mip_level, C::internal_format() as GLint,
@@ -331,11 +325,10 @@ impl<'a, C, T> RawBoundTextureMut<'a, C, T>
                         height,
                         depth,
                         0, C::pixel_format(), C::pixel_type(), data
-                    ))?,
+                    )),
             }
 
             assert_eq!(0, self.gl.GetError());
-            Ok(())
         }
     }
 
@@ -470,10 +463,26 @@ impl Dims2D {
         Dims2D{ width, height }
     }
 }
+impl DimsSquare {
+    #[inline]
+    pub fn new(side: u32) -> DimsSquare {
+        DimsSquare{ side }
+    }
+}
 impl Dims3D {
     #[inline]
     pub fn new(width: u32, height: u32, depth: u32) -> Dims3D {
         Dims3D{ width, height, depth }
+    }
+}
+impl DimsTag {
+    #[inline]
+    pub fn to_tuple(self) -> (u32, u32, u32) {
+        match self {
+            DimsTag::One(dims) => (dims.width, 1, 1),
+            DimsTag::Two(dims) => (dims.width, dims.height, 1),
+            DimsTag::Three(dims) => (dims.width, dims.height, dims.depth)
+        }
     }
 }
 
@@ -483,6 +492,14 @@ impl Dims for Dims1D {
     fn num_pixels(self) -> u32 {
         self.width
     }
+    #[inline]
+    fn max_size(state: &ContextState) -> Dims1D {
+        unsafe {
+            let mut size = 0;
+            state.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
+            Dims1D::new(size as u32)
+        }
+    }
 }
 impl Dims for Dims2D {
     type Offset = Vector2<u32>;
@@ -490,12 +507,43 @@ impl Dims for Dims2D {
     fn num_pixels(self) -> u32 {
         self.width * self.height
     }
+    #[inline]
+    fn max_size(state: &ContextState) -> Dims2D {
+        unsafe {
+            let mut size = 0;
+            state.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
+            Dims2D::new(size as u32, size as u32)
+        }
+    }
+}
+impl Dims for DimsSquare {
+    type Offset = Vector2<u32>;
+    #[inline]
+    fn num_pixels(self) -> u32 {
+        self.side * self.side
+    }
+    #[inline]
+    fn max_size(state: &ContextState) -> DimsSquare {
+        unsafe {
+            let mut size = 0;
+            state.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
+            DimsSquare::new(size as u32)
+        }
+    }
 }
 impl Dims for Dims3D {
     type Offset = Vector3<u32>;
     #[inline]
     fn num_pixels(self) -> u32 {
         self.width * self.height * self.depth
+    }
+    #[inline]
+    fn max_size(state: &ContextState) -> Dims3D {
+        unsafe {
+            let mut size = 0;
+            state.gl.GetIntegerv(gl::MAX_3D_TEXTURE_SIZE, &mut size);
+            Dims3D::new(size as u32, size as u32, size as u32)
+        }
     }
 }
 impl From<Dims1D> for DimsTag {
@@ -508,6 +556,12 @@ impl From<Dims2D> for DimsTag {
     #[inline]
     fn from(dims: Dims2D) -> DimsTag {
         DimsTag::Two(dims)
+    }
+}
+impl From<DimsSquare> for DimsTag {
+    #[inline]
+    fn from(dims: DimsSquare) -> DimsTag {
+        DimsTag::Two(Dims2D::new(dims.side, dims.side))
     }
 }
 impl From<Dims3D> for DimsTag {
@@ -552,5 +606,6 @@ impl<'a, C: ColorFormat, T: TextureType<C>> Image<'a, C, T> for ! {
 
 impl Sealed for Dims1D {}
 impl Sealed for Dims2D {}
+impl Sealed for DimsSquare {}
 impl Sealed for Dims3D {}
 impl<'a, C: ColorFormat> Sealed for CubeImage<'a, C> {}

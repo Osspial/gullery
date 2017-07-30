@@ -4,7 +4,6 @@ use gl::Gl;
 
 use ContextState;
 use self::raw::*;
-use self::raw::error::TextureError;
 use colors::ColorFormat;
 
 use glsl::{TypeUniform, TypeTag, TypeBasicTag};
@@ -15,7 +14,7 @@ use std::rc::Rc;
 
 use num_traits::{PrimInt, Signed};
 
-pub use self::raw::{targets, error, Dims, Dims1D, Dims2D, Dims3D, MipSelector, Image, TextureType, ArrayTextureType};
+pub use self::raw::{targets, Dims, Dims1D, Dims2D, DimsSquare, Dims3D, DimsTag, MipSelector, Image, TextureType, ArrayTextureType};
 
 
 pub struct Texture<C, T>
@@ -24,6 +23,17 @@ pub struct Texture<C, T>
 {
     raw: RawTexture<C, T>,
     state: Rc<ContextState>
+}
+
+#[derive(Debug, Clone)]
+pub enum TexCreateError<C, T>
+    where C: ColorFormat,
+          T: TextureType<C>
+{
+    DimsExceedMax {
+        requested: T::Dims,
+        max: T::Dims
+    }
 }
 
 pub(crate) struct SamplerUnits(RawSamplerUnits);
@@ -35,12 +45,22 @@ impl<C, T> Texture<C, T>
     where C: ColorFormat,
           T: TextureType<C, MipSelector=u8>
 {
-    pub fn with_images<'a, I, J>(dims: T::Dims, images: J, state: Rc<ContextState>) -> Result<Texture<C, T>, TextureError>
+    pub fn with_images<'a, I, J>(dims: T::Dims, images: J, state: Rc<ContextState>) -> Result<Texture<C, T>, TexCreateError<C, T>>
         where I: Image<'a, C, T>,
               J: IntoIterator<Item=I>
     {
-        let mut raw = RawTexture::new(dims, &state.gl);
+        let max_size = T::Dims::max_size(&state);
+        let (max_width, max_height, max_depth) = max_size.into().to_tuple();
+        let (width, height, depth) = dims.into().to_tuple();
 
+        if max_width < width || max_height < height || max_depth < depth {
+            return Err(TexCreateError::DimsExceedMax{
+                requested: dims,
+                max: max_size
+            });
+        }
+
+        let mut raw = RawTexture::new(dims, &state.gl);
         {
             // We use the last texture unit to make sure that a program never accidentally uses a texture bound
             // during modification.
@@ -51,11 +71,11 @@ impl<C, T> Texture<C, T>
             let mut bind = unsafe{ state.sampler_units.0.bind_mut(last_unit, &mut raw, &state.gl) };
 
             for (level, image) in images.into_iter().enumerate() {
-                bind.alloc_image(level as u8, Some(image))?;
+                bind.alloc_image(level as u8, Some(image));
             }
 
             if bind.raw_tex().num_mips() == 0 {
-                bind.alloc_image::<!>(0, None).expect("Image allocation failed without data. Please file bug report");
+                bind.alloc_image::<!>(0, None);
             }
         }
 
@@ -67,18 +87,28 @@ impl<C, T> Texture<C, T>
     where C: ColorFormat,
           T: TextureType<C>
 {
-    pub fn new(dims: T::Dims, mips: T::MipSelector, state: Rc<ContextState>) -> Texture<C, T> {
+    pub fn new(dims: T::Dims, mips: T::MipSelector, state: Rc<ContextState>) -> Result<Texture<C, T>, TexCreateError<C, T>> {
+        let max_size = T::Dims::max_size(&state);
+        let (max_width, max_height, max_depth) = max_size.into().to_tuple();
+        let (width, height, depth) = dims.into().to_tuple();
+
+        if max_width < width || max_height < height || max_depth < depth {
+            return Err(TexCreateError::DimsExceedMax{
+                requested: dims,
+                max: max_size
+            });
+        }
 
         let mut raw = RawTexture::new(dims, &state.gl);
         {
             let last_unit = state.sampler_units.0.num_units() - 1;
             let mut bind = unsafe{ state.sampler_units.0.bind_mut(last_unit, &mut raw, &state.gl) };
             for level in mips.iter_less() {
-                bind.alloc_image::<!>(level, None).expect("Image allocation failed without data. Please file bug report");
+                bind.alloc_image::<!>(level, None);
             }
         }
 
-        Texture{ raw, state }
+        Ok(Texture{ raw, state })
     }
 
     #[inline]
