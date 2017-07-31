@@ -14,7 +14,7 @@ use std::rc::Rc;
 
 use num_traits::{PrimInt, Signed};
 
-pub use self::raw::{targets, Dims, Dims1D, Dims2D, DimsSquare, Dims3D, DimsTag, MipSelector, Image, TextureType, ArrayTextureType};
+pub use self::raw::{targets, Dims, Dims1D, Dims2D, DimsSquare, Dims3D, DimsTag, Swizzle, MipSelector, Image, TextureType, ArrayTextureType};
 
 
 pub struct Texture<C, T>
@@ -127,6 +127,13 @@ impl<C, T> Texture<C, T>
         let last_unit = self.state.sampler_units.0.num_units() - 1;
         let mut bind = unsafe{ self.state.sampler_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
         bind.sub_image(level, offset, sub_dims, image);
+    }
+
+    #[inline]
+    pub fn swizzle_mask(&mut self, r: Swizzle, g: Swizzle, b: Swizzle, a: Swizzle) {
+        let last_unit = self.state.sampler_units.0.num_units() - 1;
+        let mut bind = unsafe{ self.state.sampler_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
+        bind.swizzle_mask(r, g, b, a);
     }
 }
 

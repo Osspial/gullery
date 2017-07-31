@@ -62,6 +62,7 @@ fn main() {
         image.push(Rgb::new(Nu8(255), Nu8(255), Nu8((i % 255) as u8)));
     }
     let mut texture = Texture::with_images(Dims2D::new(512, 512), iter::once(&image[..]), state.clone()).unwrap();
+    texture.swizzle_mask(Swizzle::Red, Swizzle::Blue, Swizzle::Green, Swizzle::Alpha);
 
     let sub_image = vec![Rgb::new(Nu8(255), Nu8(0), Nu8(128)); 256*256];
     texture.sub_image(0, Vector2::new(256, 256), Dims2D::new(256, 256), &sub_image[..]);

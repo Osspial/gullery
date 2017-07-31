@@ -68,6 +68,17 @@ pub struct CubeImage<'a, C: ColorFormat> {
     pub neg_z: &'a [C]
 }
 
+#[repr(u16)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Swizzle {
+    Red = gl::RED as u16,
+    Green = gl::GREEN as u16,
+    Blue = gl::BLUE as u16,
+    Alpha = gl::ALPHA as u16,
+    Zero = gl::ZERO as u16,
+    One = gl::ONE as u16
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DimsTag {
     One(Dims1D),
@@ -396,6 +407,17 @@ impl<'a, C, T> RawBoundTextureMut<'a, C, T>
             }
         }
     }
+
+    #[inline]
+    pub fn swizzle_mask(&mut self, r: Swizzle, g: Swizzle, b: Swizzle, a: Swizzle) {
+        let mask = [
+            GLenum::from(r) as i32,
+            GLenum::from(g) as i32,
+            GLenum::from(b) as i32,
+            GLenum::from(a) as i32
+        ];
+        unsafe{ self.gl.TexParameteriv(T::bind_target(), gl::TEXTURE_SWIZZLE_RGBA, mask.as_ptr()) };
+    }
 }
 
 
@@ -560,6 +582,14 @@ impl From<Dims3D> for DimsTag {
     #[inline]
     fn from(dims: Dims3D) -> DimsTag {
         DimsTag::Three(dims)
+    }
+}
+
+impl From<Swizzle> for GLenum {
+    #[inline]
+    fn from(swizzle: Swizzle) -> GLenum {
+        let swiz_u16: u16 = unsafe{ mem::transmute(swizzle) };
+        swiz_u16 as u32
     }
 }
 
