@@ -15,13 +15,13 @@ use gl_raii::textures::*;
 use gl_raii::render_state::*;
 
 use cgmath::*;
-use std::iter;
 
 use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuilder, ContextBuilder, GlWindow};
 
 #[derive(TypeGroup, Clone, Copy)]
 struct Vertex {
-    pos: Vector2<f32>
+    pos: Vector2<f32>,
+    color: Rgb<Nu8>
 }
 
 #[derive(Clone, Copy, Uniforms)]
@@ -33,7 +33,7 @@ fn main() {
     let mut events_loop = EventsLoop::new();
     let window = GlWindow::new(
         WindowBuilder::new().with_dimensions(512, 512),
-        ContextBuilder::new().with_multisampling(8),
+        ContextBuilder::new().with_multisampling(8).with_srgb(true),
         &events_loop
     ).unwrap();
     unsafe{ window.context().make_current().unwrap() };
@@ -42,12 +42,15 @@ fn main() {
     let vertex_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[
         Vertex {
             pos: Vector2::new(-1.0, -1.0),
+            color: Rgb::new(Nu8(255), Nu8(0), Nu8(0))
         },
         Vertex {
             pos: Vector2::new( 0.0,  1.0),
+            color: Rgb::new(Nu8(0), Nu8(255), Nu8(0))
         },
         Vertex {
             pos: Vector2::new( 1.0,  -1.0),
+            color: Rgb::new(Nu8(0), Nu8(0), Nu8(255))
         },
     ], state.clone());
     let vao = VertexArrayObj::new_noindex(vertex_buffer);
@@ -56,20 +59,6 @@ fn main() {
     let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();
     let fragment_shader = Shader::new(FRAGMENT_SHADER, state.clone()).unwrap();
     let program = Program::new(&vertex_shader, None, &fragment_shader).unwrap_discard();
-
-    let mut image = Vec::new();
-    for i in 0..512u32*512 {
-        image.push(Rgb::new(Nu8(255), Nu8(255), Nu8((i % 255) as u8)));
-    }
-    let mut texture = Texture::with_images(Dims2D::new(512, 512), iter::once(&image[..]), state.clone()).unwrap();
-    texture.swizzle_mask(Swizzle::Red, Swizzle::Blue, Swizzle::Green, Swizzle::Alpha);
-
-    let sub_image = vec![Rgb::new(Nu8(255), Nu8(0), Nu8(128)); 256*256];
-    texture.sub_image(0, Vector2::new(256, 256), Dims2D::new(256, 256), &sub_image[..]);
-
-    let uniforms = TriUniforms {
-        tex: &texture
-    };
 
     let render_state = RenderState {
         srgb: true,
@@ -82,7 +71,7 @@ fn main() {
             Event::WindowEvent{event, ..} => match event {
                 WindowEvent::Resized(_, _) => {
                     default_framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0));
-                    default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniforms, render_state);
+                    default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, (), render_state);
 
                     window.context().swap_buffers().unwrap();
                 }
@@ -100,10 +89,11 @@ const VERTEX_SHADER: &str = r#"
     #version 330
 
     in vec2 pos;
-    out vec2 tex_coord;
+    in vec3 color;
+    out vec3 vert_color;
 
     void main() {
-        tex_coord = pos;
+        vert_color = color;
         gl_Position = vec4(pos, 0.0, 1.0);
     }
 "#;
@@ -111,12 +101,10 @@ const VERTEX_SHADER: &str = r#"
 const FRAGMENT_SHADER: &str = r#"
     #version 330
 
-    in vec2 tex_coord;
+    in vec3 vert_color;
     out vec4 frag_color;
 
-    uniform sampler2D tex;
-
     void main() {
-        frag_color = texture(tex, tex_coord);
+        frag_color = vec4(vert_color, 1.0);
     }
 "#;

@@ -3,6 +3,8 @@ use gl::types::*;
 
 use glsl::*;
 use seal::Sealed;
+
+use cgmath::{Vector1, Vector2, Vector3, Vector4};
 use num_traits::{Num, PrimInt};
 
 
@@ -105,6 +107,51 @@ impl<S: ScalarNum> From<Red<S>> for Rgba<S> {
     #[inline]
     fn from(colors: Red<S>) -> Rgba<S> {
         Rgba::new(colors.r, S::zero(), S::zero(), S::one())
+    }
+}
+
+unsafe impl<S: ScalarNum> TypeTransparent for Rgba<S> {
+    type Scalar = S;
+    #[inline]
+    fn prim_tag() -> TypeBasicTag {Self::Scalar::prim_tag().vectorize(4).unwrap()}
+}
+unsafe impl<S: ScalarNum> TypeTransparent for Rgb<S> {
+    type Scalar = S;
+    #[inline]
+    fn prim_tag() -> TypeBasicTag {Self::Scalar::prim_tag().vectorize(3).unwrap()}
+}
+unsafe impl<S: ScalarNum> TypeTransparent for Rg<S> {
+    type Scalar = S;
+    #[inline]
+    fn prim_tag() -> TypeBasicTag {Self::Scalar::prim_tag().vectorize(2).unwrap()}
+}
+unsafe impl<S: ScalarNum> TypeTransparent for Red<S> {
+    type Scalar = S;
+    #[inline]
+    fn prim_tag() -> TypeBasicTag {Self::Scalar::prim_tag().vectorize(1).unwrap()}
+}
+impl<S: ScalarNum> Into<Vector4<S>> for Rgba<S> {
+    #[inline]
+    fn into(self: Rgba<S>) -> Vector4<S> {
+        Vector4::new(self.r, self.g, self.b, self.a)
+    }
+}
+impl<S: ScalarNum> Into<Vector3<S>> for Rgb<S> {
+    #[inline]
+    fn into(self: Rgb<S>) -> Vector3<S> {
+        Vector3::new(self.r, self.g, self.b)
+    }
+}
+impl<S: ScalarNum> Into<Vector2<S>> for Rg<S> {
+    #[inline]
+    fn into(self: Rg<S>) -> Vector2<S> {
+        Vector2::new(self.r, self.g)
+    }
+}
+impl<S: ScalarNum> Into<Vector1<S>> for Red<S> {
+    #[inline]
+    fn into(self: Red<S>) -> Vector1<S> {
+        Vector1::new(self.r)
     }
 }
 
