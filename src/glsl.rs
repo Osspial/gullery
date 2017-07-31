@@ -5,10 +5,10 @@ use seal::Sealed;
 
 use cgmath::{
     Vector1, Vector2, Vector3, Vector4, Point1, Point2, Point3, Matrix2, Matrix3, Matrix4,
-    BaseNum, PartialOrd
+    BaseNum
 };
 
-use std::{cmp, mem};
+use std::mem;
 use std::marker::PhantomData;
 use std::fmt::{self, Display, Formatter};
 use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign, Rem, RemAssign};
@@ -726,13 +726,6 @@ macro_rules! normalized_int {
                     FloatErrorKind::Invalid => ParseNormalizedIntError::Invalid
                 }).and_then(|f| <$name as NumCast>::from(f).ok_or(ParseNormalizedIntError::OutOfBounds))
             }
-        }
-
-        impl PartialOrd for $name {
-            #[inline]
-            fn partial_min(self, other: $name) -> $name { cmp::min(self, other) }
-            #[inline]
-            fn partial_max(self, other: $name) -> $name { cmp::max(self, other) }
         }
 
         impl ToPrimitive for $name {

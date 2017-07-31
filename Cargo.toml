@@ -7,7 +7,7 @@ authors = ["Osspial <osspial@gmail.com>"]
 gl_raw = {path = "./gl_raw"}
 derive_more = "0.6"
 num-traits = "0.1"
-cgmath = "^0.14"
+cgmath = "^0.15"
 w_result = { git = "https://github.com/Osspial/w_result" }
 
 [dev-dependencies]
