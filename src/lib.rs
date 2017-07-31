@@ -19,6 +19,7 @@ pub mod colors;
 pub mod glsl;
 pub mod framebuffer;
 pub mod program;
+pub mod render_state;
 pub mod textures;
 pub mod uniforms;
 pub mod vao;
@@ -27,6 +28,7 @@ use gl::Gl;
 use gl::types::*;
 
 use std::rc::Rc;
+use std::cell::Cell;
 use std::collections::Bound;
 
 pub trait GLObject {
@@ -38,6 +40,7 @@ pub struct ContextState {
     program_target: program::ProgramTarget,
     vao_target: vao::VAOTarget,
     framebuffer_targets: framebuffer::FramebufferTargets,
+    render_state: Cell<render_state::RenderState>,
     sampler_units: textures::SamplerUnits,
     gl: Gl
 }
@@ -50,6 +53,7 @@ impl ContextState {
             program_target: program::ProgramTarget::new(),
             vao_target: vao::VAOTarget::new(),
             framebuffer_targets: framebuffer::FramebufferTargets::new(),
+            render_state: Cell::new(render_state::RenderState::default()),
             sampler_units: textures::SamplerUnits::new(&gl),
             gl
         })

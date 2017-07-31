@@ -12,6 +12,7 @@ use gl_raii::vao::*;
 use gl_raii::glsl::*;
 use gl_raii::colors::*;
 use gl_raii::textures::*;
+use gl_raii::render_state::*;
 
 use cgmath::*;
 use std::iter;
@@ -32,7 +33,7 @@ fn main() {
     let mut events_loop = EventsLoop::new();
     let window = GlWindow::new(
         WindowBuilder::new().with_dimensions(512, 512),
-        ContextBuilder::new(),
+        ContextBuilder::new().with_multisampling(8),
         &events_loop
     ).unwrap();
     unsafe{ window.context().make_current().unwrap() };
@@ -69,13 +70,18 @@ fn main() {
         tex: &texture
     };
 
+    let render_state = RenderState {
+        srgb: true,
+        ..RenderState::default()
+    };
+
     let mut default_framebuffer = DefaultFramebuffer::new(state.clone());
     events_loop.run_forever(|event| {
         match event {
             Event::WindowEvent{event, ..} => match event {
                 WindowEvent::Resized(_, _) => {
                     default_framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0));
-                    default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniforms);
+                    default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniforms, render_state);
 
                     window.context().swap_buffers().unwrap();
                 }

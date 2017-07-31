@@ -9,6 +9,7 @@ use vao::VertexArrayObj;
 use uniforms::Uniforms;
 use program::Program;
 use colors::Rgba;
+use render_state::RenderState;
 
 use std::rc::Rc;
 use std::collections::range::RangeArgument;
@@ -45,13 +46,14 @@ pub trait Framebuffer: Sealed {
     }
 
     #[inline]
-    fn draw<R, V, I, U>(&mut self, mode: DrawMode, range: R, vao: &VertexArrayObj<V, I>, program: &Program<V, U::Static>, uniforms: U)
+    fn draw<R, V, I, U>(&mut self, mode: DrawMode, range: R, vao: &VertexArrayObj<V, I>, program: &Program<V, U::Static>, uniforms: U, render_state: RenderState)
         where R: RangeArgument<usize>,
               V: TypeGroup,
               I: Index,
               U: Uniforms
     {
         let (raw_mut, state) = self.raw_mut();
+        render_state.upload_state(state);
         unsafe {
             let vao_bind = state.vao_target.bind(vao);
 
