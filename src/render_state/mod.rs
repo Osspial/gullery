@@ -23,20 +23,44 @@ pub struct RenderState {
 impl RenderState {
     #[inline]
     pub fn upload_state(self, state: &ContextState) {
-        state.render_state.set(self);
+        let old_state = state.render_state.replace(self);
         let gl = &state.gl;
-        raw::set_gl_cap(gl, Capability::Blend(self.blend));
-        raw::set_gl_cap(gl, Capability::Cull(self.cull));
-        raw::set_gl_cap(gl, Capability::DepthClamp(self.depth_clamp));
-        raw::set_gl_cap(gl, Capability::DepthTest(self.depth_test));
-        raw::set_gl_cap(gl, Capability::Dither(self.dither));
-        raw::set_gl_cap(gl, Capability::Srgb(self.srgb));
-        raw::set_gl_cap(gl, Capability::Multisample(self.multisample));
-        raw::set_gl_cap(gl, Capability::PrimitiveRestart(self.primitive_restart));
-        raw::set_gl_cap(gl, Capability::RasterizerDiscard(self.rasterizer_discard));
-        raw::set_gl_cap(gl, Capability::StencilTest(self.stencil_test));
-        raw::set_gl_cap(gl, Capability::TextureCubemapSeamless(self.texture_cubemap_seamless));
-        raw::set_gl_cap(gl, Capability::ProgramPointSize(self.program_point_size));
+        if self.blend != old_state.blend {
+            raw::set_gl_cap(gl, Capability::Blend(self.blend));
+        }
+        if self.cull != old_state.cull {
+            raw::set_gl_cap(gl, Capability::Cull(self.cull));
+        }
+        if self.depth_clamp != old_state.depth_clamp {
+            raw::set_gl_cap(gl, Capability::DepthClamp(self.depth_clamp));
+        }
+        if self.depth_test != old_state.depth_test {
+            raw::set_gl_cap(gl, Capability::DepthTest(self.depth_test));
+        }
+        if self.dither != old_state.dither {
+            raw::set_gl_cap(gl, Capability::Dither(self.dither));
+        }
+        if self.srgb != old_state.srgb {
+            raw::set_gl_cap(gl, Capability::Srgb(self.srgb));
+        }
+        if self.multisample != old_state.multisample {
+            raw::set_gl_cap(gl, Capability::Multisample(self.multisample));
+        }
+        if self.primitive_restart != old_state.primitive_restart {
+            raw::set_gl_cap(gl, Capability::PrimitiveRestart(self.primitive_restart));
+        }
+        if self.rasterizer_discard != old_state.rasterizer_discard {
+            raw::set_gl_cap(gl, Capability::RasterizerDiscard(self.rasterizer_discard));
+        }
+        if self.stencil_test != old_state.stencil_test {
+            raw::set_gl_cap(gl, Capability::StencilTest(self.stencil_test));
+        }
+        if self.texture_cubemap_seamless != old_state.texture_cubemap_seamless {
+            raw::set_gl_cap(gl, Capability::TextureCubemapSeamless(self.texture_cubemap_seamless));
+        }
+        if self.program_point_size != old_state.program_point_size {
+            raw::set_gl_cap(gl, Capability::ProgramPointSize(self.program_point_size));
+        }
     }
 }
 
