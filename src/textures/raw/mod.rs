@@ -79,6 +79,17 @@ pub enum Swizzle {
     One = gl::ONE as u16
 }
 
+#[repr(u16)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Filter {
+    Nearest = gl::NEAREST as u16,
+    Linear = gl::LINEAR as u16,
+    NearestMipNearest = gl::NEAREST_MIPMAP_NEAREST as u16,
+    LinearMipNearest = gl::LINEAR_MIPMAP_NEAREST as u16,
+    NearestMipLinear = gl::NEAREST_MIPMAP_LINEAR as u16,
+    LinearMipLinear = gl::LINEAR_MIPMAP_LINEAR as u16
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DimsTag {
     One(Dims1D),
@@ -418,6 +429,25 @@ impl<'a, C, T> RawBoundTextureMut<'a, C, T>
         ];
         unsafe{ self.gl.TexParameteriv(T::bind_target(), gl::TEXTURE_SWIZZLE_RGBA, mask.as_ptr()) };
     }
+
+    #[inline]
+    pub fn filtering(&mut self, minify: Filter, magnify: Filter) {
+        unsafe {
+            self.gl.TexParameteri(T::bind_target(), gl::TEXTURE_MIN_FILTER, GLenum::from(minify) as GLint);
+            self.gl.TexParameteri(T::bind_target(), gl::TEXTURE_MAG_FILTER, GLenum::from(magnify) as GLint);
+        }
+    }
+
+    #[inline]
+    pub fn max_anisotropy(&mut self, max_anisotropy: f32) {
+        unsafe {
+            // The maximum value that can be stored in max_anisotropy
+            let mut max_ma = 0.0;
+            self.gl.GetFloatv(gl::MAX_TEXTURE_MAX_ANISOTROPY_EXT, &mut max_ma);
+
+            self.gl.TexParameterf(T::bind_target(), gl::TEXTURE_MAX_ANISOTROPY_EXT, max_anisotropy.max(1.0).min(max_ma));
+        }
+    }
 }
 
 
@@ -590,6 +620,14 @@ impl From<Swizzle> for GLenum {
     fn from(swizzle: Swizzle) -> GLenum {
         let swiz_u16: u16 = unsafe{ mem::transmute(swizzle) };
         swiz_u16 as u32
+    }
+}
+
+impl From<Filter> for GLenum {
+    #[inline]
+    fn from(filter: Filter) -> GLenum {
+        let filter_u16: u16 = unsafe{ mem::transmute(filter) };
+        filter_u16 as u32
     }
 }
 
