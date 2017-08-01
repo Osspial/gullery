@@ -8,7 +8,7 @@ use cgmath::{
     BaseNum
 };
 
-use std::mem;
+use std::{mem, cmp};
 use std::marker::PhantomData;
 use std::fmt::{self, Display, Formatter};
 use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign, Rem, RemAssign};
@@ -820,7 +820,17 @@ macro_rules! normalized_int {
 
             #[inline]
             fn mul(self, rhs: $name) -> $name {
-                <$name as NumCast>::from(self.to_f64().unwrap() * rhs.to_f64().unwrap()).unwrap()
+                // If unsigned, use unsigned path. Otherwise use signed path.
+                if (0 as $inner) < !0 {
+                    let max = $inner::max_value() as u64;
+                    let numer = self.0 as u64 * rhs.0 as u64;
+                    $name((numer / max) as $inner)
+                } else {
+                    let rhs = cmp::max($inner::min_value() + 1, rhs.0);
+                    let max = $inner::max_value() as i64;
+                    let numer = self.0 as i64 * rhs as i64;
+                    $name((numer / max) as $inner)
+                }
             }
         }
         impl MulAssign for $name {
@@ -834,7 +844,15 @@ macro_rules! normalized_int {
 
             #[inline]
             fn div(self, rhs: $name) -> $name {
-                <$name as NumCast>::from(self.to_f64().unwrap() / rhs.to_f64().unwrap()).unwrap()
+                if (0 as $inner) < !0 {
+                    let max = $inner::max_value() as u64;
+                    let numer = self.0 as u64 * max;
+                    $name(cmp::min(numer / rhs.0 as u64, max) as $inner)
+                } else {
+                    let max = $inner::max_value() as i64;
+                    let numer = self.0 as i64 * max;
+                    $name(cmp::max($inner::min_value() as i64, cmp::min(numer / rhs.0 as i64, max)) as $inner)
+                }
             }
         }
         impl DivAssign for $name {
