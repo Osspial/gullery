@@ -3,6 +3,8 @@ use gl::types::*;
 
 use std::mem;
 
+use rect_cgmath::{Rectangle, OffsetRect};
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Capability {
     Blend(Option<BlendFuncs>),
@@ -181,6 +183,19 @@ pub fn set_gl_cap(gl: &Gl, cap: Capability) {
             true => gl.Enable(gl_capability),
             false => gl.Disable(gl_capability)
         }
+    }
+}
+
+pub fn set_viewport(gl: &Gl, vp_rect: OffsetRect<u32>) {
+    assert!(vp_rect.width() < GLint::max_value()as u32);
+    assert!(vp_rect.height() < GLint::max_value()as u32);
+    unsafe {
+        gl.Viewport(
+            vp_rect.origin.x as GLint,
+            vp_rect.origin.y as GLint,
+            vp_rect.width() as GLint,
+            vp_rect.height() as GLint
+        );
     }
 }
 

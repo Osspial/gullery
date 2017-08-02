@@ -2,6 +2,7 @@ extern crate gl_raii;
 #[macro_use]
 extern crate gl_raii_macros;
 extern crate cgmath;
+extern crate rect_cgmath;
 extern crate glutin;
 
 use gl_raii::ContextState;
@@ -13,6 +14,8 @@ use gl_raii::glsl::*;
 use gl_raii::colors::*;
 use gl_raii::textures::*;
 use gl_raii::render_state::*;
+
+use rect_cgmath::OffsetRect;
 
 use cgmath::*;
 
@@ -60,7 +63,7 @@ fn main() {
     let fragment_shader = Shader::new(FRAGMENT_SHADER, state.clone()).unwrap();
     let program = Program::new(&vertex_shader, None, &fragment_shader).unwrap_discard();
 
-    let render_state = RenderState {
+    let mut render_state = RenderState {
         srgb: true,
         ..RenderState::default()
     };
@@ -69,7 +72,11 @@ fn main() {
     events_loop.run_forever(|event| {
         match event {
             Event::WindowEvent{event, ..} => match event {
-                WindowEvent::Resized(_, _) => {
+                WindowEvent::Resized(size_x, size_y) => {
+                    render_state.viewport = OffsetRect {
+                        origin: Point2::new(0, 0),
+                        dims: Vector2::new(size_x, size_y)
+                    };
                     default_framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0));
                     default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, (), render_state);
 

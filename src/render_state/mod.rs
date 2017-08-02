@@ -2,6 +2,8 @@ mod raw;
 
 use ContextState;
 use self::raw::Capability;
+use cgmath::{Point2, Vector2};
+use rect_cgmath::OffsetRect;
 pub use self::raw::{BlendFuncs, BlendFunc, CullFace, FrontFace, DepthStencilFunc, StencilTest, StencilOp};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -17,7 +19,8 @@ pub struct RenderState {
     pub rasterizer_discard: bool,
     pub stencil_test: Option<StencilTest>,
     pub texture_cubemap_seamless: bool,
-    pub program_point_size: bool
+    pub program_point_size: bool,
+    pub viewport: OffsetRect<u32>
 }
 
 impl RenderState {
@@ -61,6 +64,9 @@ impl RenderState {
         if self.program_point_size != old_state.program_point_size {
             raw::set_gl_cap(gl, Capability::ProgramPointSize(self.program_point_size));
         }
+        if self.viewport != old_state.viewport {
+            raw::set_viewport(gl, self.viewport);
+        }
     }
 }
 
@@ -79,7 +85,8 @@ impl Default for RenderState {
             rasterizer_discard: false,
             stencil_test: None,
             texture_cubemap_seamless: false,
-            program_point_size: false
+            program_point_size: false,
+            viewport: OffsetRect{ origin: Point2::new(0, 0), dims: Vector2::new(0, 0) }
         }
     }
 }

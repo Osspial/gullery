@@ -6,6 +6,7 @@ extern crate gl_raw as gl;
 extern crate derive_more;
 extern crate num_traits;
 extern crate cgmath;
+extern crate rect_cgmath;
 extern crate w_result;
 
 #[cfg(test)]
