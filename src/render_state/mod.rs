@@ -3,7 +3,7 @@ mod raw;
 use ContextState;
 use self::raw::Capability;
 use cgmath::{Point2, Vector2};
-use rect_cgmath::OffsetRect;
+use cgmath_geometry::OffsetRect;
 pub use self::raw::{BlendFuncs, BlendFunc, CullFace, FrontFace, DepthStencilFunc, StencilTest, StencilOp};
 
 #[derive(Debug, Clone, Copy, PartialEq)]

@@ -3,7 +3,7 @@ use gl::types::*;
 
 use std::mem;
 
-use rect_cgmath::{Rectangle, OffsetRect};
+use cgmath_geometry::{Rectangle, OffsetRect};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Capability {

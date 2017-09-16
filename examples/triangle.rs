@@ -2,7 +2,7 @@ extern crate gl_raii;
 #[macro_use]
 extern crate gl_raii_macros;
 extern crate cgmath;
-extern crate rect_cgmath;
+extern crate cgmath_geometry;
 extern crate glutin;
 
 use gl_raii::ContextState;
@@ -15,7 +15,7 @@ use gl_raii::colors::*;
 use gl_raii::textures::*;
 use gl_raii::render_state::*;
 
-use rect_cgmath::OffsetRect;
+use cgmath_geometry::OffsetRect;
 
 use cgmath::*;
 
