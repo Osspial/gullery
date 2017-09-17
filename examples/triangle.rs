@@ -5,6 +5,8 @@ extern crate cgmath;
 extern crate cgmath_geometry;
 extern crate glutin;
 
+extern crate num_traits;
+
 use gl_raii::ContextState;
 use gl_raii::buffers::*;
 use gl_raii::framebuffer::*;
@@ -18,6 +20,8 @@ use gl_raii::render_state::*;
 use cgmath_geometry::OffsetRect;
 
 use cgmath::*;
+
+use num_traits::NumCast;
 
 use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuilder, ContextBuilder, GlWindow};
 
@@ -57,6 +61,7 @@ fn main() {
         },
     ], state.clone());
     let vao = VertexArrayObj::new_noindex(vertex_buffer);
+    println!("{:?}", <Nu16 as NumCast>::from(Ni8(-64)));
 
 
     let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();

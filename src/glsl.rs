@@ -790,8 +790,9 @@ macro_rules! normalized_int {
                         impl<N: Normalized> ToNormalizedInner for N {
                             #[inline]
                             fn to_normalized_inner(self) -> Option<$name> {
+
                                 if (0 as $inner) < !0 {
-                                    Some($name((self.to_u64().unwrap() * $inner::max_value() as u64 / N::divisor().to_u64().unwrap()) as $inner))
+                                    self.to_u64().map(|s| $name((s * $inner::max_value() as u64 / N::divisor().to_u64().unwrap()) as $inner))
                                 } else {
                                     Some($name((self.to_i64().unwrap() * $inner::max_value() as i64 / N::divisor().to_i64().unwrap()) as $inner))
                                 }
