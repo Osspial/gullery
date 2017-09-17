@@ -839,6 +839,19 @@ macro_rules! normalized_int {
                 *self = *self * rhs;
             }
         }
+        impl Mul<$name> for $inner {
+            type Output = $inner;
+            #[inline]
+            fn mul(self, rhs: $name) -> $inner {
+                ($name(self) * rhs).0
+            }
+        }
+        impl MulAssign<$name> for $inner {
+            #[inline]
+            fn mul_assign(&mut self, rhs: $name) {
+                *self = *self * rhs
+            }
+        }
         impl Div for $name {
             type Output = $name;
 
@@ -861,12 +874,25 @@ macro_rules! normalized_int {
                 *self = *self / rhs;
             }
         }
+        impl Div<$name> for $inner {
+            type Output = $inner;
+            #[inline]
+            fn div(self, rhs: $name) -> $inner {
+                ($name(self) / rhs).0
+            }
+        }
+        impl DivAssign<$name> for $inner {
+            #[inline]
+            fn div_assign(&mut self, rhs: $name) {
+                *self = *self / rhs
+            }
+        }
         impl Rem for $name {
             type Output = $name;
 
             #[inline]
             fn rem(self, rhs: $name) -> $name {
-                <$name as NumCast>::from(self.to_f64().unwrap() % rhs.to_f64().unwrap()).unwrap()
+                $name(self.0 % rhs.0)
             }
         }
         impl RemAssign for $name {
