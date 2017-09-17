@@ -693,6 +693,10 @@ pub enum ParseNormalizedIntError {
     OutOfBounds
 }
 
+pub trait Normalized: BaseNum {
+    fn divisor() -> Self;
+}
+
 macro_rules! normalized_int {
     ($(pub struct $name:ident($inner:ident) $to_inner:ident;)*) => ($(
         /// Normalized integer type.
@@ -716,6 +720,13 @@ macro_rules! normalized_int {
         }
 
         impl BaseNum for $name {}
+
+        impl Normalized for $name {
+            #[inline]
+            fn divisor() -> $name {
+                $name($inner::max_value())
+            }
+        }
 
         impl Num for $name {
             type FromStrRadixErr = ParseNormalizedIntError;
@@ -767,7 +778,27 @@ macro_rules! normalized_int {
                     #[inline]
                     #[allow(unused_comparisons)]
                     default fn to_normalized(self) -> Option<$name> {
-                        self.$to_inner().map(|x| $name(x))
+                        trait ToNormalizedInner {
+                            fn to_normalized_inner(self) -> Option<$name>;
+                        }
+                        impl<U: ToPrimitive> ToNormalizedInner for U {
+                            #[inline]
+                            default fn to_normalized_inner(self) -> Option<$name> {
+                                self.$to_inner().map(|x| $name(x))
+                            }
+                        }
+                        impl<N: Normalized> ToNormalizedInner for N {
+                            #[inline]
+                            fn to_normalized_inner(self) -> Option<$name> {
+                                if (0 as $inner) < !0 {
+                                    Some($name((self.to_u64().unwrap() * $inner::max_value() as u64 / N::divisor().to_u64().unwrap()) as $inner))
+                                } else {
+                                    Some($name((self.to_i64().unwrap() * $inner::max_value() as i64 / N::divisor().to_i64().unwrap()) as $inner))
+                                }
+                            }
+                        }
+
+                        self.to_normalized_inner()
                     }
                 }
                 impl<F: Float> ToNormalized for F {
