@@ -149,10 +149,10 @@ impl<'a, F> RawBoundFramebufferDraw<'a, F>
             _ => panic!("Unexpected index size")
         };
 
-        let read_offset = ::bound_to_num(range.start(), 0);
+        let read_offset = ::bound_to_num_start(range.start(), 0);
 
         if let Some(index_type) = index_type_option {
-            let read_end = ::bound_to_num(range.end(), bound_vao.vao().index_buffer().size());
+            let read_end = ::bound_to_num_end(range.end(), bound_vao.vao().index_buffer().size());
             assert!(read_offset <= read_end);
             assert!((read_end - read_offset) <= GLsizei::max_value() as usize);
 
@@ -165,7 +165,7 @@ impl<'a, F> RawBoundFramebufferDraw<'a, F>
                 );
             }
         } else {
-            let read_end = ::bound_to_num(range.end(), bound_vao.vao().vertex_buffer().size());
+            let read_end = ::bound_to_num_end(range.end(), bound_vao.vao().vertex_buffer().size());
             assert!(read_offset <= GLint::max_value() as usize);
             assert!(read_offset <= read_end);
             assert!((read_end - read_offset) <= isize::max_value() as usize);

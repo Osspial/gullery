@@ -212,11 +212,11 @@ impl<'a, T, B> RawBoundBuffer<'a, T, B>
               R: RangeArgument<usize>
     {
         if mem::size_of::<T>() != 0 {
-            let read_offset = ::bound_to_num(self_range.start(), 0);
-            let read_end = ::bound_to_num(self_range.end(), self.buffer.size);
+            let read_offset = ::bound_to_num_start(self_range.start(), 0);
+            let read_end = ::bound_to_num_end(self_range.end(), self.buffer.size);
             assert!(read_end <= isize::max_value() as usize);
 
-            let size = read_end.checked_sub(read_end)
+            let size = read_offset.checked_sub(read_end)
                 .expect(&format!("Copy range starts at {} but ends at {}", read_offset, read_end));
 
             if read_end > self.buffer.size {

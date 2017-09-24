@@ -150,10 +150,20 @@ mod test_helper {
 
 /// Free-floating function used in a couple of submodules that really has no proper place in this
 /// library, but isn't in std so it needs to go somewhere.
-fn bound_to_num(bound: Bound<&usize>, unbounded: usize) -> usize {
+#[inline]
+fn bound_to_num_start(bound: Bound<&usize>, unbounded: usize) -> usize {
     match bound {
         Bound::Included(t) => *t,
-        Bound::Excluded(t) => *t - 1,
+        Bound::Excluded(t) => *t + 1,
+        Bound::Unbounded   => unbounded
+    }
+}
+
+#[inline]
+fn bound_to_num_end(bound: Bound<&usize>, unbounded: usize) -> usize {
+    match bound {
+        Bound::Included(t) => *t + 1,
+        Bound::Excluded(t) => *t,
         Bound::Unbounded   => unbounded
     }
 }
