@@ -32,8 +32,8 @@ struct Vertex {
 }
 
 #[derive(Clone, Copy, Uniforms)]
-struct TriUniforms<'a> {
-    tex: &'a Texture<Rgb<Nu8>, targets::SimpleTex<Dims2D>>
+struct TriUniforms {
+    offset: Point2<u32>
 }
 
 fn main() {
@@ -78,12 +78,15 @@ fn main() {
         match event {
             Event::WindowEvent{event, ..} => match event {
                 WindowEvent::Resized(size_x, size_y) => {
+                    let uniform = TriUniforms {
+                        offset: Point2::new(1, 0)
+                    };
                     render_state.viewport = OffsetRect {
                         origin: Point2::new(0, 0),
                         dims: Vector2::new(size_x, size_y)
                     };
                     default_framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0));
-                    default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, (), render_state);
+                    default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
 
                     window.context().swap_buffers().unwrap();
                 }
@@ -104,9 +107,11 @@ const VERTEX_SHADER: &str = r#"
     in vec3 color;
     out vec3 vert_color;
 
+    uniform uvec2 offset;
+
     void main() {
         vert_color = color;
-        gl_Position = vec4(pos, 0.0, 1.0);
+        gl_Position = vec4(pos + vec2(offset), 0.0, 1.0);
     }
 "#;
 

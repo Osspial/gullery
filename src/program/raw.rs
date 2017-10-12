@@ -190,6 +190,7 @@ impl RawProgram {
                 let mut cstr_bytes = cstr.into_bytes();
                 cstr_bytes.clear();
                 mem::swap(&mut cstr_bytes, &mut self.cstr_bytes);
+                self.locs_index += 1;
             }
         }
 
@@ -348,7 +349,6 @@ impl<'a> RawBoundProgram<'a> {
                 {
                     #[inline]
                     fn run_expr(self, tex: &'a Texture<C, T>) {
-
                         unsafe {
                             self.gl.Uniform1i(self.loc, *self.unit as GLint);
                             self.sampler_units.bind(*self.unit, tex, self.gl);
@@ -369,6 +369,7 @@ impl<'a> RawBoundProgram<'a> {
                 }
 
                 debug_assert_eq!(0, unsafe{ self.gl.GetError() });
+                self.loc_index += 1;
             }
         }
 
