@@ -14,14 +14,11 @@ use gl_raii::program::*;
 use gl_raii::vao::*;
 use gl_raii::glsl::*;
 use gl_raii::colors::*;
-use gl_raii::textures::*;
 use gl_raii::render_state::*;
 
 use cgmath_geometry::OffsetRect;
 
 use cgmath::*;
-
-use num_traits::NumCast;
 
 use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuilder, ContextBuilder, GlWindow};
 
@@ -40,7 +37,7 @@ fn main() {
     let mut events_loop = EventsLoop::new();
     let window = GlWindow::new(
         WindowBuilder::new().with_dimensions(512, 512),
-        ContextBuilder::new().with_multisampling(8).with_srgb(true),
+        ContextBuilder::new().with_srgb(true),
         &events_loop
     ).unwrap();
     unsafe{ window.context().make_current().unwrap() };
@@ -61,7 +58,6 @@ fn main() {
         },
     ], state.clone());
     let vao = VertexArrayObj::new_noindex(vertex_buffer);
-    println!("{:?}", <Nu16 as NumCast>::from(Ni8(-64)));
 
 
     let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();
