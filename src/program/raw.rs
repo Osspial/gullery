@@ -178,12 +178,8 @@ impl RawProgram {
 
                     if loc == -1 {
                         self.warnings.push(ProgramWarning::IdentNotFound(name.to_string()));
-                    } else {
-                        let mut uniform_type = 0;
-                        self.gl.GetActiveUniformsiv(self.program.handle, 1, &(loc as u32), gl::UNIFORM_TYPE, &mut uniform_type);
-                        let mut array_length = 0;
-                        self.gl.GetActiveUniformsiv(self.program.handle, 1, &(loc as u32), gl::UNIFORM_SIZE, &mut array_length);
                     }
+
                 }
                 self.locs.as_mut()[self.locs_index] = loc;
 
