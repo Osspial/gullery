@@ -65,6 +65,7 @@ pub unsafe trait TypeTransparent: 'static + Copy + Sealed {
 pub unsafe trait Scalar: TypeTransparent {
     fn gl_enum() -> GLenum;
     fn normalized() -> bool;
+    fn integer() -> bool;
 }
 
 pub unsafe trait ScalarNum: Scalar + Num {}
@@ -207,12 +208,14 @@ impl_glsl_matrix!{
 }
 
 macro_rules! impl_gl_scalar_nonorm {
-    ($(impl $scalar:ty = ($gl_enum:expr, $prim_tag:ident);)*) => {$(
+    ($(impl $scalar:ty = ($gl_enum:expr, $prim_tag:ident, $integer:expr);)*) => {$(
         unsafe impl Scalar for $scalar {
             #[inline]
             fn gl_enum() -> GLenum {$gl_enum}
             #[inline]
             fn normalized() -> bool {false}
+            #[inline]
+            fn integer() -> bool {$integer}
         }
 
         unsafe impl TypeTransparent for $scalar {
@@ -224,14 +227,14 @@ macro_rules! impl_gl_scalar_nonorm {
 }
 
 impl_gl_scalar_nonorm!{
-    impl bool = (gl::BOOL, Bool);
-    impl u8 = (gl::UNSIGNED_BYTE, UInt);
-    impl u16 = (gl::UNSIGNED_SHORT, UInt);
-    impl u32 = (gl::UNSIGNED_INT, UInt);
-    impl i8 = (gl::BYTE, Int);
-    impl i16 = (gl::SHORT, Int);
-    impl i32 = (gl::INT, Int);
-    impl f32 = (gl::FLOAT, Float);
+    impl bool = (gl::BOOL, Bool, true);
+    impl u8 = (gl::UNSIGNED_BYTE, UInt, true);
+    impl u16 = (gl::UNSIGNED_SHORT, UInt, true);
+    impl u32 = (gl::UNSIGNED_INT, UInt, true);
+    impl i8 = (gl::BYTE, Int, true);
+    impl i16 = (gl::SHORT, Int, true);
+    impl i32 = (gl::INT, Int, true);
+    impl f32 = (gl::FLOAT, Float, false);
     // impl f64 = (gl::DOUBLE, Double);
 }
 
@@ -959,6 +962,8 @@ macro_rules! normalized_int {
             fn gl_enum() -> GLenum {$inner::gl_enum()}
             #[inline]
             fn normalized() -> bool {true}
+            #[inline]
+            fn integer() -> bool {false}
         }
 
         unsafe impl TypeTransparent for $name {

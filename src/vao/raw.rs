@@ -143,7 +143,15 @@ impl<'a, V: TypeGroup> TyGroupMemberRegistry for VertexAttribBuilder<'a, V> {
                     gl.EnableVertexAttribArray(self.attrib_loc + slot);
                     let slot_offset = slot as usize * attrib_size;
 
-                    if T::Scalar::gl_enum() != gl::DOUBLE {
+                    if T::Scalar::integer() {
+                        gl.VertexAttribIPointer(
+                            self.attrib_loc + slot,
+                            attrib_len as GLint,
+                            T::Scalar::gl_enum(),
+                            mem::size_of::<V>() as GLsizei,
+                            (attrib_offset + slot_offset) as *const GLvoid
+                        );
+                    } else if T::Scalar::gl_enum() != gl::DOUBLE {
                         gl.VertexAttribPointer(
                             self.attrib_loc + slot,
                             attrib_len as GLint,
