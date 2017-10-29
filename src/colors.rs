@@ -32,7 +32,7 @@ fn is_integer<N: Num>() -> bool {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Rgba<S: ScalarNum> {
     pub r: S,
     pub g: S,
@@ -41,7 +41,7 @@ pub struct Rgba<S: ScalarNum> {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Rgb<S: ScalarNum> {
     pub r: S,
     pub g: S,
@@ -49,14 +49,14 @@ pub struct Rgb<S: ScalarNum> {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Rg<S: ScalarNum> {
     pub r: S,
     pub g: S
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Red<S: ScalarNum> {
     pub r: S
 }
