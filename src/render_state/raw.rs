@@ -23,10 +23,10 @@ pub enum Capability {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BlendFuncs {
-    src_rgb: BlendFunc,
-    dst_rgb: BlendFunc,
-    src_alpha: BlendFunc,
-    dst_alpha: BlendFunc
+    pub src_rgb: BlendFunc,
+    pub dst_rgb: BlendFunc,
+    pub src_alpha: BlendFunc,
+    pub dst_alpha: BlendFunc
 }
 
 #[repr(u32)]
