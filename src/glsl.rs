@@ -720,6 +720,11 @@ macro_rules! normalized_int {
                     F::max(F::zero(), f.min(F::one()))
                 }
             }
+
+            #[inline]
+            pub fn from_bounded<F: Float>(f: F) -> $name {
+                <$name as NumCast>::from($name::bound_float(f)).unwrap()
+            }
         }
 
         impl BaseNum for $name {}
