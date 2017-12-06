@@ -810,12 +810,12 @@ macro_rules! normalized_int {
                         self.to_normalized_inner()
                     }
                 }
-                impl<F: Float> ToNormalized for F {
+                impl<F: Float + ::std::fmt::Debug> ToNormalized for F {
                     #[inline]
                     #[allow(unused_comparisons)]
                     fn to_normalized(self) -> Option<$name> {
                         let bounded = $name::bound_float(self);
-                        if self != bounded {
+                        if self == bounded {
                             Some($name((bounded.to_f64().unwrap() * $inner::max_value() as f64) as $inner))
                         } else {
                             None
