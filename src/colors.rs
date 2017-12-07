@@ -7,6 +7,8 @@ use seal::Sealed;
 use cgmath::{Vector1, Vector2, Vector3, Vector4};
 use num_traits::{Num, PrimInt};
 
+use std::slice;
+
 
 pub unsafe trait ColorFormat: 'static + Copy + Into<Rgba<<Self as ColorFormat>::Scalar>> + Sealed {
     type Scalar: ScalarNum;
@@ -66,11 +68,35 @@ impl<S: ScalarNum> Rgba<S> {
     pub fn new(r: S, g: S, b: S, a: S) -> Rgba<S> {
         Rgba{ r, g, b, a }
     }
+
+    #[inline(always)]
+    pub fn slice_from_raw(raw: &[S]) -> &[Rgba<S>] {
+        assert_eq!(0, raw.len() % 4);
+        unsafe{ slice::from_raw_parts(raw.as_ptr() as *const Rgba<S>, raw.len() / 4) }
+    }
+
+    #[inline(always)]
+    pub fn slice_from_raw_mut(raw: &mut [S]) -> &mut [Rgba<S>] {
+        assert_eq!(0, raw.len() % 4);
+        unsafe{ slice::from_raw_parts_mut(raw.as_mut_ptr() as *mut Rgba<S>, raw.len() / 4) }
+    }
 }
 impl<S: ScalarNum> Rgb<S> {
     #[inline]
     pub fn new(r: S, g: S, b: S) -> Rgb<S> {
         Rgb{ r, g, b }
+    }
+
+    #[inline(always)]
+    pub fn slice_from_raw(raw: &[S]) -> &[Rgb<S>] {
+        assert_eq!(0, raw.len() % 3);
+        unsafe{ slice::from_raw_parts(raw.as_ptr() as *const Rgb<S>, raw.len() / 3) }
+    }
+
+    #[inline(always)]
+    pub fn slice_from_raw_mut(raw: &mut [S]) -> &mut [Rgb<S>] {
+        assert_eq!(0, raw.len() % 3);
+        unsafe{ slice::from_raw_parts_mut(raw.as_mut_ptr() as *mut Rgb<S>, raw.len() / 3) }
     }
 }
 impl<S: ScalarNum> Rg<S> {
@@ -78,11 +104,33 @@ impl<S: ScalarNum> Rg<S> {
     pub fn new(r: S, g: S) -> Rg<S> {
         Rg{ r, g }
     }
+
+    #[inline(always)]
+    pub fn slice_from_raw(raw: &[S]) -> &[Rg<S>] {
+        assert_eq!(0, raw.len() % 2);
+        unsafe{ slice::from_raw_parts(raw.as_ptr() as *const Rg<S>, raw.len() / 2) }
+    }
+
+    #[inline(always)]
+    pub fn slice_from_raw_mut(raw: &mut [S]) -> &mut [Rg<S>] {
+        assert_eq!(0, raw.len() % 2);
+        unsafe{ slice::from_raw_parts_mut(raw.as_mut_ptr() as *mut Rg<S>, raw.len() / 2) }
+    }
 }
 impl<S: ScalarNum> Red<S> {
     #[inline]
     pub fn new(r: S) -> Red<S> {
         Red{ r }
+    }
+
+    #[inline(always)]
+    pub fn slice_from_raw(raw: &[S]) -> &[Red<S>] {
+        unsafe{ slice::from_raw_parts(raw.as_ptr() as *const Red<S>, raw.len()) }
+    }
+
+    #[inline(always)]
+    pub fn slice_from_raw_mut(raw: &mut [S]) -> &mut [Red<S>] {
+        unsafe{ slice::from_raw_parts_mut(raw.as_mut_ptr() as *mut Red<S>, raw.len()) }
     }
 }
 

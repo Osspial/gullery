@@ -707,6 +707,7 @@ macro_rules! normalized_int {
         /// Treated as a float for arethmetic operations, and such operations are automatically
         /// bound to the max and min values [-1.0, 1.0] for signed normalized integers, [0.0, 1.0]
         /// for unsigned normalized integers.
+        #[repr(C)]
         #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into)]
         pub struct $name(pub $inner);
 
@@ -724,6 +725,16 @@ macro_rules! normalized_int {
             #[inline]
             pub fn from_bounded<F: Float>(f: F) -> $name {
                 <$name as NumCast>::from($name::bound_float(f)).unwrap()
+            }
+
+            #[inline(always)]
+            pub fn slice_from_raw(raw: &[$inner]) -> &[$name] {
+                unsafe{ &*(raw as *const [$inner] as *const [$name]) }
+            }
+
+            #[inline(always)]
+            pub fn slice_from_raw_mut(raw: &mut [$inner]) -> &mut [$name] {
+                unsafe{ &mut *(raw as *mut [$inner] as *mut [$name]) }
             }
         }
 
