@@ -273,6 +273,8 @@ impl RawSamplerUnits {
             if unit.get() == handle {
                 gl.ActiveTexture(gl::TEXTURE0 + unit_index as GLuint);
                 gl.BindTexture(target, 0);
+                unit.set(0);
+                self.active_unit.set(unit_index as GLuint);
             }
         }
     }
