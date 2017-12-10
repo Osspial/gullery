@@ -12,7 +12,7 @@ w_result = { git = "https://github.com/Osspial/w_result" }
 cgmath-geometry = { git = "https://github.com/Osspial/cgmath-geometry" }
 
 [dev-dependencies]
-glutin = "0.9"
+glutin = "0.11"
 quickcheck = "0.4"
 gl_raii_macros = { path = "./gl_raii_macros" }
 
