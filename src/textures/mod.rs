@@ -14,7 +14,10 @@ use std::rc::Rc;
 
 use num_traits::{PrimInt, Signed};
 
-pub use self::raw::{targets, Dims, Dims1D, Dims2D, DimsSquare, Dims3D, DimsTag, Swizzle, Filter, MipSelector, Image, TextureType, ArrayTextureType};
+pub use self::raw::{targets, Dims, DimsSquare, DimsTag, Swizzle, Filter, MipSelector, Image, TextureType, ArrayTextureType};
+
+use cgmath::{Point1, Point2, Point3};
+use cgmath_geometry::DimsBox;
 
 
 pub struct Texture<C, T>
@@ -230,9 +233,9 @@ macro_rules! texture_type_uniform {
 }
 
 texture_type_uniform!{
-    impl &Texture<C, targets::SimpleTex<Dims1D>> = (Sampler1D, USampler1D, ISampler1D);
-    impl &Texture<C, targets::SimpleTex<Dims2D>> = (Sampler2D, USampler2D, ISampler2D);
-    impl &Texture<C, targets::SimpleTex<Dims3D>> = (Sampler3D, USampler3D, ISampler3D);
+    impl &Texture<C, targets::SimpleTex<DimsBox<Point1<u32>>>> = (Sampler1D, USampler1D, ISampler1D);
+    impl &Texture<C, targets::SimpleTex<DimsBox<Point2<u32>>>> = (Sampler2D, USampler2D, ISampler2D);
+    impl &Texture<C, targets::SimpleTex<DimsBox<Point3<u32>>>> = (Sampler3D, USampler3D, ISampler3D);
 
     impl &Texture<C, targets::CubemapTex> = (SamplerCube, USamplerCube, ISamplerCube);
     impl &Texture<C, targets::RectTex> = (Sampler2DRect, USampler2DRect, ISampler2DRect);

@@ -3,7 +3,8 @@ use gl::types::*;
 
 use std::mem;
 
-use cgmath_geometry::{Rectangle, OffsetRect};
+use cgmath::Point2;
+use cgmath_geometry::{GeoBox, OffsetBox};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Capability {
@@ -186,7 +187,7 @@ pub fn set_gl_cap(gl: &Gl, cap: Capability) {
     }
 }
 
-pub fn set_viewport(gl: &Gl, vp_rect: OffsetRect<u32>) {
+pub fn set_viewport(gl: &Gl, vp_rect: OffsetBox<Point2<u32>>) {
     assert!(vp_rect.width() < GLint::max_value()as u32);
     assert!(vp_rect.height() < GLint::max_value()as u32);
     unsafe {

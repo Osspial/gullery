@@ -12,7 +12,8 @@ use std::cell::Cell;
 use std::ops::{Deref, Index, Range};
 use std::marker::PhantomData;
 
-use cgmath::{Vector1, Vector2, Vector3};
+use cgmath::{Vector1, Vector2, Vector3, Point1, Point2, Point3};
+use cgmath_geometry::{GeoBox, DimsBox};
 
 pub struct RawTexture<C, T>
     where C: ColorFormat,
@@ -92,32 +93,14 @@ pub enum Filter {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DimsTag {
-    One(Dims1D),
-    Two(Dims2D),
-    Three(Dims3D)
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Dims1D {
-    pub width: u32
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Dims2D {
-    pub width: u32,
-    pub height: u32
+    One(DimsBox<Point1<u32>>),
+    Two(DimsBox<Point2<u32>>),
+    Three(DimsBox<Point3<u32>>)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DimsSquare {
     pub side: u32
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Dims3D {
-    pub width: u32,
-    pub height: u32,
-    pub depth: u32
 }
 
 pub trait Dims: 'static + Into<DimsTag> + Copy + Sealed {
@@ -377,16 +360,16 @@ impl<'a, C, T> RawBoundTextureMut<'a, C, T>
         assert!((level.to_glint() as u8) < self.tex.num_mips());
         match (self.tex.dims.into(), sub_dims.into()) {
             (One(tex_dims), One(sub_dims)) => {
-                assert!(sub_dims.width + offset[0] <= tex_dims.width);
+                assert!(sub_dims.width() + offset[0] <= tex_dims.width());
             },
             (Two(tex_dims), Two(sub_dims)) => {
-                assert!(sub_dims.width + offset[0] <= tex_dims.width);
-                assert!(sub_dims.height + offset[1] <= tex_dims.height);
+                assert!(sub_dims.width() + offset[0] <= tex_dims.width());
+                assert!(sub_dims.height() + offset[1] <= tex_dims.height());
             },
             (Three(tex_dims), Three(sub_dims)) => {
-                assert!(sub_dims.width + offset[0] <= tex_dims.width);
-                assert!(sub_dims.height + offset[1] <= tex_dims.height);
-                assert!(sub_dims.depth + offset[2] <= tex_dims.depth);
+                assert!(sub_dims.width() + offset[0] <= tex_dims.width());
+                assert!(sub_dims.height() + offset[1] <= tex_dims.height());
+                assert!(sub_dims.depth() + offset[2] <= tex_dims.depth());
             },
             _ => unreachable!()
         }
@@ -396,15 +379,15 @@ impl<'a, C, T> RawBoundTextureMut<'a, C, T>
                 One(dims) => image.variants(|image_bind, data| self.gl.TexSubImage1D(
                     image_bind, level.to_glint(),
                     offset[0] as GLint,
-                    dims.width as GLsizei,
+                    dims.width() as GLsizei,
                     C::pixel_format(), C::pixel_type(), data.as_ptr() as *const GLvoid
                 )),
                 Two(dims) => image.variants(|image_bind, data| self.gl.TexSubImage2D(
                     image_bind, level.to_glint(),
                     offset[0] as GLint,
                     offset[1] as GLint,
-                    dims.width as GLsizei,
-                    dims.height as GLsizei,
+                    dims.width() as GLsizei,
+                    dims.height() as GLsizei,
                     C::pixel_format(), C::pixel_type(), data.as_ptr() as *const GLvoid
                 )),
                 Three(dims) => image.variants(|image_bind, data| self.gl.TexSubImage3D(
@@ -412,9 +395,9 @@ impl<'a, C, T> RawBoundTextureMut<'a, C, T>
                     offset[0] as GLint,
                     offset[1] as GLint,
                     offset[2] as GLint,
-                    dims.width as GLsizei,
-                    dims.height as GLsizei,
-                    dims.depth as GLsizei,
+                    dims.width() as GLsizei,
+                    dims.height() as GLsizei,
+                    dims.depth() as GLsizei,
                     C::pixel_format(), C::pixel_type(), data.as_ptr() as *const GLvoid
                 ))
             }
@@ -497,68 +480,50 @@ impl MipSelector for u8 {
     fn try_increment(self) -> u8 {self + 1}
 }
 
-impl Dims1D {
-    #[inline]
-    pub fn new(width: u32) -> Dims1D {
-        Dims1D{ width }
-    }
-}
-impl Dims2D {
-    #[inline]
-    pub fn new(width: u32, height: u32) -> Dims2D {
-        Dims2D{ width, height }
-    }
-}
 impl DimsSquare {
     #[inline]
     pub fn new(side: u32) -> DimsSquare {
         DimsSquare{ side }
     }
 }
-impl Dims3D {
-    #[inline]
-    pub fn new(width: u32, height: u32, depth: u32) -> Dims3D {
-        Dims3D{ width, height, depth }
-    }
-}
 impl DimsTag {
     #[inline]
     pub fn to_tuple(self) -> (u32, u32, u32) {
         match self {
-            DimsTag::One(dims) => (dims.width, 1, 1),
-            DimsTag::Two(dims) => (dims.width, dims.height, 1),
-            DimsTag::Three(dims) => (dims.width, dims.height, dims.depth)
+            DimsTag::One(dims) => (dims.width(), 1, 1),
+            DimsTag::Two(dims) => (dims.width(), dims.height(), 1),
+            DimsTag::Three(dims) => (dims.width(), dims.height(), dims.depth())
         }
     }
 }
 
-impl Dims for Dims1D {
+impl Dims for DimsBox<Point1<u32>> {
     type Offset = Vector1<u32>;
     #[inline]
     fn num_pixels(self) -> u32 {
-        self.width
+        self.width()
     }
     #[inline]
-    fn max_size(state: &ContextState) -> Dims1D {
+    fn max_size(state: &ContextState) -> DimsBox<Point1<u32>> {
         unsafe {
             let mut size = 0;
             state.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
-            Dims1D::new(size as u32)
+            DimsBox::new1(size as u32)
         }
     }
 }
-impl Dims for Dims2D {
+impl Dims for DimsBox<Point2<u32>> {
     type Offset = Vector2<u32>;
     #[inline]
     fn num_pixels(self) -> u32 {
-        self.width * self.height
+        self.width() * self.height()
     }
     #[inline]
-    fn max_size(state: &ContextState) -> Dims2D {
+    fn max_size(state: &ContextState) -> DimsBox<Point2<u32>> {
         unsafe {
             let mut size = 0;
             state.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
-            Dims2D::new(size as u32, size as u32)
+            DimsBox::new2(size as u32, size as u32)
         }
     }
 }
@@ -577,42 +542,42 @@ impl Dims for DimsSquare {
         }
     }
 }
-impl Dims for Dims3D {
+impl Dims for DimsBox<Point3<u32>> {
     type Offset = Vector3<u32>;
     #[inline]
     fn num_pixels(self) -> u32 {
-        self.width * self.height * self.depth
+        self.width() * self.height() * self.depth()
     }
     #[inline]
-    fn max_size(state: &ContextState) -> Dims3D {
+    fn max_size(state: &ContextState) -> DimsBox<Point3<u32>> {
         unsafe {
             let mut size = 0;
             state.gl.GetIntegerv(gl::MAX_3D_TEXTURE_SIZE, &mut size);
-            Dims3D::new(size as u32, size as u32, size as u32)
+            DimsBox::new3(size as u32, size as u32, size as u32)
         }
     }
 }
-impl From<Dims1D> for DimsTag {
+impl From<DimsBox<Point1<u32>>> for DimsTag {
     #[inline]
-    fn from(dims: Dims1D) -> DimsTag {
+    fn from(dims: DimsBox<Point1<u32>>) -> DimsTag {
         DimsTag::One(dims)
     }
 }
-impl From<Dims2D> for DimsTag {
+impl From<DimsBox<Point2<u32>>> for DimsTag {
     #[inline]
-    fn from(dims: Dims2D) -> DimsTag {
+    fn from(dims: DimsBox<Point2<u32>>) -> DimsTag {
         DimsTag::Two(dims)
     }
 }
 impl From<DimsSquare> for DimsTag {
     #[inline]
     fn from(dims: DimsSquare) -> DimsTag {
-        DimsTag::Two(Dims2D::new(dims.side, dims.side))
+        DimsTag::Two(DimsBox::new2(dims.side, dims.side))
     }
 }
-impl From<Dims3D> for DimsTag {
+impl From<DimsBox<Point3<u32>>> for DimsTag {
     #[inline]
-    fn from(dims: Dims3D) -> DimsTag {
+    fn from(dims: DimsBox<Point3<u32>>) -> DimsTag {
         DimsTag::Three(dims)
     }
 }
@@ -666,8 +631,8 @@ impl<'a, C: ColorFormat, T: TextureType<C>> Image<'a, C, T> for ! {
    }
 }
 
-impl Sealed for Dims1D {}
-impl Sealed for Dims2D {}
+impl Sealed for DimsBox<Point1<u32>> {}
+impl Sealed for DimsBox<Point2<u32>> {}
 impl Sealed for DimsSquare {}
-impl Sealed for Dims3D {}
+impl Sealed for DimsBox<Point3<u32>> {}
 impl<'a, C: ColorFormat> Sealed for CubeImage<'a, C> {}

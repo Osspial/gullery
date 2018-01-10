@@ -24,7 +24,7 @@ unsafe impl<C, D> TextureType<C> for SimpleTex<D>
         panic!("use specialized version instead.")
     }
 }
-unsafe impl<C> TextureType<C> for SimpleTex<Dims1D>
+unsafe impl<C> TextureType<C> for SimpleTex<DimsBox<Point1<u32>>>
     where C: ColorFormat
 {
     #[inline]
@@ -32,7 +32,7 @@ unsafe impl<C> TextureType<C> for SimpleTex<Dims1D>
         gl::TEXTURE_1D
     }
 }
-unsafe impl<C> TextureType<C> for SimpleTex<Dims2D>
+unsafe impl<C> TextureType<C> for SimpleTex<DimsBox<Point2<u32>>>
     where C: ColorFormat
 {
     #[inline]
@@ -40,7 +40,7 @@ unsafe impl<C> TextureType<C> for SimpleTex<Dims2D>
         gl::TEXTURE_2D
     }
 }
-unsafe impl<C> TextureType<C> for SimpleTex<Dims3D>
+unsafe impl<C> TextureType<C> for SimpleTex<DimsBox<Point3<u32>>>
     where C: ColorFormat
 {
     #[inline]
@@ -48,7 +48,7 @@ unsafe impl<C> TextureType<C> for SimpleTex<Dims3D>
         gl::TEXTURE_3D
     }
 }
-unsafe impl<C> ArrayTextureType<C> for SimpleTex<Dims1D>
+unsafe impl<C> ArrayTextureType<C> for SimpleTex<DimsBox<Point1<u32>>>
     where C: ColorFormat
 {
     #[inline]
@@ -56,7 +56,7 @@ unsafe impl<C> ArrayTextureType<C> for SimpleTex<Dims1D>
         gl::TEXTURE_1D_ARRAY
     }
 }
-unsafe impl<C> ArrayTextureType<C> for SimpleTex<Dims2D>
+unsafe impl<C> ArrayTextureType<C> for SimpleTex<DimsBox<Point2<u32>>>
     where C: ColorFormat
 {
     #[inline]
@@ -92,7 +92,7 @@ unsafe impl<C> TextureType<C> for RectTex
     where C: ColorFormat
 {
     type MipSelector = ();
-    type Dims = Dims2D;
+    type Dims = DimsBox<Point2<u32>>;
 
     #[inline]
     fn bind_target() -> GLenum {
@@ -103,10 +103,10 @@ unsafe impl<C> TextureType<C> for RectTex
 // impl Sealed for BufferTex {}
 // unsafe impl TextureType for BufferTex {
 //     type MipSelector = ();
-//     type Dims = Dims1D;
+//     type Dims = DimsBox<Point1<u32>>;
 
 //     #[inline]
-//     fn dims(&self) -> &Dims1D {
+//     fn dims(&self) -> &DimsBox<Point1<u32>> {
 //         &self.dims
 //     }
 //     #[inline]
@@ -122,7 +122,7 @@ unsafe impl<C> TextureType<C> for MultisampleTex
     where C: ColorFormat
 {
     type MipSelector = ();
-    type Dims = Dims2D;
+    type Dims = DimsBox<Point2<u32>>;
 
     #[inline]
     fn bind_target() -> GLenum {

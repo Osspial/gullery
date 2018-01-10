@@ -2,8 +2,8 @@ mod raw;
 
 use ContextState;
 use self::raw::Capability;
-use cgmath::{Point2, Vector2};
-use cgmath_geometry::OffsetRect;
+use cgmath::Point2;
+use cgmath_geometry::OffsetBox;
 pub use self::raw::{BlendFuncs, BlendFunc, CullFace, FrontFace, DepthStencilFunc, StencilTest, StencilOp};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -20,7 +20,7 @@ pub struct RenderState {
     pub stencil_test: Option<StencilTest>,
     pub texture_cubemap_seamless: bool,
     pub program_point_size: bool,
-    pub viewport: OffsetRect<u32>
+    pub viewport: OffsetBox<Point2<u32>>
 }
 
 impl RenderState {
@@ -86,7 +86,7 @@ impl Default for RenderState {
             stencil_test: None,
             texture_cubemap_seamless: false,
             program_point_size: false,
-            viewport: OffsetRect{ origin: Point2::new(0, 0), dims: Vector2::new(0, 0) }
+            viewport: OffsetBox::new2(0, 0, 0, 0)
         }
     }
 }

@@ -16,7 +16,7 @@ use gl_raii::glsl::*;
 use gl_raii::colors::*;
 use gl_raii::render_state::*;
 
-use cgmath_geometry::OffsetRect;
+use cgmath_geometry::OffsetBox;
 
 use cgmath::*;
 
@@ -77,7 +77,7 @@ fn main() {
                     let uniform = TriUniforms {
                         offset: Point2::new(1, 0)
                     };
-                    render_state.viewport = OffsetRect {
+                    render_state.viewport = OffsetBox {
                         origin: Point2::new(0, 0),
                         dims: Vector2::new(size_x, size_y)
                     };
