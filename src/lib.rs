@@ -1,7 +1,7 @@
 #![feature(collections_range, never_type, specialization)]
 #![recursion_limit="256"]
 
-extern crate gl_raw as gl;
+extern crate gullery_bindings as gl;
 #[macro_use]
 extern crate derive_more;
 extern crate num_traits;

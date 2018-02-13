@@ -1,20 +1,20 @@
-extern crate gl_raii;
+extern crate gullery;
 #[macro_use]
-extern crate gl_raii_macros;
+extern crate gullery_macros;
 extern crate cgmath;
 extern crate cgmath_geometry;
 extern crate glutin;
 
 extern crate num_traits;
 
-use gl_raii::ContextState;
-use gl_raii::buffers::*;
-use gl_raii::framebuffer::*;
-use gl_raii::program::*;
-use gl_raii::vao::*;
-use gl_raii::glsl::*;
-use gl_raii::colors::*;
-use gl_raii::render_state::*;
+use gullery::ContextState;
+use gullery::buffers::*;
+use gullery::framebuffer::*;
+use gullery::program::*;
+use gullery::vao::*;
+use gullery::glsl::*;
+use gullery::colors::*;
+use gullery::render_state::*;
 
 use cgmath_geometry::OffsetBox;
 

@@ -54,12 +54,12 @@ fn impl_type_group(derive_input: &DeriveInput) -> Tokens {
             quote!{
                 #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
                 const #dummy_const: () = {
-                    extern crate gl_raii as _gl_raii;
+                    extern crate gullery as _gullery;
                     #[automatically_derived]
-                    impl #impl_generics _gl_raii::glsl::TypeGroup for #ident #ty_generics #where_clause {
+                    impl #impl_generics _gullery::glsl::TypeGroup for #ident #ty_generics #where_clause {
                         #[inline]
                         fn members<M>(mut reg: M)
-                            where M: _gl_raii::glsl::TyGroupMemberRegistry<Group=Self>
+                            where M: _gullery::glsl::TyGroupMemberRegistry<Group=Self>
                         {
                             #(
                                 reg.add_member(stringify!(#idents), |t| unsafe{ &(*t).#idents_1 });
@@ -105,14 +105,14 @@ fn impl_uniforms(derive_input: &DeriveInput) -> Tokens {
             quote!{
                 #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
                 const #dummy_const: () = {
-                    extern crate gl_raii as _gl_raii;
+                    extern crate gullery as _gullery;
                     #[automatically_derived]
-                    impl #impl_generics _gl_raii::uniforms::Uniforms for #ident #ty_generics #where_clause {
+                    impl #impl_generics _gullery::uniforms::Uniforms for #ident #ty_generics #where_clause {
                         type ULC = [i32; #num_members];
                         type Static = #ident #static_ty_generics;
                         #[inline]
                         fn members<M>(mut reg: M)
-                            where M: _gl_raii::uniforms::UniformsMemberRegistry<Uniforms=Self>
+                            where M: _gullery::uniforms::UniformsMemberRegistry<Uniforms=Self>
                         {
                             #(
                                 reg.add_member(stringify!(#idents), |t| t.#idents_1);

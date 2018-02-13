@@ -1,5 +1,5 @@
 [package]
-name = "gl_raw"
+name = "gullery_bindings"
 version = "0.1.0"
 authors = ["Osspial <osspial@gmail.com>"]
 

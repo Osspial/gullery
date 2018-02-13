@@ -1,9 +1,9 @@
-extern crate gl_raii;
+extern crate gullery;
 extern crate cgmath;
 #[macro_use]
-extern crate gl_raii_macros;
+extern crate gullery_macros;
 
-use gl_raii::glsl::TypeTransparent;
+use gullery::glsl::TypeTransparent;
 use cgmath::{Vector3, Vector4};
 
 #[derive(TypeGroup, Clone, Copy)]
