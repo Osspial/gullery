@@ -72,6 +72,10 @@ fn main() {
 
     let mut render_state = RenderState {
         srgb: true,
+        viewport: OffsetBox {
+            origin: Point2::new(0, 0),
+            dims: Vector2::new(512, 512)
+        },
         ..RenderState::default()
     };
 
@@ -80,13 +84,11 @@ fn main() {
         match event {
             Event::WindowEvent{event, ..} => match event {
                 WindowEvent::Resized(size_x, size_y) => {
+                    window.context().resize(size_x, size_y);
                     let uniform = TriUniforms {
                         offset: Point2::new(0, 0)
                     };
-                    render_state.viewport = OffsetBox {
-                        origin: Point2::new(0, 0),
-                        dims: Vector2::new(size_x, size_y)
-                    };
+                    render_state.viewport = OffsetBox::new2(0, 0, size_x, size_y);
                     default_framebuffer.clear_depth(1.0);
                     default_framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0));
                     default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
@@ -100,7 +102,7 @@ fn main() {
         }
 
         ControlFlow::Continue
-    });
+});
 }
 
 const VERTEX_SHADER: &str = r#"
