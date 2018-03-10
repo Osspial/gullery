@@ -87,6 +87,7 @@ fn main() {
                         origin: Point2::new(0, 0),
                         dims: Vector2::new(size_x, size_y)
                     };
+                    default_framebuffer.clear_depth(1.0);
                     default_framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0));
                     default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
 
