@@ -20,7 +20,7 @@ use cgmath_geometry::OffsetBox;
 
 use cgmath::*;
 
-use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuilder, ContextBuilder, GlWindow};
+use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuilder, ContextBuilder, GlWindow, GlProfile, GlRequest};
 
 #[derive(TypeGroup, Clone, Copy)]
 struct Vertex {
@@ -37,7 +37,13 @@ fn main() {
     let mut events_loop = EventsLoop::new();
     let window = GlWindow::new(
         WindowBuilder::new().with_dimensions(512, 512),
-        ContextBuilder::new().with_srgb(true),
+        ContextBuilder::new()
+            .with_gl_profile(GlProfile::Core)
+            .with_gl(GlRequest::GlThenGles {
+                opengl_version: (3, 2),
+                opengles_version: (3, 0)
+            })
+            .with_srgb(true),
         &events_loop
     ).unwrap();
     unsafe{ window.context().make_current().unwrap() };
@@ -75,7 +81,7 @@ fn main() {
             Event::WindowEvent{event, ..} => match event {
                 WindowEvent::Resized(size_x, size_y) => {
                     let uniform = TriUniforms {
-                        offset: Point2::new(1, 0)
+                        offset: Point2::new(0, 0)
                     };
                     render_state.viewport = OffsetBox {
                         origin: Point2::new(0, 0),
