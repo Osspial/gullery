@@ -5,7 +5,7 @@ extern crate gullery_bindings as gl;
 #[macro_use]
 extern crate derive_more;
 extern crate num_traits;
-extern crate cgmath;
+use cgmath_geometry::cgmath;
 extern crate cgmath_geometry;
 extern crate w_result;
 
