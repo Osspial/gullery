@@ -20,7 +20,7 @@ use cgmath_geometry::OffsetBox;
 
 use cgmath::*;
 
-use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuilder, ContextBuilder, GlWindow};
+use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuilder, ContextBuilder, GlWindow, GlProfile, GlRequest};
 
 #[derive(TypeGroup, Clone, Copy)]
 struct Vertex {
@@ -37,7 +37,13 @@ fn main() {
     let mut events_loop = EventsLoop::new();
     let window = GlWindow::new(
         WindowBuilder::new().with_dimensions(512, 512),
-        ContextBuilder::new().with_srgb(true),
+        ContextBuilder::new()
+            .with_gl_profile(GlProfile::Core)
+            .with_gl(GlRequest::GlThenGles {
+                opengl_version: (3, 2),
+                opengles_version: (3, 0)
+            })
+            .with_srgb(true),
         &events_loop
     ).unwrap();
     unsafe{ window.context().make_current().unwrap() };
@@ -66,6 +72,10 @@ fn main() {
 
     let mut render_state = RenderState {
         srgb: true,
+        viewport: OffsetBox {
+            origin: Point2::new(0, 0),
+            dims: Vector2::new(512, 512)
+        },
         ..RenderState::default()
     };
 
@@ -74,13 +84,12 @@ fn main() {
         match event {
             Event::WindowEvent{event, ..} => match event {
                 WindowEvent::Resized(size_x, size_y) => {
+                    window.context().resize(size_x, size_y);
                     let uniform = TriUniforms {
-                        offset: Point2::new(1, 0)
+                        offset: Point2::new(0, 0)
                     };
-                    render_state.viewport = OffsetBox {
-                        origin: Point2::new(0, 0),
-                        dims: Vector2::new(size_x, size_y)
-                    };
+                    render_state.viewport = OffsetBox::new2(0, 0, size_x, size_y);
+                    default_framebuffer.clear_depth(1.0);
                     default_framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0));
                     default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
 
@@ -93,7 +102,7 @@ fn main() {
         }
 
         ControlFlow::Continue
-    });
+});
 }
 
 const VERTEX_SHADER: &str = r#"
