@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![feature(collections_range, never_type, specialization)]
+#![feature(never_type, specialization)]
 #![recursion_limit="256"]
 
 extern crate gullery_bindings as gl;
@@ -44,6 +44,7 @@ use gl::types::*;
 use std::rc::Rc;
 use std::cell::Cell;
 use std::collections::Bound;
+use std::ops::{Range, RangeFrom, RangeTo, RangeFull};
 
 pub trait GLObject {
     fn handle(&self) -> GLuint;
@@ -178,5 +179,47 @@ fn bound_to_num_end(bound: Bound<&usize>, unbounded: usize) -> usize {
         Bound::Included(t) => *t + 1,
         Bound::Excluded(t) => *t,
         Bound::Unbounded   => unbounded
+    }
+}
+
+/// Stop-gap replacement for Rust's RangeArgument trait, while it's unstable.
+pub trait RangeArgument<T: ?Sized> {
+    fn start(&self) -> Bound<&T>;
+    fn end(&self) -> Bound<&T>;
+}
+
+impl<T: ?Sized> RangeArgument<T> for RangeFull {
+    fn start(&self) -> Bound<&T> {
+        Bound::Unbounded
+    }
+    fn end(&self) -> Bound<&T> {
+        Bound::Unbounded
+    }
+}
+
+impl<T> RangeArgument<T> for RangeFrom<T> {
+    fn start(&self) -> Bound<&T> {
+        Bound::Included(&self.start)
+    }
+    fn end(&self) -> Bound<&T> {
+        Bound::Unbounded
+    }
+}
+
+impl<T> RangeArgument<T> for RangeTo<T> {
+    fn start(&self) -> Bound<&T> {
+        Bound::Unbounded
+    }
+    fn end(&self) -> Bound<&T> {
+        Bound::Excluded(&self.end)
+    }
+}
+
+impl<T> RangeArgument<T> for Range<T> {
+    fn start(&self) -> Bound<&T> {
+        Bound::Included(&self.start)
+    }
+    fn end(&self) -> Bound<&T> {
+        Bound::Excluded(&self.end)
     }
 }
