@@ -27,8 +27,6 @@ use std::cell::Cell;
 use std::ffi::CString;
 use std::marker::PhantomData;
 
-use w_result::*;
-
 pub struct RawShader<S: ShaderStage> {
     handle: GLuint,
     _marker: PhantomData<(S, *const ())>
@@ -122,7 +120,7 @@ impl<S: ShaderStage> RawShader<S> {
 }
 
 impl RawProgram {
-    pub fn new<'b, F>(attach_shaders: F, gl: &Gl) -> WResult<RawProgram, ProgramWarning, String>
+    pub fn new<'b, F>(attach_shaders: F, gl: &Gl) -> Result<(RawProgram, Vec<ProgramWarning>), String>
         where for<'a> F: FnOnce(RawProgramShaderAttacher<'a, 'b>)
     {
         unsafe {
@@ -148,7 +146,7 @@ impl RawProgram {
                     gl.DetachShader(program.handle, handle);
                     post_link_hook(&program, gl, &mut warnings);
                 }
-                WOk(program, warnings)
+                Ok((program, warnings))
             } else {
                 let mut info_log_length = 0;
                 gl.GetProgramiv(program.handle, gl::INFO_LOG_LENGTH, &mut info_log_length);
@@ -157,7 +155,7 @@ impl RawProgram {
                 gl.GetProgramInfoLog(program.handle, info_log_length, ptr::null_mut(), info_log.as_mut_ptr() as *mut GLchar);
 
                 gl.DeleteProgram(program.handle);
-                WErr(String::from_utf8_unchecked(info_log))
+                Err(String::from_utf8_unchecked(info_log))
             }
         }
     }

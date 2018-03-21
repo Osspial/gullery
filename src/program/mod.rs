@@ -20,8 +20,6 @@ use self::error::{ShaderError, LinkError, ProgramWarning};
 
 use gl::types::*;
 
-use w_result::*;
-
 use {ContextState, GLObject};
 use glsl::TypeGroup;
 use uniforms::Uniforms;
@@ -61,7 +59,7 @@ impl<S: ShaderStage> Shader<S> {
 }
 
 impl<V: TypeGroup, U: Uniforms> Program<V, U> {
-    pub fn new(vert: &Shader<VertexStage<V>>, geom: Option<&Shader<GeometryStage>>, frag: &Shader<FragmentStage>) -> WResult<Program<V, U>, ProgramWarning, LinkError> {
+    pub fn new(vert: &Shader<VertexStage<V>>, geom: Option<&Shader<GeometryStage>>, frag: &Shader<FragmentStage>) -> Result<(Program<V, U>, Vec<ProgramWarning>), LinkError> {
         // Temporary variables storing the pointers to the OpenGL state for each of the shaders.
         let vsp = vert.state.as_ref() as *const _;
         let fsp = frag.state.as_ref() as *const _;
@@ -80,16 +78,16 @@ impl<V: TypeGroup, U: Uniforms> Program<V, U> {
         }, &vert.state.gl).map_err(|e| LinkError(e));
 
         match raw {
-            WOk(raw, mut warnings) => {
+            Ok((raw, mut warnings)) => {
                 let uniform_locs = raw.get_uniform_locations::<U>(&vert.state.gl, &mut warnings);
-                WOk(Program {
+                Ok((Program {
                     uniform_locs,
                     raw,
                     state: vert.state.clone(),
                     _marker: PhantomData
-                }, warnings)
+                }, warnings))
             },
-            WErr(raw_error) => WErr(raw_error)
+            Err(raw_error) => Err(raw_error)
         }
     }
 }

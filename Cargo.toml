@@ -7,7 +7,6 @@ authors = ["Osspial <osspial@gmail.com>"]
 gullery_bindings = {path = "./gullery_bindings"}
 derive_more = "0.6"
 num-traits = "0.1"
-w_result = { git = "https://github.com/Osspial/w_result" }
 cgmath-geometry = { git = "https://github.com/Osspial/cgmath-geometry" }
 
 [dev-dependencies]

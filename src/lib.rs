@@ -21,7 +21,6 @@ extern crate derive_more;
 extern crate num_traits;
 use cgmath_geometry::cgmath;
 extern crate cgmath_geometry;
-extern crate w_result;
 
 #[cfg(test)]
 #[macro_use]
