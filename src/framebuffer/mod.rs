@@ -69,6 +69,15 @@ pub trait Framebuffer: Sealed {
     }
 
     #[inline]
+    fn clear_stencil(&mut self, stencil: u32) {
+        let (raw_mut, state) = self.raw_mut();
+        unsafe {
+            let mut framebuffer_bind = state.framebuffer_targets.draw.bind(raw_mut, &state.gl);
+            framebuffer_bind.clear_stencil(stencil);
+        }
+    }
+
+    #[inline]
     fn draw<R, V, I, U>(&mut self, mode: DrawMode, range: R, vao: &VertexArrayObj<V, I>, program: &Program<V, U::Static>, uniforms: U, render_state: RenderState)
         where R: RangeArgument<usize>,
               V: TypeGroup,

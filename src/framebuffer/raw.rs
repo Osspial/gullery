@@ -148,8 +148,14 @@ impl<'a, F> RawBoundFramebufferDraw<'a, F>
         unsafe{ self.gl.ClearBufferfv(gl::COLOR, 0, &color.r) }
     }
 
+    #[inline]
     pub(crate) fn clear_depth(&mut self, depth: f32) {
         unsafe{ self.gl.ClearBufferfv(gl::DEPTH, 0, &depth) }
+    }
+
+    #[inline]
+    pub(crate) fn clear_stencil(&mut self, stencil: u32) {
+        unsafe{ self.gl.ClearStencil(stencil as GLint) }
     }
 
     #[inline]
