@@ -155,7 +155,10 @@ impl<'a, F> RawBoundFramebufferDraw<'a, F>
 
     #[inline]
     pub(crate) fn clear_stencil(&mut self, stencil: u32) {
-        unsafe{ self.gl.ClearStencil(stencil as GLint) }
+        unsafe{
+            self.gl.ClearStencil(stencil as GLint);
+            self.gl.Clear(gl::STENCIL_BUFFER_BIT);
+        }
     }
 
     #[inline]
