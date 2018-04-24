@@ -26,7 +26,7 @@ use colors::Rgba;
 use render_state::RenderState;
 
 use std::rc::Rc;
-use std::collections::range::RangeArgument;
+use RangeArgument;
 
 use seal::Sealed;
 

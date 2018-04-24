@@ -19,7 +19,7 @@ use gl::types::*;
 
 use std::{ptr, mem};
 use std::ops::Deref;
-use std::collections::range::RangeArgument;
+use RangeArgument;
 use std::cell::Cell;
 use std::marker::PhantomData;
 

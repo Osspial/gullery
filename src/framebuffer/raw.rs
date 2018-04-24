@@ -25,7 +25,7 @@ use colors::Rgba;
 use std::mem;
 use std::cell::Cell;
 use std::marker::PhantomData;
-use std::collections::range::RangeArgument;
+use RangeArgument;
 
 pub unsafe trait RawFramebuffer {
     fn handle(&self) -> GLuint;

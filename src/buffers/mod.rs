@@ -24,7 +24,7 @@ use seal::Sealed;
 
 use std::mem;
 use std::rc::Rc;
-use std::collections::range::RangeArgument;
+use RangeArgument;
 
 pub unsafe trait Index: 'static + Copy + Sealed {}
 unsafe impl Index for () {}
