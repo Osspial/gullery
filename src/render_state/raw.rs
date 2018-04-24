@@ -33,7 +33,8 @@ pub enum Capability {
     RasterizerDiscard(bool),
     StencilTest(Option<StencilTest>),
     TextureCubemapSeamless(bool),
-    ProgramPointSize(bool)
+    ProgramPointSize(bool),
+    PolygonOffset(Option<PolygonOffset>)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -124,15 +125,21 @@ pub enum StencilOp {
     Invert = gl::INVERT
 }
 
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
+pub struct PolygonOffset {
+    pub factor: f32,
+    pub units: f32
+}
+
 #[inline]
 pub fn set_gl_cap(gl: &Gl, cap: Capability) {
     use self::Capability::*;
     let mut enable = false;
-    let gl_capability: GLenum;
+    let gl_capability: &'static [GLenum];
     unsafe {
         match cap {
             Blend(funcs_opt) => {
-                gl_capability = gl::BLEND;
+                gl_capability = &[gl::BLEND];
                 if let Some(funcs) = funcs_opt {
                     enable = true;
                     gl.BlendFuncSeparate(
@@ -144,7 +151,7 @@ pub fn set_gl_cap(gl: &Gl, cap: Capability) {
                 }
             },
             Cull(cull_opt) => {
-                gl_capability = gl::CULL_FACE;
+                gl_capability = &[gl::CULL_FACE];
                 if let Some((cull_face, front_face)) = cull_opt {
                     enable = true;
                     gl.CullFace(cull_face.into());
@@ -152,41 +159,41 @@ pub fn set_gl_cap(gl: &Gl, cap: Capability) {
                 }
             },
             DepthClamp(clamp) => {
-                gl_capability = gl::DEPTH_CLAMP;
+                gl_capability = &[gl::DEPTH_CLAMP];
                 enable = clamp;
             },
             DepthTest(test_opt) => {
-                gl_capability = gl::DEPTH_TEST;
+                gl_capability = &[gl::DEPTH_TEST];
                 if let Some(func) = test_opt{
                     enable = true;
                     gl.DepthFunc(func.into());
                 }
             },
             Dither(dither) => {
-                gl_capability = gl::DITHER;
+                gl_capability = &[gl::DITHER];
                 enable = dither;
             },
             Srgb(srgb) => {
-                gl_capability = gl::FRAMEBUFFER_SRGB;
+                gl_capability = &[gl::FRAMEBUFFER_SRGB];
                 enable = srgb;
             },
             Multisample(ms) => {
-                gl_capability = gl::MULTISAMPLE;
+                gl_capability = &[gl::MULTISAMPLE];
                 enable = ms;
             },
             PrimitiveRestart(restart_opt) => {
-                gl_capability = gl::PRIMITIVE_RESTART;
+                gl_capability = &[gl::PRIMITIVE_RESTART];
                 if let Some(restart) = restart_opt {
                     enable = true;
                     gl.PrimitiveRestartIndex(restart);
                 }
             },
             RasterizerDiscard(discard) => {
-                gl_capability = gl::RASTERIZER_DISCARD;
+                gl_capability = &[gl::RASTERIZER_DISCARD];
                 enable = discard;
             },
             StencilTest(test_opt) => {
-                gl_capability = gl::STENCIL_TEST;
+                gl_capability = &[gl::STENCIL_TEST];
                 if let Some(test) = test_opt {
                     enable = true;
                     gl.StencilFunc(test.func.into(), test.frag_value, test.mask);
@@ -194,18 +201,31 @@ pub fn set_gl_cap(gl: &Gl, cap: Capability) {
                 }
             }
             TextureCubemapSeamless(seamless) => {
-                gl_capability = gl::TEXTURE_CUBE_MAP_SEAMLESS;
+                gl_capability = &[gl::TEXTURE_CUBE_MAP_SEAMLESS];
                 enable = seamless;
             },
             ProgramPointSize(prog) => {
-                gl_capability = gl::PROGRAM_POINT_SIZE;
+                gl_capability = &[gl::PROGRAM_POINT_SIZE];
                 enable = prog;
+            },
+            PolygonOffset(offset_opt) => {
+                gl_capability = &[
+                    gl::POLYGON_OFFSET_FILL,
+                    gl::POLYGON_OFFSET_LINE,
+                    gl::POLYGON_OFFSET_POINT
+                ];
+                if let Some(offset) = offset_opt {
+                    enable = true;
+                    gl.PolygonOffset(offset.factor, offset.units);
+                }
             }
         }
 
-        match enable {
-            true => gl.Enable(gl_capability),
-            false => gl.Disable(gl_capability)
+        for cap in gl_capability {
+            match enable {
+                true => gl.Enable(*cap),
+                false => gl.Disable(*cap)
+            }
         }
     }
 }
