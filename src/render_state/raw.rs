@@ -44,6 +44,15 @@ pub struct BlendFuncs {
     pub dst_alpha: BlendFunc
 }
 
+bitflags!{
+    pub struct ColorMask: u8 {
+        const R = 1 << 0;
+        const G = 1 << 1;
+        const B = 1 << 2;
+        const A = 1 << 3;
+    }
+}
+
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlendFunc {
@@ -191,7 +200,7 @@ pub fn set_gl_cap(gl: &Gl, cap: Capability) {
             ProgramPointSize(prog) => {
                 gl_capability = gl::PROGRAM_POINT_SIZE;
                 enable = prog;
-            },
+            }
         }
 
         match enable {
@@ -202,8 +211,8 @@ pub fn set_gl_cap(gl: &Gl, cap: Capability) {
 }
 
 pub fn set_viewport(gl: &Gl, vp_rect: OffsetBox<Point2<u32>>) {
-    assert!(vp_rect.width() < GLint::max_value()as u32);
-    assert!(vp_rect.height() < GLint::max_value()as u32);
+    assert!(vp_rect.width() < GLint::max_value() as u32);
+    assert!(vp_rect.height() < GLint::max_value() as u32);
     unsafe {
         gl.Viewport(
             vp_rect.origin.x as GLint,
@@ -211,6 +220,23 @@ pub fn set_viewport(gl: &Gl, vp_rect: OffsetBox<Point2<u32>>) {
             vp_rect.width() as GLint,
             vp_rect.height() as GLint
         );
+    }
+}
+
+pub fn set_color_mask(gl: &Gl, mask: ColorMask) {
+    unsafe {
+        gl.ColorMask(
+            mask.contains(ColorMask::R) as GLboolean,
+            mask.contains(ColorMask::G) as GLboolean,
+            mask.contains(ColorMask::B) as GLboolean,
+            mask.contains(ColorMask::A) as GLboolean
+        );
+    }
+}
+
+pub fn set_depth_mask(gl: &Gl, mask: bool) {
+    unsafe {
+        gl.DepthMask(mask as GLboolean);
     }
 }
 
@@ -274,5 +300,12 @@ impl Default for StencilOp {
     #[inline]
     fn default() -> StencilOp {
         StencilOp::Keep
+    }
+}
+
+impl Default for ColorMask {
+    #[inline]
+    fn default() -> ColorMask {
+        ColorMask::all()
     }
 }
