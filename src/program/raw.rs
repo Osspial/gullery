@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use framebuffer::attachments::{Attachment, Attachments, AttachmentsMemberRegistry, AttachmentImageType};
 use gl::{self, Gl};
 use gl::types::*;
 
@@ -71,7 +72,7 @@ pub unsafe trait ShaderStage: Sized + Sealed {
 
 pub enum VertexStage<V: TypeGroup> {#[doc(hidden)]_Unused(!, V)}
 pub enum GeometryStage {}
-pub enum FragmentStage {}
+pub enum FragmentStage<A: Attachments> {#[doc(hidden)]_Unused(!, A)}
 
 
 impl<S: ShaderStage> RawShader<S> {
@@ -533,11 +534,57 @@ unsafe impl ShaderStage for GeometryStage {
     #[inline]
     fn shader_type_enum() -> GLenum {gl::GEOMETRY_SHADER}
 }
-unsafe impl ShaderStage for FragmentStage {
+unsafe impl<A: Attachments> ShaderStage for FragmentStage<A> {
     #[inline]
     fn shader_type_enum() -> GLenum {gl::FRAGMENT_SHADER}
+    unsafe fn program_pre_link_hook(program: &RawProgram, gl: &Gl) {
+        struct FragDataBinder<'a, A: Attachments> {
+            cstr_bytes: Vec<u8>,
+            location: GLuint,
+            program: &'a RawProgram,
+            gl: &'a Gl,
+            _marker: PhantomData<A>
+        }
+        impl<'a, A: Attachments> AttachmentsMemberRegistry for FragDataBinder<'a, A> {
+            type Attachments = A;
+            fn add_member<T>(&mut self, name: &str, _: fn(&A) -> &T)
+                where T: Attachment
+            {
+                if T::IMAGE_TYPE == AttachmentImageType::Color {
+                    // We can't just take ownership of the Vec<u8> to make it a CString, so we have to
+                    // create a dummy buffer and swap it to self.cstr_bytes. At the end we swap it back.
+                    let mut cstr_bytes = Vec::new();
+                    mem::swap(&mut cstr_bytes, &mut self.cstr_bytes);
+
+                    if name.starts_with("gl_") {
+                        panic!("Bad attribute name {}; fragment color cannot start with \"gl_\"", name);
+                    }
+                    cstr_bytes.extend(name.as_bytes());
+                    let cstr = CString::new(cstr_bytes).expect("Null terminator in member name string");
+
+                    unsafe {
+                        self.gl.BindFragDataLocation(self.program.handle, self.location, cstr.as_ptr());
+                        assert_eq!(0, self.gl.GetError());
+                    }
+
+                    let mut cstr_bytes = cstr.into_bytes();
+                    cstr_bytes.clear();
+
+                    mem::swap(&mut cstr_bytes, &mut self.cstr_bytes);
+                    self.location += 1;
+                }
+            }
+        }
+
+        A::members(FragDataBinder {
+            cstr_bytes: Vec::new(),
+            location: 0,
+            program, gl,
+            _marker: PhantomData
+        })
+    }
 }
 
 impl<V: TypeGroup> Sealed for VertexStage<V> {}
 impl Sealed for GeometryStage {}
-impl Sealed for FragmentStage {}
+impl<A: Attachments> Sealed for FragmentStage<A> {}

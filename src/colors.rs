@@ -77,75 +77,44 @@ pub struct Red<S: ScalarNum> {
     pub r: S
 }
 
-impl<S: ScalarNum> Rgba<S> {
-    #[inline]
-    pub fn new(r: S, g: S, b: S, a: S) -> Rgba<S> {
-        Rgba{ r, g, b, a }
-    }
+macro_rules! impl_color {
+    ($(impl $name:ident($len:expr, colors: $($channel:ident),+);)*) => {$(
+        impl<S: ScalarNum> $name<S> {
+            #[inline]
+            pub fn new($($channel: S),*) -> $name<S> {
+                $name{ $($channel),* }
+            }
 
-    #[inline(always)]
-    pub fn slice_from_raw(raw: &[S]) -> &[Rgba<S>] {
-        assert_eq!(0, raw.len() % 4);
-        unsafe{ slice::from_raw_parts(raw.as_ptr() as *const Rgba<S>, raw.len() / 4) }
-    }
+            #[inline(always)]
+            pub fn slice_from_raw(raw: &[S]) -> &[$name<S>] {
+                assert_eq!(0, raw.len() % $len);
+                unsafe{ slice::from_raw_parts(raw.as_ptr() as *const $name<S>, raw.len() / $len) }
+            }
 
-    #[inline(always)]
-    pub fn slice_from_raw_mut(raw: &mut [S]) -> &mut [Rgba<S>] {
-        assert_eq!(0, raw.len() % 4);
-        unsafe{ slice::from_raw_parts_mut(raw.as_mut_ptr() as *mut Rgba<S>, raw.len() / 4) }
-    }
+            #[inline(always)]
+            pub fn slice_from_raw_mut(raw: &mut [S]) -> &mut [$name<S>] {
+                assert_eq!(0, raw.len() % $len);
+                unsafe{ slice::from_raw_parts_mut(raw.as_mut_ptr() as *mut $name<S>, raw.len() / $len) }
+            }
+            
+            #[inline(always)]
+            pub fn to_raw_slice(slice: &[$name<S>]) -> &[S] {
+                unsafe{ slice::from_raw_parts(slice.as_ptr() as *const S, slice.len() * $len) }
+            }
+
+            #[inline(always)]
+            pub fn to_raw_slice_mut(slice: &mut [$name<S>]) -> &mut [S] {
+                unsafe{ slice::from_raw_parts_mut(slice.as_mut_ptr() as *mut S, slice.len() * $len) }
+            }
+        }
+    )*};
 }
-impl<S: ScalarNum> Rgb<S> {
-    #[inline]
-    pub fn new(r: S, g: S, b: S) -> Rgb<S> {
-        Rgb{ r, g, b }
-    }
 
-    #[inline(always)]
-    pub fn slice_from_raw(raw: &[S]) -> &[Rgb<S>] {
-        assert_eq!(0, raw.len() % 3);
-        unsafe{ slice::from_raw_parts(raw.as_ptr() as *const Rgb<S>, raw.len() / 3) }
-    }
-
-    #[inline(always)]
-    pub fn slice_from_raw_mut(raw: &mut [S]) -> &mut [Rgb<S>] {
-        assert_eq!(0, raw.len() % 3);
-        unsafe{ slice::from_raw_parts_mut(raw.as_mut_ptr() as *mut Rgb<S>, raw.len() / 3) }
-    }
-}
-impl<S: ScalarNum> Rg<S> {
-    #[inline]
-    pub fn new(r: S, g: S) -> Rg<S> {
-        Rg{ r, g }
-    }
-
-    #[inline(always)]
-    pub fn slice_from_raw(raw: &[S]) -> &[Rg<S>] {
-        assert_eq!(0, raw.len() % 2);
-        unsafe{ slice::from_raw_parts(raw.as_ptr() as *const Rg<S>, raw.len() / 2) }
-    }
-
-    #[inline(always)]
-    pub fn slice_from_raw_mut(raw: &mut [S]) -> &mut [Rg<S>] {
-        assert_eq!(0, raw.len() % 2);
-        unsafe{ slice::from_raw_parts_mut(raw.as_mut_ptr() as *mut Rg<S>, raw.len() / 2) }
-    }
-}
-impl<S: ScalarNum> Red<S> {
-    #[inline]
-    pub fn new(r: S) -> Red<S> {
-        Red{ r }
-    }
-
-    #[inline(always)]
-    pub fn slice_from_raw(raw: &[S]) -> &[Red<S>] {
-        unsafe{ slice::from_raw_parts(raw.as_ptr() as *const Red<S>, raw.len()) }
-    }
-
-    #[inline(always)]
-    pub fn slice_from_raw_mut(raw: &mut [S]) -> &mut [Red<S>] {
-        unsafe{ slice::from_raw_parts_mut(raw.as_mut_ptr() as *mut Red<S>, raw.len()) }
-    }
+impl_color!{
+    impl Rgba(4, colors: r, g, b, a);
+    impl Rgb(3, colors: r, g, b);
+    impl Rg(2, colors: r, g);
+    impl Red(1, colors: r);
 }
 
 impl<S: ScalarNum> Sealed for Rgba<S> {}

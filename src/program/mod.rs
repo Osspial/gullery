@@ -23,6 +23,7 @@ use gl::types::*;
 use {ContextState, GLObject};
 use glsl::TypeGroup;
 use uniforms::Uniforms;
+use framebuffer::attachments::Attachments;
 
 use std::mem;
 use std::rc::Rc;
@@ -35,17 +36,18 @@ pub struct Shader<S: ShaderStage> {
     state: Rc<ContextState>
 }
 
-pub struct Program<V: TypeGroup, U: 'static + Uniforms> {
+pub struct Program<V: TypeGroup, U: 'static + Uniforms, A: 'static + Attachments> {
     raw: RawProgram,
+    // TODO: REPLACE IN FAVOR OF LIVE RECALCULATION
     uniform_locs: U::ULC,
     state: Rc<ContextState>,
-    _marker: PhantomData<*const V>
+    _marker: PhantomData<(*const V, *const A)>
 }
 
 pub(crate) struct ProgramTarget(RawProgramTarget);
-pub(crate) struct BoundProgram<'a, V: 'a + TypeGroup, U: 'static + Uniforms> {
+pub(crate) struct BoundProgram<'a, V: 'a + TypeGroup, U: 'static + Uniforms, A: 'static + Attachments> {
     raw: RawBoundProgram<'a>,
-    program: &'a Program<V, U>
+    program: &'a Program<V, U, A>
 }
 
 
@@ -58,8 +60,8 @@ impl<S: ShaderStage> Shader<S> {
     }
 }
 
-impl<V: TypeGroup, U: Uniforms> Program<V, U> {
-    pub fn new(vert: &Shader<VertexStage<V>>, geom: Option<&Shader<GeometryStage>>, frag: &Shader<FragmentStage>) -> Result<(Program<V, U>, Vec<ProgramWarning>), LinkError> {
+impl<V: TypeGroup, U: Uniforms, A: Attachments> Program<V, U, A> {
+    pub fn new(vert: &Shader<VertexStage<V>>, geom: Option<&Shader<GeometryStage>>, frag: &Shader<FragmentStage<A>>) -> Result<(Program<V, U, A>, Vec<ProgramWarning>), LinkError> {
         // Temporary variables storing the pointers to the OpenGL state for each of the shaders.
         let vsp = vert.state.as_ref() as *const _;
         let fsp = frag.state.as_ref() as *const _;
@@ -99,9 +101,10 @@ impl ProgramTarget {
     }
 
     #[inline]
-    pub unsafe fn bind<'a, V, U>(&'a self, program: &'a Program<V, U>) -> BoundProgram<'a, V, U>
+    pub unsafe fn bind<'a, V, U, A>(&'a self, program: &'a Program<V, U, A>) -> BoundProgram<'a, V, U, A>
         where V: TypeGroup,
-              U: Uniforms
+              U: Uniforms,
+              A: Attachments
     {
         BoundProgram {
             raw: self.0.bind(&program.raw, &program.state.gl),
@@ -110,7 +113,11 @@ impl ProgramTarget {
     }
 }
 
-impl<'a, V: TypeGroup, U: Uniforms> BoundProgram<'a, V, U> {
+impl<'a, V, U, A> BoundProgram<'a, V, U, A>
+    where V: TypeGroup,
+          U: Uniforms,
+          A: Attachments
+{
     #[inline]
     pub fn upload_uniforms<N>(&self, uniforms: N)
         where N: Uniforms<ULC=U::ULC, Static=U>
@@ -127,7 +134,11 @@ impl<S: ShaderStage> GLObject for Shader<S> {
     }
 }
 
-impl<V: TypeGroup, U: Uniforms> GLObject for Program<V, U> {
+impl<V, U, A> GLObject for Program<V, U, A>
+    where V: TypeGroup,
+          U: Uniforms,
+          A: Attachments
+{
     #[inline]
     fn handle(&self) -> GLenum {
         self.raw.handle()
@@ -142,7 +153,11 @@ impl<S: ShaderStage> Drop for Shader<S> {
     }
 }
 
-impl<V: TypeGroup, U: Uniforms> Drop for Program<V, U> {
+impl<V, U, A> Drop for Program<V, U, A>
+    where V: TypeGroup,
+          U: Uniforms,
+          A: Attachments
+{
     fn drop(&mut self) {
         let mut program_raw = unsafe{ mem::uninitialized() };
         mem::swap(&mut program_raw, &mut self.raw);
@@ -155,6 +170,7 @@ mod tests {
     use super::*;
     use test_helper::{TestVertex, CONTEXT_STATE};
     use cgmath::Vector3;
+    use uniforms::{Uniforms, UniformsMemberRegistry};
 
     const VERTEX_SHADER: &str = r#"
         #version 330
@@ -192,16 +208,13 @@ mod tests {
     }
 
     impl Uniforms for TestUniforms {
-        type UniformLocContainer = [GLint; 2];
+        type ULC = [GLint; 2];
+        type Static = Self;
         fn members<R>(mut reg: R)
             where R: UniformsMemberRegistry<Uniforms=TestUniforms>
         {
             reg.add_member("color_tint", |t| t.color_tint);
             reg.add_member("offset", |t| t.offset);
-        }
-
-        fn new_loc_container() -> [GLint; 2] {
-            [0; 2]
         }
     }
 
@@ -211,7 +224,7 @@ mod tests {
             let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();
             let fragment_shader = Shader::new(FRAGMENT_SHADER, state.clone()).unwrap();
 
-            let program = Program::<TestVertex, TestUniforms>::new(&vertex_shader, None, &fragment_shader).unwrap_werr();
+            let (program, _) = Program::<TestVertex, TestUniforms, ()>::new(&vertex_shader, None, &fragment_shader).unwrap();
             for loc in &program.uniform_locs {
                 assert_ne!(-1, *loc);
             }

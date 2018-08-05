@@ -12,15 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use cgmath_geometry::cgmath::Point2;
+use cgmath_geometry::{OffsetBox, GeoBox};
+use colors::ColorFormat;
 use gl::{self, Gl};
 use gl::types::*;
 
+use ContextState;
 use glsl::{TypeGroup, Scalar};
 use buffers::Index;
 use vao::BoundVAO;
 use uniforms::Uniforms;
 use program::BoundProgram;
 use colors::Rgba;
+use super::attachments::*;
 
 use std::mem;
 use std::cell::Cell;
@@ -37,9 +42,20 @@ unsafe impl RawFramebuffer for RawDefaultFramebuffer {
     fn handle(&self) -> GLuint {0}
 }
 
-// pub struct RawFramebufferTargetRead {
-//     bound_fb: Cell<GLuint>
-// }
+pub struct RawFramebufferObject {
+    handle: GLuint,
+    _sendsync_optout: PhantomData<*const ()>
+}
+unsafe impl RawFramebuffer for RawFramebufferObject {
+    #[inline]
+    fn handle(&self) -> GLuint {
+        self.handle
+    }
+}
+
+pub struct RawFramebufferTargetRead {
+    bound_fb: Cell<GLuint>
+}
 
 pub struct RawFramebufferTargetDraw {
     bound_fb: Cell<GLuint>
@@ -63,12 +79,12 @@ pub enum DrawMode {
     // Patches
 }
 
-// pub struct RawBoundFramebufferRead<'a, F>
-//     where F: 'a + RawFramebuffer
-// {
-//     _fb: PhantomData<&'a F>,
-//     gl: &'a Gl
-// }
+pub struct RawBoundFramebufferRead<'a, F>
+    where F: 'a + RawFramebuffer
+{
+    _fb: PhantomData<&'a F>,
+    gl: &'a Gl
+}
 
 pub struct RawBoundFramebufferDraw<'a, F>
     where F: 'a + RawFramebuffer
@@ -77,35 +93,63 @@ pub struct RawBoundFramebufferDraw<'a, F>
     gl: &'a Gl
 }
 
-// impl RawFramebufferTargetRead {
-//     #[inline]
-//     pub fn new() -> RawFramebufferTargetRead {
-//         RawFramebufferTargetRead {
-//             bound_fb: Cell::new(0)
-//         }
-//     }
+impl RawFramebufferObject {
+    #[inline]
+    pub fn new(gl: &Gl) -> RawFramebufferObject {
+        unsafe {
+            let mut handle = 0;
+            gl.GenFramebuffers(1, &mut handle);
+            assert_ne!(handle, 0);
 
-//     #[inline]
-//     pub unsafe fn bind<'a, F>(&'a self, framebuffer: &'a F, gl: &'a Gl) -> RawBoundFramebufferRead<'a, F>
-//         where F: RawFramebuffer
-//     {
-//         if self.bound_fb.get() != framebuffer.handle() {
-//             self.bound_fb.set(framebuffer.handle());
-//             gl.BindFramebuffer(gl::READ_FRAMEBUFFER, framebuffer.handle());
-//         }
+            RawFramebufferObject {
+                handle,
+                _sendsync_optout: PhantomData
+            }
+        }
+    }
 
-//         RawBoundFramebufferRead {
-//             _fb: PhantomData,
-//             gl
-//         }
-//     }
+    pub fn delete(self, state: &ContextState) {
+        unsafe {
+            state.framebuffer_targets.unbind(&self, &state.gl);
+            state.gl.DeleteFramebuffers(1, &self.handle);
+        }
+    }
+}
 
-//     #[inline]
-//     unsafe fn reset_bind(&self, gl: &Gl) {
-//         self.bound_fb.set(0);
-//         gl.BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
-//     }
-// }
+impl RawFramebufferTargetRead {
+    #[inline]
+    pub fn new() -> RawFramebufferTargetRead {
+        RawFramebufferTargetRead {
+            bound_fb: Cell::new(0)
+        }
+    }
+
+    #[inline]
+    pub unsafe fn bind<'a, F>(&'a self, framebuffer: &'a F, gl: &'a Gl) -> RawBoundFramebufferRead<'a, F>
+        where F: RawFramebuffer
+    {
+        if self.bound_fb.get() != framebuffer.handle() {
+            self.bound_fb.set(framebuffer.handle());
+            gl.BindFramebuffer(gl::READ_FRAMEBUFFER, framebuffer.handle());
+        }
+
+        RawBoundFramebufferRead {
+            _fb: PhantomData,
+            gl
+        }
+    }
+
+    #[inline]
+    pub unsafe fn reset_bind(&self, gl: &Gl) {
+        self.bound_fb.set(0);
+        gl.BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
+    }
+
+    #[inline]
+    pub fn bound_buffer(&self) -> &Cell<GLuint> {
+        &self.bound_fb
+    }
+}
 
 impl RawFramebufferTargetDraw {
     #[inline]
@@ -130,15 +174,46 @@ impl RawFramebufferTargetDraw {
         }
     }
 
-    // #[inline]
-    // unsafe fn reset_bind(&self, gl: &Gl) {
-    //     self.bound_fb.set(0);
-    //     gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
-    // }
+    #[inline]
+    pub unsafe fn reset_bind(&self, gl: &Gl) {
+        self.bound_fb.set(0);
+        gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
+    }
+
+    #[inline]
+    pub fn bound_buffer(&self) -> &Cell<GLuint> {
+        &self.bound_fb
+    }
 }
 
-// impl<'a, F> RawBoundFramebufferRead<'a, F>
-//     where F: RawFramebuffer {}
+impl<'a, F> RawBoundFramebufferRead<'a, F>
+    where F: RawFramebuffer
+{
+    #[inline]
+    pub(crate) fn read_pixels<C: ColorFormat>(&self, read_rect: OffsetBox<Point2<u32>>, data: &mut [C]) {
+        // TODO: STENCIL AND DEPTH SUPPORT
+        // TODO: GL_PIXEL_PACK_BUFFER SUPPORT
+        assert_eq!((read_rect.width() * read_rect.height()) as usize, data.len());
+        assert!(read_rect.origin.x as i32 >= 0);
+        assert!(read_rect.origin.y as i32 >= 0);
+        assert!(read_rect.width() as i32 >= 0);
+        assert!(read_rect.height() as i32 >= 0);
+
+        unsafe {
+            let mut sb = 0;
+            self.gl.ReadPixels(
+                read_rect.origin.x as GLint,
+                read_rect.origin.y as GLint,
+                read_rect.width() as GLsizei,
+                read_rect.height() as GLsizei,
+                C::pixel_format(),
+                C::pixel_type(),
+                data.as_mut_ptr() as *mut GLvoid
+            );
+            assert_eq!(0, self.gl.GetError());
+        }
+    }
+}
 
 impl<'a, F> RawBoundFramebufferDraw<'a, F>
     where F: RawFramebuffer
@@ -162,11 +237,12 @@ impl<'a, F> RawBoundFramebufferDraw<'a, F>
     }
 
     #[inline]
-    pub(crate) fn draw<R, V, I, U>(&mut self, mode: DrawMode, range: R, bound_vao: &BoundVAO<V, I>, _bound_program: &BoundProgram<V, U>)
+    pub(crate) fn draw<R, V, I, U, A>(&mut self, mode: DrawMode, range: R, bound_vao: &BoundVAO<V, I>, _bound_program: &BoundProgram<V, U, A>)
         where R: RangeArgument<usize>,
               V: TypeGroup,
               I: Index,
-              U: Uniforms
+              U: Uniforms,
+              A: Attachments
     {
         let index_type_option = match mem::size_of::<I>() {
             0 => None,
@@ -205,6 +281,75 @@ impl<'a, F> RawBoundFramebufferDraw<'a, F>
                 );
             }
         }
+    }
+}
+
+unsafe impl<'a, F> RawBoundFramebuffer for RawBoundFramebufferRead<'a, F>
+    where F: RawFramebuffer
+{
+    const TARGET: GLenum = gl::READ_FRAMEBUFFER;
+    fn gl(&self) -> &Gl {self.gl}
+}
+
+unsafe impl<'a, F> RawBoundFramebuffer for RawBoundFramebufferDraw<'a, F>
+    where F: RawFramebuffer
+{
+    const TARGET: GLenum = gl::DRAW_FRAMEBUFFER;
+    fn gl(&self) -> &Gl {self.gl}
+}
+
+pub(crate) unsafe trait RawBoundFramebuffer {
+    const TARGET: GLenum;
+    fn gl(&self) -> &Gl;
+
+    fn set_attachments<A: Attachments>(&mut self, handles: &mut [GLuint], attachments: &A) {
+        struct Attacher<'a, A: 'a + Attachments, I: Iterator<Item=&'a mut GLuint>> {
+            color_index: GLenum,
+            gl: &'a Gl,
+            handles: I,
+            target: GLenum,
+            attachments: &'a A
+        }
+        impl<'a, A: Attachments, I: Iterator<Item=&'a mut GLuint>> AttachmentsMemberRegistry for Attacher<'a, A, I> {
+            type Attachments = A;
+            fn add_member<T>(&mut self, _: &str, get_member: fn(&A) -> &T)
+                where T: Attachment
+            {
+                let member = get_member(self.attachments);
+                let handle = self.handles.next().expect("Mismatched attachment handle container length");
+                if member.handle() != *handle {
+                    *handle = member.handle();
+                    let attachment: GLenum;
+                    match T::IMAGE_TYPE {
+                        AttachmentImageType::Color => {
+                            attachment = gl::COLOR_ATTACHMENT0 + self.color_index;
+                            self.color_index += 1;
+                        }
+                    }
+
+                    unsafe {
+                        match T::TARGET_TYPE {
+                            AttachmentTargetType::Renderbuffer =>
+                                self.gl.FramebufferRenderbuffer(
+                                    self.target,
+                                    attachment,
+                                    gl::RENDERBUFFER,
+                                    *handle
+                                )
+                        }
+                        assert_eq!(0, self.gl.GetError());
+                    }
+                }
+            }
+        }
+
+        A::members(Attacher {
+            color_index: 0,
+            handles: handles.iter_mut(),
+            gl: self.gl(),
+            target: Self::TARGET,
+            attachments: attachments
+        })
     }
 }
 

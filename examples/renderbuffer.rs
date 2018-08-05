@@ -32,11 +32,11 @@ use gullery::colors::*;
 use gullery::render_state::*;
 
 use cgmath_geometry::cgmath;
-use cgmath_geometry::OffsetBox;
+use cgmath_geometry::{DimsBox, OffsetBox};
 
 use cgmath::*;
 
-use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuilder, ContextBuilder, GlWindow, GlProfile, GlRequest};
+use glutin::*;
 
 #[derive(TypeGroup, Clone, Copy)]
 struct Vertex {
@@ -49,21 +49,20 @@ struct TriUniforms {
     offset: Point2<u32>
 }
 
+#[derive(Attachments)]
+struct Attachments<'a> {
+    color: &'a mut Renderbuffer<Rgb<Nu8>>
+}
+
 fn main() {
-    let mut events_loop = EventsLoop::new();
-    let window = GlWindow::new(
-        WindowBuilder::new().with_dimensions(512, 512),
-        ContextBuilder::new()
+    let (size_x, size_y) = (512, 512);
+    let headless = 
+        HeadlessRendererBuilder::new(size_x, size_y)
             .with_gl_profile(GlProfile::Core)
-            .with_gl(GlRequest::GlThenGles {
-                opengl_version: (3, 2),
-                opengles_version: (3, 0)
-            })
-            .with_srgb(true),
-        &events_loop
-    ).unwrap();
-    unsafe{ window.context().make_current().unwrap() };
-    let state = unsafe{ ContextState::new(|addr| window.context().get_proc_address(addr)) };
+            .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3)))
+            .build().unwrap();
+    unsafe{ headless.make_current().unwrap() };
+    let state = unsafe{ ContextState::new(|addr| headless.get_proc_address(addr)) };
 
     let vertex_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[
         Vertex {
@@ -95,30 +94,43 @@ fn main() {
         ..RenderState::default()
     };
 
-    let mut default_framebuffer = DefaultFramebuffer::new(state.clone());
-    events_loop.run_forever(|event| {
-        match event {
-            Event::WindowEvent{event, ..} => match event {
-                WindowEvent::Resized(size_x, size_y) => {
-                    window.context().resize(size_x, size_y);
-                    let uniform = TriUniforms {
-                        offset: Point2::new(0, 0)
-                    };
-                    render_state.viewport = OffsetBox::new2(0, 0, size_x, size_y);
-                    default_framebuffer.clear_depth(1.0, &mut ());
-                    default_framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0), &mut ());
-                    default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, &mut (), render_state);
+    let mut framebuffer: FramebufferObject<Attachments<'static>> = FramebufferObject::new(state.clone());
+    let mut color_renderbuffer = Renderbuffer::new(DimsBox::new2(size_x, size_y), 0, state.clone());
+    let mut attachments = Attachments {
+        color: &mut color_renderbuffer
+    };
+    let uniform = TriUniforms {
+        offset: Point2::new(0, 0)
+    };
+    render_state.viewport = OffsetBox::new2(0, 0, size_x, size_y);
+    framebuffer.clear_depth(1.0, &mut attachments);
+    framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0), &mut attachments);
+    framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, &mut attachments, render_state);
 
-                    window.context().swap_buffers().unwrap();
-                }
-                WindowEvent::Closed => return ControlFlow::Break,
-                _ => ()
-            },
-            _ => ()
+    let (width, height) = (size_x, size_y);
+    let mut data_buffer = vec![Rgb::new(Nu8(0u8), Nu8(0), Nu8(0)); (width * height) as usize];
+    framebuffer.read_pixels(OffsetBox::new2(0, 0, width, height), &mut data_buffer, &attachments);
+
+    // OpenGL outputs the pixels with a top-left origin, but PNG exports then with a bottom-right
+    // origin. This accounts for that.
+    {
+        let mut lines_mut = data_buffer.chunks_mut(width as usize);
+        while let (Some(top), Some(bottom)) = (lines_mut.next(), lines_mut.next_back()) {
+            for (t, b) in top.iter_mut().zip(bottom.iter_mut()) {
+                ::std::mem::swap(t, b);
+            }
         }
+    }
 
-        ControlFlow::Continue
-    });
+    use std::fs::File;
+    use std::io::BufWriter;
+    use png::HasParameters;
+    let file = File::create("target/output_pixels.png").unwrap();
+    let ref mut w = BufWriter::new(file);
+    let mut encoder = png::Encoder::new(w, width, height);
+    encoder.set(png::ColorType::RGB).set(png::BitDepth::Eight);
+    let mut writer = encoder.write_header().unwrap();
+    writer.write_image_data(Nu8::to_raw_slice(Rgb::to_raw_slice(&data_buffer))).unwrap();
 }
 
 const VERTEX_SHADER: &str = r#"

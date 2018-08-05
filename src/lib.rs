@@ -19,6 +19,7 @@ extern crate gullery_bindings as gl;
 #[macro_use]
 extern crate derive_more;
 extern crate num_traits;
+use std::os::raw::c_void;
 use cgmath_geometry::cgmath;
 extern crate cgmath_geometry;
 #[macro_use]
@@ -36,6 +37,7 @@ pub mod glsl;
 pub mod framebuffer;
 pub mod program;
 pub mod render_state;
+pub mod renderbuffer;
 pub mod textures;
 pub mod uniforms;
 pub mod vao;
@@ -52,6 +54,20 @@ pub trait GLObject {
     fn handle(&self) -> GLuint;
 }
 
+impl<'a, O: GLObject> GLObject for &'a O {
+    #[inline(always)]
+    fn handle(&self) -> GLuint {
+        O::handle(*self)
+    }
+}
+
+impl<'a, O: GLObject> GLObject for &'a mut O {
+    #[inline(always)]
+    fn handle(&self) -> GLuint {
+        O::handle(*self)
+    }
+}
+
 pub struct ContextState {
     buffer_binds: buffers::BufferBinds,
     program_target: program::ProgramTarget,
@@ -59,12 +75,33 @@ pub struct ContextState {
     framebuffer_targets: framebuffer::FramebufferTargets,
     render_state: Cell<render_state::RenderState>,
     sampler_units: textures::SamplerUnits,
+    renderbuffer_target: renderbuffer::RenderbufferTarget,
     gl: Gl
 }
 
 impl ContextState {
     pub unsafe fn new<F: Fn(&str) -> *const ()>(load_fn: F) -> Rc<ContextState> {
         let gl = Gl::load_with(|s| load_fn(s) as *const _);
+
+        // if gl.DebugMessageCallback.is_loaded() {
+        //     extern "system" fn debug_callback(
+        //         source: GLenum,
+        //         gltype: GLenum,
+        //         id: GLuint,
+        //         severity: GLenum,
+        //         length: GLsizei,
+        //         message: *const GLchar,
+        //         _userParam: *mut c_void
+        //     ) {
+        //         unsafe {
+        //             use std::ffi::CStr;
+        //             let message = CStr::from_ptr(message);
+        //             println!("{:?}", message);
+        //         }
+        //     }
+        //     gl.DebugMessageCallback(debug_callback, 0 as *mut _);
+        // }
+
         Rc::new(ContextState {
             buffer_binds: buffers::BufferBinds::new(),
             program_target: program::ProgramTarget::new(),
@@ -72,6 +109,7 @@ impl ContextState {
             framebuffer_targets: framebuffer::FramebufferTargets::new(),
             render_state: Cell::new(render_state::RenderState::default()),
             sampler_units: textures::SamplerUnits::new(&gl),
+            renderbuffer_target: renderbuffer::RenderbufferTarget::new(),
             gl
         })
     }

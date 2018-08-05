@@ -14,6 +14,7 @@ bitflags = "1.0"
 glutin = "0.13"
 quickcheck = "0.4"
 gullery_macros = { path = "./gullery_macros" }
+png = "0.12"
 
 [workspace]
 members = ["./gullery_bindings", "./gullery_macros"]

@@ -750,6 +750,16 @@ macro_rules! normalized_int {
             pub fn slice_from_raw_mut(raw: &mut [$inner]) -> &mut [$name] {
                 unsafe{ &mut *(raw as *mut [$inner] as *mut [$name]) }
             }
+
+            #[inline(always)]
+            pub fn to_raw_slice(slice: &[$name]) -> &[$inner] {
+                unsafe{ &*(slice as *const [$name] as *const [$inner]) }
+            }
+
+            #[inline(always)]
+            pub fn to_raw_slice_mut(slice: &mut [$name]) -> &mut [$inner] {
+                unsafe{ &mut *(slice as *mut [$name] as *mut [$inner]) }
+            }
         }
 
         impl BaseNum for $name {}
