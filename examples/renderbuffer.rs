@@ -56,7 +56,7 @@ struct Attachments<'a> {
 
 fn main() {
     let (size_x, size_y) = (512, 512);
-    let headless = 
+    let headless =
         HeadlessRendererBuilder::new(size_x, size_y)
             .with_gl_profile(GlProfile::Core)
             .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3)))
@@ -85,31 +85,29 @@ fn main() {
     let fragment_shader = Shader::new(FRAGMENT_SHADER, state.clone()).unwrap();
     let (program, _) = Program::new(&vertex_shader, None, &fragment_shader).unwrap();
 
-    let mut render_state = RenderState {
-        srgb: true,
-        viewport: OffsetBox {
-            origin: Point2::new(0, 0),
-            dims: Vector2::new(512, 512)
-        },
-        ..RenderState::default()
+    let mut color_renderbuffer = Renderbuffer::new(DimsBox::new2(size_x, size_y), 0, state.clone());
+    let mut fbo_attached = FramebufferObjectAttached {
+        fbo: FramebufferObject::new(state.clone()),
+        attachments: Attachments {
+            color: &mut color_renderbuffer
+        }
     };
 
-    let mut framebuffer: FramebufferObject<Attachments<'static>> = FramebufferObject::new(state.clone());
-    let mut color_renderbuffer = Renderbuffer::new(DimsBox::new2(size_x, size_y), 0, state.clone());
-    let mut attachments = Attachments {
-        color: &mut color_renderbuffer
-    };
     let uniform = TriUniforms {
         offset: Point2::new(0, 0)
     };
-    render_state.viewport = OffsetBox::new2(0, 0, size_x, size_y);
-    framebuffer.clear_depth(1.0, &mut attachments);
-    framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0), &mut attachments);
-    framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, &mut attachments, render_state);
+    let render_state = RenderState {
+        srgb: true,
+        viewport: OffsetBox::new2(0, 0, size_x, size_y),
+        ..RenderState::default()
+    };
+    fbo_attached.clear_depth(1.0);
+    fbo_attached.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0));
+    fbo_attached.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
 
     let (width, height) = (size_x, size_y);
     let mut data_buffer = vec![Rgb::new(Nu8(0u8), Nu8(0), Nu8(0)); (width * height) as usize];
-    framebuffer.read_pixels(OffsetBox::new2(0, 0, width, height), &mut data_buffer, &attachments);
+    fbo_attached.read_pixels(OffsetBox::new2(0, 0, width, height), &mut data_buffer);
 
     // OpenGL outputs the pixels with a top-left origin, but PNG exports then with a bottom-right
     // origin. This accounts for that.

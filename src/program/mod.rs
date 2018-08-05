@@ -38,7 +38,6 @@ pub struct Shader<S: ShaderStage> {
 
 pub struct Program<V: TypeGroup, U: 'static + Uniforms, A: 'static + Attachments> {
     raw: RawProgram,
-    // TODO: REPLACE IN FAVOR OF LIVE RECALCULATION
     uniform_locs: U::ULC,
     state: Rc<ContextState>,
     _marker: PhantomData<(*const V, *const A)>

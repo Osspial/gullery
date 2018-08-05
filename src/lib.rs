@@ -19,7 +19,6 @@ extern crate gullery_bindings as gl;
 #[macro_use]
 extern crate derive_more;
 extern crate num_traits;
-use std::os::raw::c_void;
 use cgmath_geometry::cgmath;
 extern crate cgmath_geometry;
 #[macro_use]
@@ -83,6 +82,7 @@ impl ContextState {
     pub unsafe fn new<F: Fn(&str) -> *const ()>(load_fn: F) -> Rc<ContextState> {
         let gl = Gl::load_with(|s| load_fn(s) as *const _);
 
+        // use std::os::raw::c_void;
         // if gl.DebugMessageCallback.is_loaded() {
         //     extern "system" fn debug_callback(
         //         source: GLenum,

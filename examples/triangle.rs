@@ -23,7 +23,6 @@ extern crate num_traits;
 
 use gullery::ContextState;
 use gullery::buffers::*;
-use gullery::renderbuffer::*;
 use gullery::framebuffer::*;
 use gullery::program::*;
 use gullery::vao::*;
@@ -105,9 +104,9 @@ fn main() {
                         offset: Point2::new(0, 0)
                     };
                     render_state.viewport = OffsetBox::new2(0, 0, size_x, size_y);
-                    default_framebuffer.clear_depth(1.0, &mut ());
-                    default_framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0), &mut ());
-                    default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, &mut (), render_state);
+                    default_framebuffer.clear_depth(1.0);
+                    default_framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0));
+                    default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
 
                     window.context().swap_buffers().unwrap();
                 }

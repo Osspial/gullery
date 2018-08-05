@@ -200,7 +200,6 @@ impl<'a, F> RawBoundFramebufferRead<'a, F>
         assert!(read_rect.height() as i32 >= 0);
 
         unsafe {
-            let mut sb = 0;
             self.gl.ReadPixels(
                 read_rect.origin.x as GLint,
                 read_rect.origin.y as GLint,
@@ -298,7 +297,7 @@ unsafe impl<'a, F> RawBoundFramebuffer for RawBoundFramebufferDraw<'a, F>
     fn gl(&self) -> &Gl {self.gl}
 }
 
-pub(crate) unsafe trait RawBoundFramebuffer {
+pub unsafe trait RawBoundFramebuffer {
     const TARGET: GLenum;
     fn gl(&self) -> &Gl;
 

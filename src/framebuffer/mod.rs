@@ -14,6 +14,7 @@
 
 pub mod attachments;
 mod raw;
+use std::borrow::BorrowMut;
 use self::raw::*;
 use self::attachments::*;
 pub use self::raw::DrawMode;
@@ -53,84 +54,110 @@ pub struct FramebufferObject<A: 'static + FBOAttachments> {
     state: Rc<ContextState>
 }
 
+pub struct FramebufferObjectAttached<A, F=FramebufferObject<<A as Attachments>::Static>>
+    where A: FBOAttachments,
+          A::Static: FBOAttachments,
+          F: BorrowMut<FramebufferObject<A::Static>>
+{
+    pub fbo: F,
+    pub attachments: A,
+}
+
+use self::sealed::*;
+mod sealed {
+    use super::*;
+    pub trait __Attacher {
+        unsafe fn set_attachments<B>(&mut self, bind: &mut B)
+            where B: RawBoundFramebuffer;
+    }
+    pub struct FBOAttacher<A: FBOAttachments> {
+        pub(crate) ahc: *mut [GLuint],
+        pub(crate) attachments: *const A
+    }
+}
+
+impl<A, F> FramebufferObjectAttached<A, F>
+    where A: FBOAttachments,
+          A::Static: FBOAttachments,
+          F: BorrowMut<FramebufferObject<A::Static>>
+{
+    #[inline(always)]
+    pub fn new(fbo: F, attachments: A) -> FramebufferObjectAttached<A, F> {
+        FramebufferObjectAttached{ fbo, attachments }
+    }
+}
+
 pub trait Framebuffer: Sealed {
-    type Attachments: 'static + Attachments;
+    type Attachments: Attachments + 'static;
     /// Really these raw things are just implementation details. You library users don't have to
     /// worry about them, so they aren't shown to you.
     #[doc(hidden)]
     type Raw: RawFramebuffer;
     #[doc(hidden)]
+    type Attacher: __Attacher;
+    #[doc(hidden)]
     fn raw(&self) -> (&Self::Raw, &ContextState);
     #[doc(hidden)]
-    fn raw_mut(&mut self) -> (&mut Self::Raw, &mut [GLuint], &ContextState);
+    fn raw_mut(&mut self) -> (&mut Self::Raw, Self::Attacher, &ContextState);
 
     #[inline]
-    fn clear_color<A>(&mut self, color: Rgba<f32>, attachments: &mut A)
-        where A: Attachments<Static=Self::Attachments, AHC=<Self::Attachments as Attachments>::AHC>
-    {
-        let (raw_mut, handles, state) = self.raw_mut();
+    fn clear_color(&mut self, color: Rgba<f32>) {
+        let (raw_mut, mut attacher, state) = self.raw_mut();
         unsafe {
             let mut framebuffer_bind = state.framebuffer_targets.draw.bind(raw_mut, &state.gl);
-            framebuffer_bind.set_attachments(handles, attachments);
+            attacher.set_attachments(&mut framebuffer_bind);
             framebuffer_bind.clear_color(color);
         }
     }
 
     #[inline]
-    fn clear_depth<A>(&mut self, depth: f32, attachments: &mut A)
-        where A: Attachments<Static=Self::Attachments, AHC=<Self::Attachments as Attachments>::AHC>
-    {
-        let (raw_mut, handles, state) = self.raw_mut();
+    fn clear_depth(&mut self, depth: f32) {
+        let (raw_mut, mut attacher, state) = self.raw_mut();
         unsafe {
             let mut framebuffer_bind = state.framebuffer_targets.draw.bind(raw_mut, &state.gl);
-            framebuffer_bind.set_attachments(handles, attachments);
+            attacher.set_attachments(&mut framebuffer_bind);
             framebuffer_bind.clear_depth(depth);
         }
     }
 
     #[inline]
-    fn clear_stencil<A>(&mut self, stencil: u32, attachments: &mut Self::Attachments)
-        where A: Attachments<Static=Self::Attachments, AHC=<Self::Attachments as Attachments>::AHC>
-    {
-        let (raw_mut, handles, state) = self.raw_mut();
+    fn clear_stencil(&mut self, stencil: u32) {
+        let (raw_mut, mut attacher, state) = self.raw_mut();
         unsafe {
             let mut framebuffer_bind = state.framebuffer_targets.draw.bind(raw_mut, &state.gl);
-            framebuffer_bind.set_attachments(handles, attachments);
+            attacher.set_attachments(&mut framebuffer_bind);
             framebuffer_bind.clear_stencil(stencil);
         }
     }
 
     #[inline]
-    fn read_pixels<C, A>(&mut self, read_rect: OffsetBox<Point2<u32>>, data: &mut [C], attachments: &A)
-        where C: ColorFormat,
-              A: Attachments<Static=Self::Attachments, AHC=<Self::Attachments as Attachments>::AHC>
+    fn read_pixels<C>(&mut self, read_rect: OffsetBox<Point2<u32>>, data: &mut [C])
+        where C: ColorFormat
     {
-        let (raw, handles, state) = self.raw_mut();
+        let (raw, mut attacher, state) = self.raw_mut();
         unsafe {
             let mut framebuffer_bind = state.framebuffer_targets.read.bind(raw, &state.gl);
-            framebuffer_bind.set_attachments(handles, attachments);
+            attacher.set_attachments(&mut framebuffer_bind);
             framebuffer_bind.read_pixels(read_rect, data);
         }
     }
 
     #[inline]
-    fn draw<R, V, I, U, A>(
+    fn draw<R, V, I, U>(
         &mut self,
         mode: DrawMode,
         range: R,
         vao: &VertexArrayObj<V, I>,
-        program: &Program<V, U::Static, A::Static>,
+        program: &Program<V, U::Static, Self::Attachments>,
         uniforms: U,
-        attachments: &mut A,
         render_state: RenderState
     )
         where R: RangeArgument<usize>,
               V: TypeGroup,
               I: Index,
-              U: Uniforms,
-              A: Attachments<Static=Self::Attachments, AHC=<Self::Attachments as Attachments>::AHC>
+              U: Uniforms
     {
-        let (raw_mut, handles, state) = self.raw_mut();
+        let (raw_mut, mut attacher, state) = self.raw_mut();
         render_state.upload_state(state);
         unsafe {
             let vao_bind = state.vao_target.bind(vao);
@@ -139,7 +166,7 @@ pub trait Framebuffer: Sealed {
             program_bind.upload_uniforms(uniforms);
 
             let mut framebuffer_bind = state.framebuffer_targets.draw.bind(raw_mut, &state.gl);
-            framebuffer_bind.set_attachments(handles, attachments);
+            attacher.set_attachments(&mut framebuffer_bind);
             framebuffer_bind.draw(mode, range, &vao_bind, &program_bind);
         }
     }
@@ -191,30 +218,62 @@ impl FramebufferTargets {
     }
 }
 
+impl __Attacher for () {
+    #[inline]
+    unsafe fn set_attachments<B>(&mut self, _bind: &mut B)
+        where B: RawBoundFramebuffer {}
+}
+
 impl Sealed for DefaultFramebuffer {}
 impl Framebuffer for DefaultFramebuffer {
     type Attachments = ();
     type Raw = RawDefaultFramebuffer;
+    type Attacher = ();
     #[inline]
     fn raw(&self) -> (&Self::Raw, &ContextState) {
         (&self.raw, &self.state)
     }
     #[inline]
-    fn raw_mut(&mut self) -> (&mut Self::Raw, &mut [GLuint], &ContextState) {
-        (&mut self.raw, &mut [], &self.state)
+    fn raw_mut(&mut self) -> (&mut Self::Raw, (), &ContextState) {
+        (&mut self.raw, (), &self.state)
+    }
+}
+
+impl<A: FBOAttachments> __Attacher for FBOAttacher<A> {
+    unsafe fn set_attachments<B>(&mut self, bind: &mut B)
+        where B: RawBoundFramebuffer
+    {
+        bind.set_attachments(&mut *self.ahc, &*self.attachments);
     }
 }
 
 impl<A: FBOAttachments> Sealed for FramebufferObject<A> {}
-impl<A: FBOAttachments> Framebuffer for FramebufferObject<A> {
-    type Attachments = A;
+impl<A, F> Sealed for FramebufferObjectAttached<A, F>
+    where A: FBOAttachments,
+          A::Static: FBOAttachments,
+          F: BorrowMut<FramebufferObject<A::Static>> {}
+impl<A, F> Framebuffer for FramebufferObjectAttached<A, F>
+    where A: FBOAttachments,
+          A::Static: FBOAttachments,
+          F: BorrowMut<FramebufferObject<A::Static>>
+{
+    type Attachments = A::Static;
     type Raw = RawFramebufferObject;
+    type Attacher = FBOAttacher<A>;
     #[inline]
     fn raw(&self) -> (&Self::Raw, &ContextState) {
-        (&self.raw, &self.state)
+        (&self.fbo.borrow().raw, &self.fbo.borrow().state)
     }
     #[inline]
-    fn raw_mut(&mut self) -> (&mut Self::Raw, &mut [GLuint], &ContextState) {
-        (&mut self.raw, self.handles.as_mut(), &self.state)
+    fn raw_mut(&mut self) -> (&mut Self::Raw, FBOAttacher<A>, &ContextState) {
+        let fbo = self.fbo.borrow_mut();
+        (
+            &mut fbo.raw,
+            FBOAttacher {
+                ahc: fbo.handles.as_mut(),
+                attachments: &self.attachments
+            },
+            &fbo.state
+        )
     }
 }
