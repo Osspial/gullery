@@ -583,6 +583,53 @@ unsafe impl<A: Attachments> ShaderStage for FragmentStage<A> {
             _marker: PhantomData
         })
     }
+    unsafe fn program_post_link_hook(program: &RawProgram, gl: &Gl, warnings: &mut Vec<ProgramWarning>) {
+        struct FragDataChecker<'a, A: Attachments> {
+            cstr_bytes: Vec<u8>,
+            program: &'a RawProgram,
+            gl: &'a Gl,
+            warnings: &'a mut Vec<ProgramWarning>,
+            _marker: PhantomData<A>
+        }
+        impl<'a, A: Attachments> AttachmentsMemberRegistry for FragDataChecker<'a, A> {
+            type Attachments = A;
+            fn add_member<T>(&mut self, name: &str, _: fn(&A) -> &T)
+                where T: Attachment
+            {
+                if T::IMAGE_TYPE == AttachmentImageType::Color {
+                    // We can't just take ownership of the Vec<u8> to make it a CString, so we have to
+                    // create a dummy buffer and swap it to self.cstr_bytes. At the end we swap it back.
+                    let mut cstr_bytes = Vec::new();
+                    mem::swap(&mut cstr_bytes, &mut self.cstr_bytes);
+
+                    if name.starts_with("gl_") {
+                        panic!("Bad attribute name {}; fragment color cannot start with \"gl_\"", name);
+                    }
+                    cstr_bytes.extend(name.as_bytes());
+                    let cstr = CString::new(cstr_bytes).expect("Null terminator in member name string");
+
+                    unsafe {
+                        let dataLocation = self.gl.GetFragDataLocation(self.program.handle, cstr.as_ptr());
+                        if dataLocation == -1 {
+                            self.warnings.push(ProgramWarning::UnusedColor(name.to_string()));
+                        }
+                        assert_eq!(0, self.gl.GetError());
+                    }
+
+                    let mut cstr_bytes = cstr.into_bytes();
+                    cstr_bytes.clear();
+
+                    mem::swap(&mut cstr_bytes, &mut self.cstr_bytes);
+                }
+            }
+        }
+
+        A::members(FragDataChecker {
+            cstr_bytes: Vec::new(),
+            program, gl, warnings,
+            _marker: PhantomData
+        })
+    }
 }
 
 impl<V: TypeGroup> Sealed for VertexStage<V> {}

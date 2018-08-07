@@ -83,7 +83,10 @@ fn main() {
 
     let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();
     let fragment_shader = Shader::new(FRAGMENT_SHADER, state.clone()).unwrap();
-    let (program, _) = Program::new(&vertex_shader, None, &fragment_shader).unwrap();
+    let (program, warnings) = Program::new(&vertex_shader, None, &fragment_shader).unwrap();
+    for w in warnings {
+        println!("Warning: {}", w);
+    }
 
     let mut color_renderbuffer = Renderbuffer::new(DimsBox::new2(size_x, size_y), 0, state.clone());
     let mut fbo_attached = FramebufferObjectAttached {

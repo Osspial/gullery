@@ -28,6 +28,7 @@ pub struct LinkError(pub(super) String);
 pub enum ProgramWarning {
     IdentNotFound(String),
     UnusedAttrib(String),
+    UnusedColor(String),
     MismatchedTypes {
         ident: String,
         shader_ty: TypeTag,
@@ -51,8 +52,9 @@ impl Display for ProgramWarning {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         use self::ProgramWarning::*;
         match *self {
-            IdentNotFound(ref ident) => write!(f, "Identifier not found: {}", ident),
-            UnusedAttrib(ref ident) => write!(f, "Unused shader attribute: {}", ident),
+            IdentNotFound(ref ident) => write!(f, "Identifier not found `{}`", ident),
+            UnusedAttrib(ref ident) => write!(f, "Unused shader attribute `{}`", ident),
+            UnusedColor(ref ident) => write!(f, "Unused color attachment `{}`", ident),
             MismatchedTypes{ref ident, shader_ty, rust_ty} => write!(f, "Mismatched type in {}; shader has {}, but Rust repr has {}", ident, shader_ty, rust_ty)
         }
     }
