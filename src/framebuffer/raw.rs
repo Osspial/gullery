@@ -189,6 +189,13 @@ impl RawFramebufferTargetDraw {
 impl<'a, F> RawBoundFramebufferRead<'a, F>
     where F: RawFramebuffer
 {
+    pub(crate) fn read_color_attachment(&self, attachment_index: u8) {
+        assert!(attachment_index < 32);
+        unsafe {
+            self.gl.ReadBuffer(gl::COLOR_ATTACHMENT0 + attachment_index as GLenum);
+            assert_eq!(0, self.gl.GetError());
+        }
+    }
     #[inline]
     pub(crate) fn read_pixels<C: ColorFormat>(&self, read_rect: OffsetBox<Point2<u32>>, data: &mut [C]) {
         // TODO: STENCIL AND DEPTH SUPPORT
@@ -229,10 +236,15 @@ impl<'a, F> RawBoundFramebufferDraw<'a, F>
 
     #[inline]
     pub(crate) fn clear_stencil(&mut self, stencil: u32) {
-        unsafe{
+        unsafe {
             self.gl.ClearStencil(stencil as GLint);
             self.gl.Clear(gl::STENCIL_BUFFER_BIT);
         }
+    }
+
+    #[inline]
+    pub(crate) fn draw_buffers(&mut self, buffers: &[GLenum]) {
+        unsafe{ self.gl.DrawBuffers(buffers.len() as GLsizei, buffers.as_ptr()); }
     }
 
     #[inline]

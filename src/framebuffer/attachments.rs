@@ -7,6 +7,7 @@ use gl::types::*;
 pub trait Attachment: GLObject {
     const TARGET_TYPE: AttachmentTargetType;
     const IMAGE_TYPE: AttachmentImageType;
+    type Format: ColorFormat;
 }
 
 pub trait Attachments: Sized {
@@ -36,6 +37,7 @@ pub trait Attachments: Sized {
 }
 
 pub unsafe trait FBOAttachments: Attachments {}
+pub unsafe trait DefaultFramebufferAttachments: Attachments {}
 
 pub trait AttachmentHandleContainer: AsRef<[GLuint]> + AsMut<[GLuint]> {
     fn new_zeroed() -> Self;
@@ -88,13 +90,16 @@ impl Attachments for () {
     fn members<R>(_reg: R)
         where R: AttachmentsMemberRegistry<Attachments=Self> {}
 }
+unsafe impl DefaultFramebufferAttachments for () {}
 
 impl<C: ColorFormat> Attachment for Renderbuffer<C> {
     const TARGET_TYPE: AttachmentTargetType = AttachmentTargetType::Renderbuffer;
     const IMAGE_TYPE: AttachmentImageType = AttachmentImageType::Color;
+    type Format = C;
 }
 
 impl<'a, A: Attachment> Attachment for &'a mut A {
     const TARGET_TYPE: AttachmentTargetType = A::TARGET_TYPE;
     const IMAGE_TYPE: AttachmentImageType = A::IMAGE_TYPE;
+    type Format = A::Format;
 }

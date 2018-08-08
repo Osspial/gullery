@@ -50,8 +50,9 @@ struct TriUniforms {
 }
 
 #[derive(Attachments)]
-struct Attachments<'a> {
-    color: &'a mut Renderbuffer<Rgb<Nu8>>
+struct Attachments {
+    color: Renderbuffer<Rgb<Nu8>>,
+    color_inverted: Renderbuffer<Rgb<Nu8>>,
 }
 
 fn main() {
@@ -88,11 +89,11 @@ fn main() {
         println!("Warning: {}", w);
     }
 
-    let mut color_renderbuffer = Renderbuffer::new(DimsBox::new2(size_x, size_y), 0, state.clone());
     let mut fbo_attached = FramebufferObjectAttached {
         fbo: FramebufferObject::new(state.clone()),
         attachments: Attachments {
-            color: &mut color_renderbuffer
+            color: Renderbuffer::new(DimsBox::new2(size_x, size_y), 0, state.clone()),
+            color_inverted: Renderbuffer::new(DimsBox::new2(size_x, size_y), 0, state.clone()),
         }
     };
 
@@ -109,8 +110,17 @@ fn main() {
     fbo_attached.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
 
     let (width, height) = (size_x, size_y);
-    let mut data_buffer = vec![Rgb::new(Nu8(0u8), Nu8(0), Nu8(0)); (width * height) as usize];
-    fbo_attached.read_pixels(OffsetBox::new2(0, 0, width, height), &mut data_buffer);
+    let mut data_buffer = vec![Rgb::new(Nu8(0u8), Nu8(0), Nu8(0)); (width * height) as usize * 2];
+    fbo_attached.read_pixels_fbo(
+        OffsetBox::new2(0, 0, width, height),
+        &mut data_buffer[(width * height) as usize..],
+        |a| &a.color
+    );
+    fbo_attached.read_pixels_fbo(
+        OffsetBox::new2(0, 0, width, height),
+        &mut data_buffer[0..(width * height) as usize],
+        |a| &a.color_inverted
+    );
 
     // OpenGL outputs the pixels with a top-left origin, but PNG exports then with a bottom-right
     // origin. This accounts for that.
@@ -128,7 +138,7 @@ fn main() {
     use png::HasParameters;
     let file = File::create("target/output_pixels.png").unwrap();
     let ref mut w = BufWriter::new(file);
-    let mut encoder = png::Encoder::new(w, width, height);
+    let mut encoder = png::Encoder::new(w, width, height * 2);
     encoder.set(png::ColorType::RGB).set(png::BitDepth::Eight);
     let mut writer = encoder.write_header().unwrap();
     writer.write_image_data(Nu8::to_raw_slice(Rgb::to_raw_slice(&data_buffer))).unwrap();
@@ -154,8 +164,10 @@ const FRAGMENT_SHADER: &str = r#"
 
     in vec3 vert_color;
     out vec4 color;
+    out vec4 color_inverted;
 
     void main() {
         color = vec4(vert_color, 1.0);
+        color_inverted = vec4(1.0 - vert_color, 1.0);
     }
 "#;

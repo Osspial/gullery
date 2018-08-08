@@ -609,8 +609,8 @@ unsafe impl<A: Attachments> ShaderStage for FragmentStage<A> {
                     let cstr = CString::new(cstr_bytes).expect("Null terminator in member name string");
 
                     unsafe {
-                        let dataLocation = self.gl.GetFragDataLocation(self.program.handle, cstr.as_ptr());
-                        if dataLocation == -1 {
+                        let data_location = self.gl.GetFragDataLocation(self.program.handle, cstr.as_ptr());
+                        if data_location == -1 {
                             self.warnings.push(ProgramWarning::UnusedColor(name.to_string()));
                         }
                         assert_eq!(0, self.gl.GetError());
