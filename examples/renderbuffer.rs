@@ -51,8 +51,8 @@ struct TriUniforms {
 
 #[derive(Attachments)]
 struct Attachments {
-    color: Renderbuffer<Rgb<Nu8>>,
-    color_inverted: Renderbuffer<Rgb<Nu8>>,
+    color: Renderbuffer<SRgb>,
+    color_inverted: Renderbuffer<SRgb>,
 }
 
 fn main() {
@@ -110,7 +110,7 @@ fn main() {
     fbo_attached.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
 
     let (width, height) = (size_x, size_y);
-    let mut data_buffer = vec![Rgb::new(Nu8(0u8), Nu8(0), Nu8(0)); (width * height) as usize * 2];
+    let mut data_buffer = vec![SRgb::new(Nu8(0u8), Nu8(0), Nu8(0)); (width * height) as usize * 2];
     fbo_attached.read_pixels_fbo(
         OffsetBox::new2(0, 0, width, height),
         &mut data_buffer[(width * height) as usize..],
@@ -141,7 +141,7 @@ fn main() {
     let mut encoder = png::Encoder::new(w, width, height * 2);
     encoder.set(png::ColorType::RGB).set(png::BitDepth::Eight);
     let mut writer = encoder.write_header().unwrap();
-    writer.write_image_data(Nu8::to_raw_slice(Rgb::to_raw_slice(&data_buffer))).unwrap();
+    writer.write_image_data(Nu8::to_raw_slice(SRgb::to_raw_slice(&data_buffer))).unwrap();
 }
 
 const VERTEX_SHADER: &str = r#"

@@ -24,7 +24,7 @@ use num_traits::{Num, PrimInt};
 use std::slice;
 
 
-pub unsafe trait ColorFormat: 'static + Copy + Into<Rgba<<Self as ColorFormat>::Scalar>> + Sealed {
+pub unsafe trait ColorFormat: 'static + Copy + Sealed {
     type Scalar: ScalarNum;
 
     fn internal_format() -> GLenum;
@@ -77,50 +77,80 @@ pub struct Red<S: ScalarNum> {
     pub r: S
 }
 
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SRgba {
+    pub r: Nu8,
+    pub g: Nu8,
+    pub b: Nu8,
+    pub a: Nu8
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SRgb {
+    pub r: Nu8,
+    pub g: Nu8,
+    pub b: Nu8
+}
+
 macro_rules! impl_color {
-    ($(impl $name:ident($len:expr, colors: $($channel:ident),+);)*) => {$(
+    ($(impl $name:ident<S>($len:expr, colors: $($channel:ident),+);)*) => {$(
         impl<S: ScalarNum> $name<S> {
-            #[inline]
-            pub fn new($($channel: S),*) -> $name<S> {
-                $name{ $($channel),* }
-            }
-
-            #[inline(always)]
-            pub fn slice_from_raw(raw: &[S]) -> &[$name<S>] {
-                assert_eq!(0, raw.len() % $len);
-                unsafe{ slice::from_raw_parts(raw.as_ptr() as *const $name<S>, raw.len() / $len) }
-            }
-
-            #[inline(always)]
-            pub fn slice_from_raw_mut(raw: &mut [S]) -> &mut [$name<S>] {
-                assert_eq!(0, raw.len() % $len);
-                unsafe{ slice::from_raw_parts_mut(raw.as_mut_ptr() as *mut $name<S>, raw.len() / $len) }
-            }
-            
-            #[inline(always)]
-            pub fn to_raw_slice(slice: &[$name<S>]) -> &[S] {
-                unsafe{ slice::from_raw_parts(slice.as_ptr() as *const S, slice.len() * $len) }
-            }
-
-            #[inline(always)]
-            pub fn to_raw_slice_mut(slice: &mut [$name<S>]) -> &mut [S] {
-                unsafe{ slice::from_raw_parts_mut(slice.as_mut_ptr() as *mut S, slice.len() * $len) }
-            }
+            impl_color!{impl body $name<S>($len, colors: $($channel),+)}
         }
     )*};
+    (impl body $name:ident<$ty:ty>($len:expr, colors: $($channel:ident),+)) => {
+        #[inline]
+        pub fn new($($channel: $ty),*) -> Self {
+            $name{ $($channel),* }
+        }
+
+        #[inline(always)]
+        pub fn slice_from_raw(raw: &[$ty]) -> &[Self] {
+            assert_eq!(0, raw.len() % $len);
+            unsafe{ slice::from_raw_parts(raw.as_ptr() as *const Self, raw.len() / $len) }
+        }
+
+        #[inline(always)]
+        pub fn slice_from_raw_mut(raw: &mut [$ty]) -> &mut [Self] {
+            assert_eq!(0, raw.len() % $len);
+            unsafe{ slice::from_raw_parts_mut(raw.as_mut_ptr() as *mut Self, raw.len() / $len) }
+        }
+
+        #[inline(always)]
+        pub fn to_raw_slice(slice: &[Self]) -> &[$ty] {
+            unsafe{ slice::from_raw_parts(slice.as_ptr() as *const $ty, slice.len() * $len) }
+        }
+
+        #[inline(always)]
+        pub fn to_raw_slice_mut(slice: &mut [Self]) -> &mut [$ty] {
+            unsafe{ slice::from_raw_parts_mut(slice.as_mut_ptr() as *mut $ty, slice.len() * $len) }
+        }
+    };
 }
 
 impl_color!{
-    impl Rgba(4, colors: r, g, b, a);
-    impl Rgb(3, colors: r, g, b);
-    impl Rg(2, colors: r, g);
-    impl Red(1, colors: r);
+    impl Rgba<S>(4, colors: r, g, b, a);
+    impl Rgb<S>(3, colors: r, g, b);
+    impl Rg<S>(2, colors: r, g);
+    impl Red<S>(1, colors: r);
+}
+
+impl SRgba {
+    impl_color!{impl body SRgba<Nu8>(4, colors: r, g, b, a)}
+}
+
+impl SRgb {
+    impl_color!{impl body SRgb<Nu8>(3, colors: r, g, b)}
 }
 
 impl<S: ScalarNum> Sealed for Rgba<S> {}
 impl<S: ScalarNum> Sealed for Rgb<S> {}
 impl<S: ScalarNum> Sealed for Rg<S> {}
 impl<S: ScalarNum> Sealed for Red<S> {}
+impl Sealed for SRgba {}
+impl Sealed for SRgb {}
 
 impl<S: ScalarNum> From<Rgb<S>> for Rgba<S> {
     #[inline]
@@ -274,4 +304,26 @@ basic_format!{
     i8 = (RGBA8I, RGB8I, RG8I, R8I);
     i16 = (RGBA16I, RGB16I, RG16I, R16I);
     i32 = (RGBA32I, RGB32I, RG32I, R32I);
+}
+unsafe impl ColorFormat for SRgba {
+    type Scalar = Nu8;
+    #[inline]
+    fn internal_format() -> GLenum { gl::SRGB8_ALPHA8 }
+    #[inline]
+    fn pixel_format() -> GLenum { gl::RGBA }
+    #[inline]
+    fn pixel_type() -> GLenum {
+        <Nu8 as Scalar>::gl_enum()
+    }
+}
+unsafe impl ColorFormat for SRgb {
+    type Scalar = Nu8;
+    #[inline]
+    fn internal_format() -> GLenum { gl::SRGB8 }
+    #[inline]
+    fn pixel_format() -> GLenum { gl::RGB }
+    #[inline]
+    fn pixel_type() -> GLenum {
+        <Nu8 as Scalar>::gl_enum()
+    }
 }
