@@ -52,6 +52,16 @@ impl<C: ColorFormat> Renderbuffer<C> {
             _format: PhantomData
         }
     }
+
+    #[inline(always)]
+    pub fn dims(&self) -> DimsBox<Point2<u32>> {
+        self.dims
+    }
+
+    #[inline(always)]
+    pub fn samples(&self) -> u32 {
+        self.samples
+    }
 }
 
 impl<C: ColorFormat> GLObject for Renderbuffer<C> {
