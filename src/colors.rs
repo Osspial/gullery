@@ -23,14 +23,17 @@ use num_traits::{Num, PrimInt};
 
 use std::slice;
 
-
-pub unsafe trait ColorFormat: 'static + Copy + Sealed {
+pub unsafe trait ImageFormat: 'static + Copy {
     type Scalar: ScalarNum;
 
     fn internal_format() -> GLenum;
     fn pixel_format() -> GLenum;
     fn pixel_type() -> GLenum;
 }
+
+pub unsafe trait ColorFormat: ImageFormat {}
+pub unsafe trait DepthFormat: ImageFormat {}
+pub unsafe trait StencilFormat: ImageFormat {}
 
 fn is_integer<N: Num>() -> bool {
     trait IsInteger {
@@ -46,6 +49,19 @@ fn is_integer<N: Num>() -> bool {
     }
     N::is_integer()
 }
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Depth16(pub u16);
+// #[repr(C)]
+// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+// pub struct Depth24(pub u32);
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Depth32F(pub f32);
+// #[repr(C)]
+// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+// pub struct Depth24Stencil8(pub u32);
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -221,7 +237,8 @@ macro_rules! basic_format {
     ($(
         $prim:ty = ($rgba_enum:ident, $rgb_enum:ident, $rg_enum:ident, $r_enum:ident);)
     *) => {$(
-        unsafe impl ColorFormat for Rgba<$prim> {
+        unsafe impl ColorFormat for Rgba<$prim> {}
+        unsafe impl ImageFormat for Rgba<$prim> {
             type Scalar = $prim;
             #[inline]
             fn internal_format() -> GLenum {gl::$rgba_enum}
@@ -237,7 +254,8 @@ macro_rules! basic_format {
                 <$prim as Scalar>::gl_enum()
             }
         }
-        unsafe impl ColorFormat for Rgb<$prim> {
+        unsafe impl ColorFormat for Rgb<$prim> {}
+        unsafe impl ImageFormat for Rgb<$prim> {
             type Scalar = $prim;
             #[inline]
             fn internal_format() -> GLenum {gl::$rgb_enum}
@@ -253,7 +271,8 @@ macro_rules! basic_format {
                 <$prim as Scalar>::gl_enum()
             }
         }
-        unsafe impl ColorFormat for Rg<$prim> {
+        unsafe impl ColorFormat for Rg<$prim> {}
+        unsafe impl ImageFormat for Rg<$prim> {
             type Scalar = $prim;
             #[inline]
             fn internal_format() -> GLenum {gl::$rg_enum}
@@ -269,7 +288,8 @@ macro_rules! basic_format {
                 <$prim as Scalar>::gl_enum()
             }
         }
-        unsafe impl ColorFormat for Red<$prim> {
+        unsafe impl ColorFormat for Red<$prim> {}
+        unsafe impl ImageFormat for Red<$prim> {
             type Scalar = $prim;
             #[inline]
             fn internal_format() -> GLenum {gl::$r_enum}
@@ -305,7 +325,8 @@ basic_format!{
     i16 = (RGBA16I, RGB16I, RG16I, R16I);
     i32 = (RGBA32I, RGB32I, RG32I, R32I);
 }
-unsafe impl ColorFormat for SRgba {
+unsafe impl ColorFormat for SRgba {}
+unsafe impl ImageFormat for SRgba {
     type Scalar = Nu8;
     #[inline]
     fn internal_format() -> GLenum { gl::SRGB8_ALPHA8 }
@@ -316,7 +337,8 @@ unsafe impl ColorFormat for SRgba {
         <Nu8 as Scalar>::gl_enum()
     }
 }
-unsafe impl ColorFormat for SRgb {
+unsafe impl ColorFormat for SRgb {}
+unsafe impl ImageFormat for SRgb {
     type Scalar = Nu8;
     #[inline]
     fn internal_format() -> GLenum { gl::SRGB8 }
@@ -327,3 +349,7 @@ unsafe impl ColorFormat for SRgb {
         <Nu8 as Scalar>::gl_enum()
     }
 }
+
+// unsafe impl ImageFormat for Depth16 {
+//     type Scalar =
+// }

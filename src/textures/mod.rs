@@ -166,6 +166,33 @@ impl<C, T> Texture<C, T>
         let mut bind = unsafe{ self.state.sampler_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
         bind.max_anisotropy(max_anisotropy);
     }
+
+    #[inline]
+    pub fn texture_wrap_s(&mut self, texture_wrap: TextureWrap)
+        where T::Dims: Dims1D
+    {
+        let last_unit = self.state.sampler_units.0.num_units() - 1;
+        let mut bind = unsafe{ self.state.sampler_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
+        bind.texture_wrap_s(texture_wrap);
+    }
+
+    #[inline]
+    pub fn texture_wrap_t(&mut self, texture_wrap: TextureWrap)
+        where T::Dims: Dims2D
+    {
+        let last_unit = self.state.sampler_units.0.num_units() - 1;
+        let mut bind = unsafe{ self.state.sampler_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
+        bind.texture_wrap_t(texture_wrap);
+    }
+
+    #[inline]
+    pub fn texture_wrap_r(&mut self, texture_wrap: TextureWrap)
+        where T::Dims: Dims3D
+    {
+        let last_unit = self.state.sampler_units.0.num_units() - 1;
+        let mut bind = unsafe{ self.state.sampler_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
+        bind.texture_wrap_r(texture_wrap);
+    }
 }
 
 impl SamplerUnits {

@@ -105,6 +105,15 @@ pub enum Filter {
     LinearMipLinear = gl::LINEAR_MIPMAP_LINEAR as u16
 }
 
+#[repr(u16)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TextureWrap {
+    Repeat = gl::REPEAT as u16,
+    RepeatMirrored = gl::MIRRORED_REPEAT as u16,
+    ClampToEdge = gl::CLAMP_TO_EDGE as u16,
+    // ClampToBorder = gl::CLAMP_TO_BORDER as u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DimsTag {
     One(DimsBox<Point1<u32>>),
@@ -122,6 +131,10 @@ pub trait Dims: 'static + Into<DimsTag> + Copy + Sealed {
     fn num_pixels(self) -> u32;
     fn max_size(state: &ContextState) -> Self;
 }
+
+pub trait Dims1D: Dims {}
+pub trait Dims2D: Dims {}
+pub trait Dims3D: Dims {}
 
 pub unsafe trait TextureType<C: ColorFormat>: 'static + Sealed {
     type MipSelector: MipSelector;
@@ -447,6 +460,34 @@ impl<'a, C, T> RawBoundTextureMut<'a, C, T>
             self.gl.TexParameterf(T::bind_target(), gl::TEXTURE_MAX_ANISOTROPY_EXT, max_anisotropy.max(1.0).min(max_ma));
         }
     }
+
+    #[inline]
+    pub fn texture_wrap_s(&mut self, wrap: TextureWrap) {
+        unsafe {
+            self.gl.TexParameteri(T::bind_target(), gl::TEXTURE_WRAP_S, mem::transmute::<_, u16>(wrap) as GLint);
+        }
+    }
+
+    #[inline]
+    pub fn texture_wrap_t(&mut self, wrap: TextureWrap) {
+        unsafe {
+            self.gl.TexParameteri(T::bind_target(), gl::TEXTURE_WRAP_T, mem::transmute::<_, u16>(wrap) as GLint);
+        }
+    }
+
+    #[inline]
+    pub fn texture_wrap_r(&mut self, wrap: TextureWrap) {
+        unsafe {
+            self.gl.TexParameteri(T::bind_target(), gl::TEXTURE_WRAP_R, mem::transmute::<_, u16>(wrap) as GLint);
+        }
+    }
+
+    // #[inline]
+    // pub fn border_color(&mut self, color: C) {
+    //     unsafe {
+    //         self.gl.TexParameterfv(T::bind_target(), gl::TEXTURE_BORDER_COLOR, &color.r);
+    //     }
+    // }
 }
 
 
@@ -511,6 +552,7 @@ impl DimsTag {
     }
 }
 
+impl Dims1D for DimsBox<Point1<u32>> {}
 impl Dims for DimsBox<Point1<u32>> {
     type Offset = Vector1<u32>;
     #[inline]
@@ -526,6 +568,8 @@ impl Dims for DimsBox<Point1<u32>> {
         }
     }
 }
+impl Dims1D for DimsBox<Point2<u32>> {}
+impl Dims2D for DimsBox<Point2<u32>> {}
 impl Dims for DimsBox<Point2<u32>> {
     type Offset = Vector2<u32>;
     #[inline]
@@ -541,6 +585,8 @@ impl Dims for DimsBox<Point2<u32>> {
         }
     }
 }
+impl Dims1D for DimsSquare {}
+impl Dims2D for DimsSquare {}
 impl Dims for DimsSquare {
     type Offset = Vector2<u32>;
     #[inline]
@@ -556,6 +602,9 @@ impl Dims for DimsSquare {
         }
     }
 }
+impl Dims1D for DimsBox<Point3<u32>> {}
+impl Dims2D for DimsBox<Point3<u32>> {}
+impl Dims3D for DimsBox<Point3<u32>> {}
 impl Dims for DimsBox<Point3<u32>> {
     type Offset = Vector3<u32>;
     #[inline]
