@@ -201,6 +201,11 @@ impl<C, T> RawTexture<C, T>
         }
     }
 
+    #[inline(always)]
+    pub fn handle(&self) -> GLuint {
+        self.handle
+    }
+
     pub fn delete(self, state: &ContextState) {
         unsafe {
             state.gl.DeleteTextures(1, &self.handle);

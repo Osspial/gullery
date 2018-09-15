@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use framebuffer::attachments::{Attachment, Attachments, AttachmentsMemberRegistry, AttachmentImageType};
+use framebuffer::attachments::{Attachment, Attachments, AttachmentsMemberRegistryNoSpecifics, AMRNSImpl, AttachmentImageType};
 use gl::{self, Gl};
 use gl::types::*;
 
@@ -545,9 +545,9 @@ unsafe impl<A: Attachments> ShaderStage for FragmentStage<A> {
             gl: &'a Gl,
             _marker: PhantomData<A>
         }
-        impl<'a, A: Attachments> AttachmentsMemberRegistry for FragDataBinder<'a, A> {
+        impl<'a, A: Attachments> AttachmentsMemberRegistryNoSpecifics for FragDataBinder<'a, A> {
             type Attachments = A;
-            fn add_member<T>(&mut self, name: &str, _: fn(&A) -> &T)
+            fn add_member<T>(&mut self, name: &str, _: impl FnOnce(&A) -> &T)
                 where T: Attachment
             {
                 if T::IMAGE_TYPE == AttachmentImageType::Color {
@@ -576,12 +576,12 @@ unsafe impl<A: Attachments> ShaderStage for FragmentStage<A> {
             }
         }
 
-        A::members(FragDataBinder {
+        A::members(AMRNSImpl(FragDataBinder {
             cstr_bytes: Vec::new(),
             location: 0,
             program, gl,
             _marker: PhantomData
-        })
+        }))
     }
     unsafe fn program_post_link_hook(program: &RawProgram, gl: &Gl, warnings: &mut Vec<ProgramWarning>) {
         struct FragDataChecker<'a, A: Attachments> {
@@ -591,9 +591,9 @@ unsafe impl<A: Attachments> ShaderStage for FragmentStage<A> {
             warnings: &'a mut Vec<ProgramWarning>,
             _marker: PhantomData<A>
         }
-        impl<'a, A: Attachments> AttachmentsMemberRegistry for FragDataChecker<'a, A> {
+        impl<'a, A: Attachments> AttachmentsMemberRegistryNoSpecifics for FragDataChecker<'a, A> {
             type Attachments = A;
-            fn add_member<T>(&mut self, name: &str, _: fn(&A) -> &T)
+            fn add_member<T>(&mut self, name: &str, _: impl FnOnce(&A) -> &T)
                 where T: Attachment
             {
                 if T::IMAGE_TYPE == AttachmentImageType::Color {
@@ -624,11 +624,11 @@ unsafe impl<A: Attachments> ShaderStage for FragmentStage<A> {
             }
         }
 
-        A::members(FragDataChecker {
+        A::members(AMRNSImpl(FragDataChecker {
             cstr_bytes: Vec::new(),
             program, gl, warnings,
             _marker: PhantomData
-        })
+        }))
     }
 }
 

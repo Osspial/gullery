@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use textures::{Texture, TextureType, DimsTag, MipSelector};
+use renderbuffer::Renderbuffer;
 use cgmath_geometry::cgmath::Point2;
 use cgmath_geometry::{OffsetBox, GeoBox};
 use colors::ColorFormat;
 use gl::{self, Gl};
 use gl::types::*;
 
-use ContextState;
+use {ContextState, GLObject};
 use glsl::{TypeGroup, Scalar};
 use buffers::Index;
 use vao::BoundVAO;
@@ -323,15 +325,15 @@ pub unsafe trait RawBoundFramebuffer {
         }
         impl<'a, A: Attachments, I: Iterator<Item=&'a mut GLuint>> AttachmentsMemberRegistry for Attacher<'a, A, I> {
             type Attachments = A;
-            fn add_member<T>(&mut self, _: &str, get_member: fn(&A) -> &T)
-                where T: Attachment
+            fn add_renderbuffer<C>(&mut self, _: &str, get_member: impl FnOnce(&A) -> &Renderbuffer<C>)
+                where C: ColorFormat
             {
                 let member = get_member(self.attachments);
                 let handle = self.handles.next().expect("Mismatched attachment handle container length");
                 if member.handle() != *handle {
                     *handle = member.handle();
                     let attachment: GLenum;
-                    match T::IMAGE_TYPE {
+                    match <Renderbuffer<C> as Attachment>::IMAGE_TYPE {
                         AttachmentImageType::Color => {
                             attachment = gl::COLOR_ATTACHMENT0 + self.color_index;
                             self.color_index += 1;
@@ -339,14 +341,52 @@ pub unsafe trait RawBoundFramebuffer {
                     }
 
                     unsafe {
-                        match T::TARGET_TYPE {
-                            AttachmentTargetType::Renderbuffer =>
-                                self.gl.FramebufferRenderbuffer(
+                        self.gl.FramebufferRenderbuffer(
+                            self.target,
+                            attachment,
+                            gl::RENDERBUFFER,
+                            *handle
+                        );
+                        assert_eq!(0, self.gl.GetError());
+                    }
+                }
+            }
+            fn add_texture<C, T>(&mut self, _: &str, get_member: impl FnOnce(&Self::Attachments) -> &Texture<C, T>, texture_level: T::MipSelector)
+                where C: ColorFormat,
+                      T: TextureType<C>
+            {
+                let texture = get_member(self.attachments);
+                let handle = self.handles.next().expect("Mismatched attachment handle container length");
+                if texture.handle() != *handle {
+                    *handle = texture.handle();
+                    let attachment: GLenum;
+                    match <Renderbuffer<C> as Attachment>::IMAGE_TYPE {
+                        AttachmentImageType::Color => {
+                            attachment = gl::COLOR_ATTACHMENT0 + self.color_index;
+                            self.color_index += 1;
+                        }
+                    }
+
+                    unsafe {
+                        // TODO: HANDLE CUBEMAP TEXTURES
+                        match texture.dims().into() {
+                            DimsTag::One(_) =>
+                                self.gl.FramebufferTexture1D(
                                     self.target,
                                     attachment,
-                                    gl::RENDERBUFFER,
-                                    *handle
-                                )
+                                    T::bind_target(),
+                                    *handle,
+                                    texture_level.to_glint()
+                                ),
+                            DimsTag::Two(_) =>
+                                self.gl.FramebufferTexture2D(
+                                    self.target,
+                                    attachment,
+                                    T::bind_target(),
+                                    *handle,
+                                    texture_level.to_glint()
+                                ),
+                            DimsTag::Three(_) => unimplemented!()
                         }
                         assert_eq!(0, self.gl.GetError());
                     }

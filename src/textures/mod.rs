@@ -14,9 +14,10 @@
 
 mod raw;
 
+use gl::types::GLuint;
 use gl::Gl;
 
-use ContextState;
+use {ContextState, GLObject};
 use self::raw::*;
 use colors::ColorFormat;
 
@@ -50,6 +51,15 @@ pub enum TexCreateError<C, T>
     DimsExceedMax {
         requested: T::Dims,
         max: T::Dims
+    }
+}
+
+impl<C, T> GLObject for Texture<C, T>
+    where C: ColorFormat,
+          T: TextureType<C>
+{
+    fn handle(&self) -> GLuint {
+        self.raw.handle()
     }
 }
 

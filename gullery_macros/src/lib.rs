@@ -172,7 +172,7 @@ fn impl_attachments(derive_input: &DeriveInput) -> Tokens {
                     variant.ident = variant.ident.or(Some(Ident::new(index)));
                     variant.ident
                 });
-            let types = variant.fields().iter().cloned()
+            let gen_types = || variant.fields().iter().cloned()
                 .map(|mut variant| {
                     if let Ty::Rptr(ref mut lifetime, _) = variant.ty {
                         if let Some(_) = *lifetime {
@@ -181,8 +181,8 @@ fn impl_attachments(derive_input: &DeriveInput) -> Tokens {
                     }
                     variant.ty
                 });
-            let idents = gen_idents();
-            let idents_1 = gen_idents();
+            let (idents, idents_1) = (gen_idents(), gen_idents());
+            let (types, types_1) = (gen_types(), gen_types());
             let num_members = variant.fields().len();
 
             let dummy_const = Ident::new(format!("_IMPL_ATTACHMENTS_FOR_{}", ident));
@@ -198,7 +198,7 @@ fn impl_attachments(derive_input: &DeriveInput) -> Tokens {
                     impl #impl_generics #ident #ty_generics #where_clause {
                         /// Check to see that we have at least one color attachment type. If we don't,
                         /// we fail to compile.
-                        /// 
+                        ///
                         /// Thanks to static_assertions crate and rust #49450 for inspiration on how to
                         /// do this.
                         #[allow(dead_code)]
@@ -226,7 +226,7 @@ fn impl_attachments(derive_input: &DeriveInput) -> Tokens {
                             where M: _gullery::framebuffer::attachments::AttachmentsMemberRegistry<Attachments=Self>
                         {
                             #(
-                                reg.add_member(stringify!(#idents), |t| &t.#idents_1);
+                                <#types_1 as _gullery::framebuffer::attachments::Attachment>::add_to_registry(&mut reg, stringify!(#idents), |t| &t.#idents_1, Default::default());
                             )*
                         }
                     }

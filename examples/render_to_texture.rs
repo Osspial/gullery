@@ -23,7 +23,7 @@ extern crate num_traits;
 
 use gullery::ContextState;
 use gullery::buffers::*;
-use gullery::renderbuffer::*;
+use gullery::textures::{*, targets::*};
 use gullery::framebuffer::*;
 use gullery::program::*;
 use gullery::vao::*;
@@ -50,9 +50,9 @@ struct TriUniforms {
 }
 
 #[derive(Attachments)]
-struct Attachments {
-    color: Renderbuffer<SRgb>,
-    color_inverted: Renderbuffer<SRgb>,
+struct Attachments<'a> {
+    color: &'a mut Texture<SRgb, SimpleTex<DimsBox<Point2<u32>>>>,
+    color_inverted: Texture<SRgb, SimpleTex<DimsBox<Point2<u32>>>>,
 }
 
 fn main() {
@@ -89,11 +89,12 @@ fn main() {
         println!("Warning: {}", w);
     }
 
+    let mut texture = Texture::new(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap();
     let mut fbo_attached = FramebufferObjectAttached {
         fbo: FramebufferObject::new(state.clone()),
         attachments: Attachments {
-            color: Renderbuffer::new(DimsBox::new2(size_x, size_y), 0, state.clone()),
-            color_inverted: Renderbuffer::new(DimsBox::new2(size_x, size_y), 0, state.clone()),
+            color: &mut texture,
+            color_inverted: Texture::new(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap(),
         }
     };
 

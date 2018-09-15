@@ -153,18 +153,19 @@ pub trait Framebuffer: Sealed {
             color_index_wip: u8,
             attachments: &'a A
         }
-        impl<'a, A: Attachments> AttachmentsMemberRegistry for AttachmentRefMatcher<'a, A> {
+        impl<'a, A: Attachments> AttachmentsMemberRegistryNoSpecifics for AttachmentRefMatcher<'a, A> {
             type Attachments = A;
-            fn add_member<AT: Attachment>( &mut self, _: &str, get_member: fn(&A) -> &AT) {
+            fn add_member<At: Attachment>(&mut self, _: &str, get_member: impl FnOnce(&A) -> &At) {
                 if !*self.valid {
-                    if get_member(self.attachments) as *const AT as *const () == self.ptr {
-                        if AT::IMAGE_TYPE == AttachmentImageType::Color {
+                    let image_type = At::IMAGE_TYPE;
+                    if get_member(self.attachments) as *const _ as *const () == self.ptr {
+                        if image_type == AttachmentImageType::Color {
                             *self.color_index = Some(self.color_index_wip);
                         }
                         *self.valid = true;
                     }
 
-                    if AT::IMAGE_TYPE == AttachmentImageType::Color {
+                    if image_type == AttachmentImageType::Color {
                         self.color_index_wip += 1;
                     }
                 }
@@ -174,13 +175,13 @@ pub trait Framebuffer: Sealed {
 
         let mut valid = false;
         let mut color_index = None;
-        Self::Attachments::members(AttachmentRefMatcher {
-            ptr: get_attachment(arm.attachments) as *const A as *const (),
+        Self::Attachments::members(AMRNSImpl(AttachmentRefMatcher {
+            ptr: get_attachment(arm.attachments).resolve_reference(),
             valid: &mut valid,
             color_index: &mut color_index,
             color_index_wip: 0,
             attachments: arm.attachments
-        });
+        }));
         if !valid {
             panic!("get_attachment returned attachment that wasn't in bound Attachments")
         }
