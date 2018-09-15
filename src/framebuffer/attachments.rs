@@ -83,13 +83,12 @@ pub trait AttachmentsMemberRegistry {
         name: &str,
         get_member: impl FnOnce(&Self::Attachments) -> &Renderbuffer<C>
     );
-    fn add_texture<C, T>(
+    fn add_texture<T>(
         &mut self,
         name: &str,
-        get_member: impl FnOnce(&Self::Attachments) -> &Texture<C, T>,
+        get_member: impl FnOnce(&Self::Attachments) -> &Texture<T>,
         texture_level: T::MipSelector
-    ) where C: ColorFormat,
-            T: TextureType<C>;
+    ) where T: TextureType;
 }
 
 pub(crate) trait AttachmentsMemberRegistryNoSpecifics {
@@ -112,8 +111,8 @@ impl<R> AttachmentsMemberRegistry for AMRNSImpl<R>
         self.0.add_member(name, get_member);
     }
     #[inline]
-    fn add_texture<C, T>(&mut self, name: &str, get_member: impl FnOnce(&Self::Attachments) -> &Texture<C, T>, _: T::MipSelector)
-        where C: ColorFormat, T: TextureType<C>
+    fn add_texture<T>(&mut self, name: &str, get_member: impl FnOnce(&Self::Attachments) -> &Texture<T>, _: T::MipSelector)
+        where T: TextureType
     {
         self.0.add_member(name, get_member);
     }
@@ -157,10 +156,10 @@ impl<C: ColorFormat> Attachment for Renderbuffer<C> {
     }
 }
 
-impl<C: ColorFormat, T: TextureType<C>> Attachment for Texture<C, T> {
+impl<T: TextureType> Attachment for Texture<T> {
     const TARGET_TYPE: AttachmentTargetType = AttachmentTargetType::Texture;
     const IMAGE_TYPE: AttachmentImageType = AttachmentImageType::Color;
-    type Format = C;
+    type Format = T::ColorFormat;
     type MipSelector = T::MipSelector;
 
     fn add_to_registry<R>(registry: &mut R, name: &str, get_member: impl FnOnce(&R::Attachments) -> &Self, mip: Self::MipSelector)

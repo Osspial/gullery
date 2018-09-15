@@ -172,7 +172,7 @@ mod tests {
     quickcheck!{
         fn buffer_data(data: Vec<u32>) -> bool {
             CONTEXT_STATE.with(|context_state| {
-                let buffer = Buffer::with_data(BufferUsage::StaticDraw, &data, context_state.clone()).unwrap();
+                let buffer = Buffer::with_data(BufferUsage::StaticDraw, &data, context_state.clone());
                 let mut buf_read = vec![0; data.len()];
                 buffer.get_data(0, &mut buf_read);
 

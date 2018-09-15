@@ -130,7 +130,7 @@ mod tests {
     quickcheck!{
         fn make_vao_noindex(buffer_data: Vec<TestVertex>) -> () {
             CONTEXT_STATE.with(|context_state| {
-                let vertex_buffer = Buffer::with_data(BufferUsage::StaticDraw, &buffer_data, context_state.clone()).unwrap();
+                let vertex_buffer = Buffer::with_data(BufferUsage::StaticDraw, &buffer_data, context_state.clone());
                 let _vao = VertexArrayObj::new_noindex(vertex_buffer);
             });
         }

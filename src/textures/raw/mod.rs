@@ -19,7 +19,7 @@ use gl::types::*;
 
 use ContextState;
 use seal::Sealed;
-use colors::ColorFormat;
+use colors::{ColorFormat, ImageFormat};
 
 use std::{mem, ptr, iter};
 use std::cell::Cell;
@@ -29,9 +29,8 @@ use std::marker::PhantomData;
 use cgmath::{Vector1, Vector2, Vector3, Point1, Point2, Point3};
 use cgmath_geometry::{GeoBox, DimsBox};
 
-pub struct RawTexture<C, T>
-    where C: ColorFormat,
-          T: TextureType<C>
+pub struct RawTexture<T>
+    where T: TextureType
 {
     handle: GLuint,
     dims: T::Dims,
@@ -56,20 +55,18 @@ pub struct RawSamplerUnits {
 }
 
 #[repr(C)]
-pub struct RawBoundTexture<'a, C, T>
-    where C: 'a + ColorFormat,
-          T: 'a + TextureType<C>
+pub struct RawBoundTexture<'a, T>
+    where T: 'a + TextureType
 {
-    tex: &'a RawTexture<C, T>,
+    tex: &'a RawTexture<T>,
     gl: &'a Gl
 }
 
 #[repr(C)]
-pub struct RawBoundTextureMut<'a, C, T>
-    where C: 'a + ColorFormat,
-          T: 'a + TextureType<C>
+pub struct RawBoundTextureMut<'a, T>
+    where T: 'a + TextureType
 {
-    tex: &'a mut RawTexture<C, T>,
+    tex: &'a mut RawTexture<T>,
     gl: &'a Gl
 }
 
@@ -136,16 +133,17 @@ pub trait Dims1D: Dims {}
 pub trait Dims2D: Dims {}
 pub trait Dims3D: Dims {}
 
-pub unsafe trait TextureType<C: ColorFormat>: 'static + Sealed {
+pub unsafe trait TextureType: 'static + Sealed {
     type MipSelector: MipSelector;
+    type ColorFormat: ColorFormat;
     type Dims: Dims;
 
     fn bind_target() -> GLenum;
 }
 
-pub unsafe trait TextureTypeSingleImage<C: ColorFormat>: TextureType<C> {}
+pub unsafe trait TextureTypeSingleImage: TextureType {}
 
-pub unsafe trait ArrayTextureType<C: ColorFormat>: TextureType<C> {
+pub unsafe trait ArrayTextureType: TextureType {
     fn array_bind_target() -> GLenum;
 }
 
@@ -157,20 +155,18 @@ pub trait MipSelector: Copy + Sealed {
     fn iter_less(self) -> Self::IterLess;
     fn try_increment(self) -> Self;
 }
-pub trait Image<'a, C, T>: Copy + Sized + Sealed
-    where T: TextureType<C>,
-          C: ColorFormat
+pub trait Image<'a, T>: Copy + Sized + Sealed
+    where T: TextureType
 {
-    fn variants<F: FnMut(GLenum, &'a [C])>(self, for_each: F);
+    fn variants<F: FnMut(GLenum, &'a [T::ColorFormat])>(self, for_each: F);
     fn variants_static<F: FnMut(GLenum)>(for_each: F);
 }
 
 
-impl<C, T> RawTexture<C, T>
-    where C: ColorFormat,
-          T: TextureType<C>
+impl<T> RawTexture<T>
+    where T: TextureType
 {
-    pub fn new(dims: T::Dims, gl: &Gl) -> RawTexture<C, T> {
+    pub fn new(dims: T::Dims, gl: &Gl) -> RawTexture<T> {
         unsafe {
             let mut handle = 0;
             gl.GenTextures(1, &mut handle);
@@ -241,9 +237,8 @@ impl RawSamplerUnits {
     }
 
     #[inline]
-    pub unsafe fn bind<'a, C, T>(&'a self, unit: u32, tex: &'a RawTexture<C, T>, gl: &'a Gl) -> RawBoundTexture<'a, C, T>
-        where C: ColorFormat,
-              T: 'a + TextureType<C>
+    pub unsafe fn bind<'a, T>(&'a self, unit: u32, tex: &'a RawTexture<T>, gl: &'a Gl) -> RawBoundTexture<'a, T>
+        where T: 'a + TextureType
     {
         #[inline(never)]
         fn panic_bad_bind(unit: u32, max_unit: u32) -> ! {
@@ -275,9 +270,8 @@ impl RawSamplerUnits {
     }
 
     #[inline]
-    pub unsafe fn bind_mut<'a, C, T>(&'a self, unit: u32, tex: &'a mut RawTexture<C, T>, gl: &'a Gl) -> RawBoundTextureMut<'a, C, T>
-        where C: ColorFormat,
-              T: 'a + TextureType<C>
+    pub unsafe fn bind_mut<'a, T>(&'a self, unit: u32, tex: &'a mut RawTexture<T>, gl: &'a Gl) -> RawBoundTextureMut<'a, T>
+        where T: 'a + TextureType
     {
         self.bind(unit, tex, gl);
         RawBoundTextureMut{ tex, gl }
@@ -296,21 +290,19 @@ impl RawSamplerUnits {
 }
 
 
-impl<'a, C, T> RawBoundTexture<'a, C, T>
-    where C: ColorFormat,
-          T: TextureType<C>
+impl<'a, T> RawBoundTexture<'a, T>
+    where T: TextureType
 {
-    pub fn raw_tex(&self) -> &RawTexture<C, T> {
+    pub fn raw_tex(&self) -> &RawTexture<T> {
         &self.tex
     }
 }
 
-impl<'a, C, T> RawBoundTextureMut<'a, C, T>
-    where C: ColorFormat,
-          T: TextureType<C>
+impl<'a, T> RawBoundTextureMut<'a, T>
+    where T: TextureType
 {
     pub fn alloc_image<'b, I>(&mut self, level: T::MipSelector, image: Option<I>)
-        where I: Image<'b, C, T>
+        where I: Image<'b, T>
     {
         unsafe {
             let level_int = level.to_glint();
@@ -346,24 +338,24 @@ impl<'a, C, T> RawBoundTextureMut<'a, C, T>
             match self.tex.dims.into() {
                 DimsTag::One(_) => for_each_variant(|gl, image_bind, mip_level, width, _, _, data|
                     gl.TexImage1D(
-                        image_bind, mip_level, C::internal_format() as GLint,
+                        image_bind, mip_level, T::ColorFormat::internal_format() as GLint,
                         width,
-                        0, C::pixel_format(), C::pixel_type(), data
+                        0, T::ColorFormat::pixel_format(), T::ColorFormat::pixel_type(), data
                     )),
                 DimsTag::Two(_) => for_each_variant(|gl, image_bind, mip_level, width, height, _, data|
                     gl.TexImage2D(
-                        image_bind, mip_level, C::internal_format() as GLint,
+                        image_bind, mip_level, T::ColorFormat::internal_format() as GLint,
                         width,
                         height,
-                        0, C::pixel_format(), C::pixel_type(), data
+                        0, T::ColorFormat::pixel_format(), T::ColorFormat::pixel_type(), data
                     )),
                 DimsTag::Three(_) => for_each_variant(|gl, image_bind, mip_level, width, height, depth, data|
                     gl.TexImage3D(
-                        image_bind, mip_level, C::internal_format() as GLint,
+                        image_bind, mip_level, T::ColorFormat::internal_format() as GLint,
                         width,
                         height,
                         depth,
-                        0, C::pixel_format(), C::pixel_type(), data
+                        0, T::ColorFormat::pixel_format(), T::ColorFormat::pixel_type(), data
                     )),
             }
 
@@ -378,7 +370,7 @@ impl<'a, C, T> RawBoundTextureMut<'a, C, T>
         sub_dims: T::Dims,
         image: I,
     )
-        where I: Image<'b, C, T>
+        where I: Image<'b, T>
     {
         use self::DimsTag::*;
 
@@ -412,7 +404,7 @@ impl<'a, C, T> RawBoundTextureMut<'a, C, T>
                     image_bind, level.to_glint(),
                     offset[0] as GLint,
                     dims.width() as GLsizei,
-                    C::pixel_format(), C::pixel_type(), data.as_ptr() as *const GLvoid
+                    T::ColorFormat::pixel_format(), T::ColorFormat::pixel_type(), data.as_ptr() as *const GLvoid
                 )),
                 Two(dims) => image.variants(|image_bind, data| self.gl.TexSubImage2D(
                     image_bind, level.to_glint(),
@@ -420,7 +412,7 @@ impl<'a, C, T> RawBoundTextureMut<'a, C, T>
                     offset[1] as GLint,
                     dims.width() as GLsizei,
                     dims.height() as GLsizei,
-                    C::pixel_format(), C::pixel_type(), data.as_ptr() as *const GLvoid
+                    T::ColorFormat::pixel_format(), T::ColorFormat::pixel_type(), data.as_ptr() as *const GLvoid
                 )),
                 Three(dims) => image.variants(|image_bind, data| self.gl.TexSubImage3D(
                     image_bind, level.to_glint(),
@@ -430,7 +422,7 @@ impl<'a, C, T> RawBoundTextureMut<'a, C, T>
                     dims.width() as GLsizei,
                     dims.height() as GLsizei,
                     dims.depth() as GLsizei,
-                    C::pixel_format(), C::pixel_type(), data.as_ptr() as *const GLvoid
+                    T::ColorFormat::pixel_format(), T::ColorFormat::pixel_type(), data.as_ptr() as *const GLvoid
                 ))
             }
         }
@@ -496,14 +488,13 @@ impl<'a, C, T> RawBoundTextureMut<'a, C, T>
 }
 
 
-impl<'a, C, T> Deref for RawBoundTextureMut<'a, C, T>
-    where C: ColorFormat,
-          T: TextureType<C>
+impl<'a, T> Deref for RawBoundTextureMut<'a, T>
+    where T: TextureType
 {
-    type Target = RawBoundTexture<'a, C, T>;
+    type Target = RawBoundTexture<'a, T>;
     #[inline]
-    fn deref(&self) -> &RawBoundTexture<'a, C, T> {
-        unsafe{ &*(self as *const _ as *const RawBoundTexture<'a, C, T>) }
+    fn deref(&self) -> &RawBoundTexture<'a, T> {
+        unsafe{ &*(self as *const _ as *const RawBoundTexture<'a, T>) }
     }
 }
 
@@ -666,7 +657,7 @@ impl From<Filter> for GLenum {
     }
 }
 
-impl<'a, C: ColorFormat> Image<'a, C, targets::CubemapTex> for CubeImage<'a, C> {
+impl<'a, C: ColorFormat> Image<'a, targets::CubemapTex<C>> for CubeImage<'a, C> {
     fn variants<F: FnMut(GLenum, &'a [C])>(self, mut for_each: F) {
         for_each(gl::TEXTURE_CUBE_MAP_POSITIVE_X, self.pos_x);
         for_each(gl::TEXTURE_CUBE_MAP_NEGATIVE_X, self.neg_x);
@@ -684,16 +675,16 @@ impl<'a, C: ColorFormat> Image<'a, C, targets::CubemapTex> for CubeImage<'a, C> 
         for_each(gl::TEXTURE_CUBE_MAP_NEGATIVE_Z);
    }
 }
-impl<'a, C: ColorFormat, T: TextureTypeSingleImage<C>> Image<'a, C, T> for &'a [C] {
-    fn variants<F: FnMut(GLenum, &'a [C])>(self, mut for_each: F) {
+impl<'a, T: TextureTypeSingleImage> Image<'a, T> for &'a [T::ColorFormat] {
+    fn variants<F: FnMut(GLenum, &'a [T::ColorFormat])>(self, mut for_each: F) {
         for_each(T::bind_target(), self);
     }
     fn variants_static<F: FnMut(GLenum)>(mut for_each: F) {
         for_each(T::bind_target());
    }
 }
-impl<'a, C: ColorFormat, T: TextureType<C>> Image<'a, C, T> for ! {
-    fn variants<F: FnMut(GLenum, &'a [C])>(self, _: F) {    }
+impl<'a, T: TextureType> Image<'a, T> for ! {
+    fn variants<F: FnMut(GLenum, &'a [T::ColorFormat])>(self, _: F) {    }
     fn variants_static<F: FnMut(GLenum)>(mut for_each: F) {
         for_each(T::bind_target());
    }

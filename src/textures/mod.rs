@@ -35,18 +35,16 @@ use cgmath::{Point1, Point2, Point3};
 use cgmath_geometry::DimsBox;
 
 
-pub struct Texture<C, T>
-    where C: ColorFormat,
-          T: TextureType<C>
+pub struct Texture<T>
+    where T: TextureType
 {
-    raw: RawTexture<C, T>,
+    raw: RawTexture<T>,
     state: Rc<ContextState>
 }
 
 #[derive(Debug, Clone)]
-pub enum TexCreateError<C, T>
-    where C: ColorFormat,
-          T: TextureType<C>
+pub enum TexCreateError<T>
+    where T: TextureType
 {
     DimsExceedMax {
         requested: T::Dims,
@@ -54,9 +52,8 @@ pub enum TexCreateError<C, T>
     }
 }
 
-impl<C, T> GLObject for Texture<C, T>
-    where C: ColorFormat,
-          T: TextureType<C>
+impl<T> GLObject for Texture<T>
+    where T: TextureType
 {
     fn handle(&self) -> GLuint {
         self.raw.handle()
@@ -64,16 +61,14 @@ impl<C, T> GLObject for Texture<C, T>
 }
 
 pub(crate) struct SamplerUnits(RawSamplerUnits);
-pub(crate) struct BoundTexture<'a, C, T>(RawBoundTexture<'a, C, T>)
-    where C: ColorFormat,
-          T: TextureType<C>;
+pub(crate) struct BoundTexture<'a, T>(RawBoundTexture<'a, T>)
+    where T: TextureType;
 
-impl<C, T> Texture<C, T>
-    where C: ColorFormat,
-          T: TextureType<C, MipSelector=u8>
+impl<T> Texture<T>
+    where T: TextureType<MipSelector=u8>
 {
-    pub fn with_images<'a, I, J>(dims: T::Dims, images: J, state: Rc<ContextState>) -> Result<Texture<C, T>, TexCreateError<C, T>>
-        where I: Image<'a, C, T>,
+    pub fn with_images<'a, I, J>(dims: T::Dims, images: J, state: Rc<ContextState>) -> Result<Texture<T>, TexCreateError<T>>
+        where I: Image<'a, T>,
               J: IntoIterator<Item=I>
     {
         let max_size = T::Dims::max_size(&state);
@@ -110,11 +105,10 @@ impl<C, T> Texture<C, T>
     }
 }
 
-impl<C, T> Texture<C, T>
-    where C: ColorFormat,
-          T: TextureType<C>
+impl<T> Texture<T>
+    where T: TextureType
 {
-    pub fn new(dims: T::Dims, mips: T::MipSelector, state: Rc<ContextState>) -> Result<Texture<C, T>, TexCreateError<C, T>> {
+    pub fn new(dims: T::Dims, mips: T::MipSelector, state: Rc<ContextState>) -> Result<Texture<T>, TexCreateError<T>> {
         let max_size = T::Dims::max_size(&state);
         let (max_width, max_height, max_depth) = max_size.into().to_tuple();
         let (width, height, depth) = dims.into().to_tuple();
@@ -149,7 +143,7 @@ impl<C, T> Texture<C, T>
     }
 
     pub fn sub_image<'a, I>(&mut self, level: T::MipSelector, offset: <T::Dims as Dims>::Offset, sub_dims: T::Dims, image: I)
-        where I: Image<'a, C, T>
+        where I: Image<'a, T>
     {
         let last_unit = self.state.sampler_units.0.num_units() - 1;
         let mut bind = unsafe{ self.state.sampler_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
@@ -212,18 +206,16 @@ impl SamplerUnits {
     }
 
     #[inline]
-    pub unsafe fn bind<'a, C, T>(&'a self, unit: u32, tex: &'a Texture<C, T>, gl: &'a Gl) -> BoundTexture<C, T>
-        where C: ColorFormat,
-              T: TextureType<C>
+    pub unsafe fn bind<'a, T>(&'a self, unit: u32, tex: &'a Texture<T>, gl: &'a Gl) -> BoundTexture<T>
+        where T: TextureType
     {
         BoundTexture(self.0.bind(unit, &tex.raw, gl))
     }
 }
 
 
-impl<C, T> Drop for Texture<C, T>
-    where C: ColorFormat,
-          T: TextureType<C>
+impl<T> Drop for Texture<T>
+    where T: TextureType
 {
     fn drop(&mut self) {
         unsafe {
@@ -234,29 +226,28 @@ impl<C, T> Drop for Texture<C, T>
     }
 }
 
-impl<'a, C, T> Sealed for &'a Texture<C, T>
-    where C: ColorFormat,
-          T: TextureType<C> {}
+impl<'a, T> Sealed for &'a Texture<T>
+    where T: TextureType {}
 
 macro_rules! texture_type_uniform {
     () => ();
     (
-        impl &Texture<C, $texture_type:ty> = ($tag_ident:ident, $u_tag_ident:ident, $i_tag_ident:ident);
+        impl &Texture<$texture_type:ty> = ($tag_ident:ident, $u_tag_ident:ident, $i_tag_ident:ident);
         $($rest:tt)*
     ) => {
         texture_type_uniform!{
-            default impl &Texture<C, $texture_type> = $tag_ident;
-            default impl &Texture<C, $texture_type> = $u_tag_ident where C::Scalar: PrimInt;
-            impl &Texture<C, $texture_type> = $i_tag_ident where C::Scalar: PrimInt, Signed;
+            default impl &Texture<$texture_type> = $tag_ident;
+            default impl &Texture<$texture_type> = $u_tag_ident where C::Scalar: PrimInt;
+            impl &Texture<$texture_type> = $i_tag_ident where C::Scalar: PrimInt, Signed;
             $($rest)*
         }
     };
     (
-        impl &Texture<C, $texture_type:ty> = $tag_ident:ident
+        impl &Texture<$texture_type:ty> = $tag_ident:ident
             $(where C::Scalar: $($scalar_trait:path),+)*;
         $($rest:tt)*
     ) => {
-        unsafe impl<'a, C> TypeUniform for &'a Texture<C, $texture_type>
+        unsafe impl<'a, C> TypeUniform for &'a Texture<$texture_type>
             where C: ColorFormat,
                 $(C::Scalar: $($scalar_trait +)+)*
         {
@@ -267,11 +258,11 @@ macro_rules! texture_type_uniform {
         texture_type_uniform!{$($rest)*}
     };
     (
-        default impl &Texture<C, $texture_type:ty> = $tag_ident:ident
+        default impl &Texture<$texture_type:ty> = $tag_ident:ident
             $(where C::Scalar: $($scalar_trait:path),+)*;
         $($rest:tt)*
     ) => {
-        unsafe impl<'a, C> TypeUniform for &'a Texture<C, $texture_type>
+        unsafe impl<'a, C> TypeUniform for &'a Texture<$texture_type>
             where C: ColorFormat,
                 $(C::Scalar: $($scalar_trait +)+)*
         {
@@ -284,11 +275,11 @@ macro_rules! texture_type_uniform {
 }
 
 texture_type_uniform!{
-    impl &Texture<C, targets::SimpleTex<DimsBox<Point1<u32>>>> = (Sampler1D, USampler1D, ISampler1D);
-    impl &Texture<C, targets::SimpleTex<DimsBox<Point2<u32>>>> = (Sampler2D, USampler2D, ISampler2D);
-    impl &Texture<C, targets::SimpleTex<DimsBox<Point3<u32>>>> = (Sampler3D, USampler3D, ISampler3D);
+    impl &Texture<targets::SimpleTex<C, DimsBox<Point1<u32>>>> = (Sampler1D, USampler1D, ISampler1D);
+    impl &Texture<targets::SimpleTex<C, DimsBox<Point2<u32>>>> = (Sampler2D, USampler2D, ISampler2D);
+    impl &Texture<targets::SimpleTex<C, DimsBox<Point3<u32>>>> = (Sampler3D, USampler3D, ISampler3D);
 
-    impl &Texture<C, targets::CubemapTex> = (SamplerCube, USamplerCube, ISamplerCube);
-    impl &Texture<C, targets::RectTex> = (Sampler2DRect, USampler2DRect, ISampler2DRect);
-    impl &Texture<C, targets::MultisampleTex> = (Sampler2DMS, USampler2DMS, ISampler2DMS);
+    impl &Texture<targets::CubemapTex<C>> = (SamplerCube, USamplerCube, ISamplerCube);
+    impl &Texture<targets::RectTex<C>> = (Sampler2DRect, USampler2DRect, ISampler2DRect);
+    impl &Texture<targets::MultisampleTex<C>> = (Sampler2DMS, USampler2DMS, ISampler2DMS);
 }

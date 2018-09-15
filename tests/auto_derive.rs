@@ -13,12 +13,12 @@
 // limitations under the License.
 
 extern crate gullery;
-extern crate cgmath;
+extern crate cgmath_geometry;
 #[macro_use]
 extern crate gullery_macros;
 
 use gullery::glsl::TypeTransparent;
-use cgmath::{Vector3, Vector4};
+use cgmath_geometry::cgmath::{Vector3, Vector4};
 
 #[derive(TypeGroup, Clone, Copy)]
 pub struct TestBlock {

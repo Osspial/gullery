@@ -279,7 +279,6 @@ impl<'a> RawBoundProgram<'a> {
             type Uniforms = U;
             fn add_member<T: TypeUniform>(&mut self, _: &str, get_member: fn(U) -> T) {
                 use cgmath::*;
-                use colors::ColorFormat;
                 use textures::{Texture, TextureType};
 
                 struct UniformTypeSwitch<'a> {
@@ -351,13 +350,12 @@ impl<'a> RawBoundProgram<'a> {
                     Point3<i32>, (s, p) => s.gl.Uniform3i(s.loc, p.x, p.y, p.z),
                 }
 
-                impl<'a, C, T> TypeSwitchTrait<&'a Texture<C, T>> for UniformTypeSwitch<'a>
-                    where C: ColorFormat,
-                          T: TextureType<C>,
-                          &'a Texture<C, T>: TypeUniform
+                impl<'a, T> TypeSwitchTrait<&'a Texture<T>> for UniformTypeSwitch<'a>
+                    where T: TextureType,
+                          &'a Texture<T>: TypeUniform
                 {
                     #[inline]
-                    fn run_expr(self, tex: &'a Texture<C, T>) {
+                    fn run_expr(self, tex: &'a Texture<T>) {
                         unsafe {
                             self.gl.Uniform1i(self.loc, *self.unit as GLint);
                             self.sampler_units.bind(*self.unit, tex, self.gl);

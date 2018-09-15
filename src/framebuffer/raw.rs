@@ -351,16 +351,15 @@ pub unsafe trait RawBoundFramebuffer {
                     }
                 }
             }
-            fn add_texture<C, T>(&mut self, _: &str, get_member: impl FnOnce(&Self::Attachments) -> &Texture<C, T>, texture_level: T::MipSelector)
-                where C: ColorFormat,
-                      T: TextureType<C>
+            fn add_texture<T>(&mut self, _: &str, get_member: impl FnOnce(&Self::Attachments) -> &Texture<T>, texture_level: T::MipSelector)
+                where T: TextureType
             {
                 let texture = get_member(self.attachments);
                 let handle = self.handles.next().expect("Mismatched attachment handle container length");
                 if texture.handle() != *handle {
                     *handle = texture.handle();
                     let attachment: GLenum;
-                    match <Renderbuffer<C> as Attachment>::IMAGE_TYPE {
+                    match <Texture<T> as Attachment>::IMAGE_TYPE {
                         AttachmentImageType::Color => {
                             attachment = gl::COLOR_ATTACHMENT0 + self.color_index;
                             self.color_index += 1;
