@@ -77,9 +77,9 @@ pub unsafe trait TypeTransparent: 'static + Copy + Sealed {
 }
 
 pub unsafe trait Scalar: TypeTransparent {
-    fn gl_enum() -> GLenum;
-    fn normalized() -> bool;
-    fn integer() -> bool;
+    const GL_ENUM: GLenum;
+    const NORMALIZED: bool;
+    const INTEGER: bool;
 }
 
 pub unsafe trait ScalarNum: Scalar + Num {}
@@ -224,12 +224,9 @@ impl_glsl_matrix!{
 macro_rules! impl_gl_scalar_nonorm {
     ($(impl $scalar:ty = ($gl_enum:expr, $prim_tag:ident, $integer:expr);)*) => {$(
         unsafe impl Scalar for $scalar {
-            #[inline]
-            fn gl_enum() -> GLenum {$gl_enum}
-            #[inline]
-            fn normalized() -> bool {false}
-            #[inline]
-            fn integer() -> bool {$integer}
+            const GL_ENUM: GLenum = $gl_enum;
+            const NORMALIZED: bool = false;
+            const INTEGER: bool = $integer;
         }
 
         unsafe impl TypeTransparent for $scalar {
@@ -998,12 +995,9 @@ macro_rules! normalized_int {
         impl Sealed for $name {}
 
         unsafe impl Scalar for $name {
-            #[inline]
-            fn gl_enum() -> GLenum {$inner::gl_enum()}
-            #[inline]
-            fn normalized() -> bool {true}
-            #[inline]
-            fn integer() -> bool {false}
+            const GL_ENUM: GLenum = $inner::GL_ENUM;
+            const NORMALIZED: bool = true;
+            const INTEGER: bool = false;
         }
 
         unsafe impl TypeTransparent for $name {

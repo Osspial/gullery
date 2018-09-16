@@ -60,7 +60,7 @@ pub struct RawProgramShaderAttacher<'a, 'b> {
 }
 
 pub unsafe trait ShaderStage: Sized + Sealed {
-    fn shader_type_enum() -> GLenum;
+    const SHADER_TYPE_ENUM: GLenum;
 
     #[inline]
     #[doc(hidden)]
@@ -78,7 +78,7 @@ pub enum FragmentStage<A: Attachments> {#[doc(hidden)]_Unused(!, A)}
 impl<S: ShaderStage> RawShader<S> {
     pub fn new(source: &str, gl: &Gl) -> Result<RawShader<S>, String> {
         unsafe {
-            let handle = gl.CreateShader(S::shader_type_enum());
+            let handle = gl.CreateShader(S::SHADER_TYPE_ENUM);
 
             // Load the shader source into GL, giving it the string pointer and string length, and then compile it.
             gl.ShaderSource(handle, 1, &(source.as_ptr() as *const GLchar), &(source.len() as GLint));
@@ -406,8 +406,7 @@ impl GLObject for RawProgram {
 }
 
 unsafe impl<V: TypeGroup> ShaderStage for VertexStage<V> {
-    #[inline]
-    fn shader_type_enum() -> GLenum {gl::VERTEX_SHADER}
+    const SHADER_TYPE_ENUM: GLenum = gl::VERTEX_SHADER;
 
     unsafe fn program_pre_link_hook(program: &RawProgram, gl: &Gl) {
         struct VertexAttribLocBinder<'a, V: TypeGroup> {
@@ -529,12 +528,10 @@ unsafe impl<V: TypeGroup> ShaderStage for VertexStage<V> {
     }
 }
 unsafe impl ShaderStage for GeometryStage {
-    #[inline]
-    fn shader_type_enum() -> GLenum {gl::GEOMETRY_SHADER}
+    const SHADER_TYPE_ENUM: GLenum = gl::GEOMETRY_SHADER;
 }
 unsafe impl<A: Attachments> ShaderStage for FragmentStage<A> {
-    #[inline]
-    fn shader_type_enum() -> GLenum {gl::FRAGMENT_SHADER}
+    const SHADER_TYPE_ENUM: GLenum = gl::FRAGMENT_SHADER;
     unsafe fn program_pre_link_hook(program: &RawProgram, gl: &Gl) {
         struct FragDataBinder<'a, A: Attachments> {
             cstr_bytes: Vec<u8>,

@@ -44,7 +44,7 @@ impl<C: ColorFormat> Renderbuffer<C> {
         let mut raw = RawRenderbuffer::new(&state.gl);
         unsafe {
             let mut bind = state.renderbuffer_target.0.bind_mut(&mut raw, &state.gl);
-            bind.alloc_storage(C::internal_format(), dims, samples);
+            bind.alloc_storage(C::INTERNAL_FORMAT, dims, samples);
         }
 
         Renderbuffer {

@@ -37,10 +37,7 @@ unsafe impl<C> TextureType for SimpleTex<C, DimsBox<Point1<u32>>>
     type ColorFormat = C;
     type Dims = DimsBox<Point1<u32>>;
 
-    #[inline]
-    fn bind_target() -> GLenum {
-        gl::TEXTURE_1D
-    }
+    const BIND_TARGET: GLenum = gl::TEXTURE_1D;
 }
 unsafe impl<C> TextureType for SimpleTex<C, DimsBox<Point2<u32>>>
     where C: ColorFormat
@@ -49,10 +46,7 @@ unsafe impl<C> TextureType for SimpleTex<C, DimsBox<Point2<u32>>>
     type ColorFormat = C;
     type Dims = DimsBox<Point2<u32>>;
 
-    #[inline]
-    fn bind_target() -> GLenum {
-        gl::TEXTURE_2D
-    }
+    const BIND_TARGET: GLenum = gl::TEXTURE_2D;
 }
 unsafe impl<C> TextureType for SimpleTex<C, DimsBox<Point3<u32>>>
     where C: ColorFormat
@@ -61,26 +55,17 @@ unsafe impl<C> TextureType for SimpleTex<C, DimsBox<Point3<u32>>>
     type ColorFormat = C;
     type Dims = DimsBox<Point3<u32>>;
 
-    #[inline]
-    fn bind_target() -> GLenum {
-        gl::TEXTURE_3D
-    }
+    const BIND_TARGET: GLenum = gl::TEXTURE_3D;
 }
 unsafe impl<C> ArrayTextureType for SimpleTex<C, DimsBox<Point1<u32>>>
     where C: ColorFormat
 {
-    #[inline]
-    fn array_bind_target() -> GLenum {
-        gl::TEXTURE_1D_ARRAY
-    }
+    const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_1D_ARRAY;
 }
 unsafe impl<C> ArrayTextureType for SimpleTex<C, DimsBox<Point2<u32>>>
     where C: ColorFormat
 {
-    #[inline]
-    fn array_bind_target() -> GLenum {
-        gl::TEXTURE_2D_ARRAY
-    }
+    const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_2D_ARRAY;
 }
 
 impl<C: ColorFormat> Sealed for CubemapTex<C> {}
@@ -91,17 +76,12 @@ unsafe impl<C> TextureType for CubemapTex<C>
     type ColorFormat = C;
     type Dims = DimsSquare;
 
-    #[inline]
-    fn bind_target() -> GLenum {
-        gl::TEXTURE_CUBE_MAP
-    }
+    const BIND_TARGET: GLenum = gl::TEXTURE_CUBE_MAP;
 }
 // This is an OpenGL 4.0 feature soooo it's not enabled.
 // unsafe impl ArrayTextureType for CubemapTex {
 //     #[inline]
-//     fn array_bind_target() -> GLenum {
-//         gl::TEXTURE_CUBE_MAP_ARRAY
-//     }
+//     const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_CUBE_MAP_ARRAY;
 // }
 
 impl<C: ColorFormat> Sealed for RectTex<C> {}
@@ -114,10 +94,7 @@ unsafe impl<C> TextureType for RectTex<C>
     type ColorFormat = C;
     type Dims = DimsBox<Point2<u32>>;
 
-    #[inline]
-    fn bind_target() -> GLenum {
-        gl::TEXTURE_RECTANGLE
-    }
+    const BIND_TARGET: GLenum = gl::TEXTURE_RECTANGLE;
 }
 
 // impl Sealed for BufferTex {}
@@ -129,10 +106,8 @@ unsafe impl<C> TextureType for RectTex<C>
 //     fn dims(&self) -> &DimsBox<Point1<u32>> {
 //         &self.dims
 //     }
-//     #[inline]
-//     fn bind_target() -> GLenum {
-//         gl::TEXTURE_BUFFER
-//     }
+//     const BIND_TARGET: GLenum = gl::TEXTURE_BUFFER;
+//
 // }
 
 impl<C: ColorFormat> Sealed for MultisampleTex<C> {}
@@ -145,16 +120,10 @@ unsafe impl<C> TextureType for MultisampleTex<C>
     type ColorFormat = C;
     type Dims = DimsBox<Point2<u32>>;
 
-    #[inline]
-    fn bind_target() -> GLenum {
-        gl::TEXTURE_2D_MULTISAMPLE
-    }
+    const BIND_TARGET: GLenum = gl::TEXTURE_2D_MULTISAMPLE;
 }
 unsafe impl<C> ArrayTextureType for MultisampleTex<C>
     where C: ColorFormat
 {
-    #[inline]
-    fn array_bind_target() -> GLenum {
-        gl::TEXTURE_2D_MULTISAMPLE_ARRAY
-    }
+    const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_2D_MULTISAMPLE_ARRAY;
 }

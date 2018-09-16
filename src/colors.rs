@@ -19,36 +19,20 @@ use glsl::*;
 use seal::Sealed;
 
 use cgmath::{Vector1, Vector2, Vector3, Vector4};
-use num_traits::{Num, PrimInt};
 
 use std::slice;
 
 pub unsafe trait ImageFormat: 'static + Copy {
     type Scalar: ScalarNum;
 
-    fn internal_format() -> GLenum;
-    fn pixel_format() -> GLenum;
-    fn pixel_type() -> GLenum;
+    const INTERNAL_FORMAT: GLenum;
+    const PIXEL_FORMAT: GLenum;
+    const PIXEL_TYPE: GLenum;
 }
 
 pub unsafe trait ColorFormat: ImageFormat {}
 pub unsafe trait DepthFormat: ImageFormat {}
 pub unsafe trait StencilFormat: ImageFormat {}
-
-fn is_integer<N: Num>() -> bool {
-    trait IsInteger {
-        fn is_integer() -> bool;
-    }
-    impl<N: Num> IsInteger for N {
-        #[inline]
-        default fn is_integer() -> bool {false}
-    }
-    impl<N: PrimInt> IsInteger for N {
-        #[inline]
-        fn is_integer() -> bool {true}
-    }
-    N::is_integer()
-}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -232,6 +216,11 @@ impl<S: ScalarNum> Into<Vector1<S>> for Red<S> {
     }
 }
 
+macro_rules! if_or_else {
+    (if $if:expr => ($t:expr) else ($f:expr)) => {{
+        ($if as GLenum * $t) + ((!$if) as GLenum * $f)
+    }};
+}
 
 macro_rules! basic_format {
     ($(
@@ -241,69 +230,33 @@ macro_rules! basic_format {
         unsafe impl ImageFormat for Rgba<$prim> {
             type Scalar = $prim;
             #[inline]
-            fn internal_format() -> GLenum {gl::$rgba_enum}
-            #[inline]
-            fn pixel_format() -> GLenum {
-                match is_integer::<$prim>() {
-                    true => gl::RGBA_INTEGER,
-                    false => gl::RGBA
-                }
-            }
-            #[inline]
-            fn pixel_type() -> GLenum {
-                <$prim as Scalar>::gl_enum()
-            }
+            const INTERNAL_FORMAT: GLenum = gl::$rgba_enum;
+            const PIXEL_FORMAT: GLenum = if_or_else!(if <$prim as Scalar>::INTEGER => (gl::RGBA_INTEGER) else (gl::RGBA));
+            const PIXEL_TYPE: GLenum = <$prim as Scalar>::GL_ENUM;
         }
         unsafe impl ColorFormat for Rgb<$prim> {}
         unsafe impl ImageFormat for Rgb<$prim> {
             type Scalar = $prim;
             #[inline]
-            fn internal_format() -> GLenum {gl::$rgb_enum}
-            #[inline]
-            fn pixel_format() -> GLenum {
-                match is_integer::<$prim>() {
-                    true => gl::RGB_INTEGER,
-                    false => gl::RGB
-                }
-            }
-            #[inline]
-            fn pixel_type() -> GLenum {
-                <$prim as Scalar>::gl_enum()
-            }
+            const INTERNAL_FORMAT: GLenum = gl::$rgb_enum;
+            const PIXEL_FORMAT: GLenum = if_or_else!(if <$prim as Scalar>::INTEGER => (gl::RGB_INTEGER) else (gl::RGB));
+            const PIXEL_TYPE: GLenum = <$prim as Scalar>::GL_ENUM;
         }
         unsafe impl ColorFormat for Rg<$prim> {}
         unsafe impl ImageFormat for Rg<$prim> {
             type Scalar = $prim;
             #[inline]
-            fn internal_format() -> GLenum {gl::$rg_enum}
-            #[inline]
-            fn pixel_format() -> GLenum {
-                match is_integer::<$prim>() {
-                    true => gl::RG_INTEGER,
-                    false => gl::RG
-                }
-            }
-            #[inline]
-            fn pixel_type() -> GLenum {
-                <$prim as Scalar>::gl_enum()
-            }
+            const INTERNAL_FORMAT: GLenum = gl::$rg_enum;
+            const PIXEL_FORMAT: GLenum = if_or_else!(if <$prim as Scalar>::INTEGER => (gl::RG_INTEGER) else (gl::RG));
+            const PIXEL_TYPE: GLenum = <$prim as Scalar>::GL_ENUM;
         }
         unsafe impl ColorFormat for Red<$prim> {}
         unsafe impl ImageFormat for Red<$prim> {
             type Scalar = $prim;
             #[inline]
-            fn internal_format() -> GLenum {gl::$r_enum}
-            #[inline]
-            fn pixel_format() -> GLenum {
-                match is_integer::<$prim>() {
-                    true => gl::RED_INTEGER,
-                    false => gl::RED
-                }
-            }
-            #[inline]
-            fn pixel_type() -> GLenum {
-                <$prim as Scalar>::gl_enum()
-            }
+            const INTERNAL_FORMAT: GLenum = gl::$r_enum;
+            const PIXEL_FORMAT: GLenum = if_or_else!(if <$prim as Scalar>::INTEGER => (gl::RED_INTEGER) else (gl::RED));
+            const PIXEL_TYPE: GLenum = <$prim as Scalar>::GL_ENUM;
         }
     )*}
 }
@@ -328,26 +281,16 @@ basic_format!{
 unsafe impl ColorFormat for SRgba {}
 unsafe impl ImageFormat for SRgba {
     type Scalar = Nu8;
-    #[inline]
-    fn internal_format() -> GLenum { gl::SRGB8_ALPHA8 }
-    #[inline]
-    fn pixel_format() -> GLenum { gl::RGBA }
-    #[inline]
-    fn pixel_type() -> GLenum {
-        <Nu8 as Scalar>::gl_enum()
-    }
+    const INTERNAL_FORMAT: GLenum =  gl::SRGB8_ALPHA8 ;
+    const PIXEL_FORMAT: GLenum =  gl::RGBA;
+    const PIXEL_TYPE: GLenum = <Nu8 as Scalar>::GL_ENUM;
 }
 unsafe impl ColorFormat for SRgb {}
 unsafe impl ImageFormat for SRgb {
     type Scalar = Nu8;
-    #[inline]
-    fn internal_format() -> GLenum { gl::SRGB8 }
-    #[inline]
-    fn pixel_format() -> GLenum { gl::RGB }
-    #[inline]
-    fn pixel_type() -> GLenum {
-        <Nu8 as Scalar>::gl_enum()
-    }
+    const INTERNAL_FORMAT: GLenum =  gl::SRGB8 ;
+    const PIXEL_FORMAT: GLenum =  gl::RGB;
+    const PIXEL_TYPE: GLenum = <Nu8 as Scalar>::GL_ENUM;
 }
 
 // unsafe impl ImageFormat for Depth16 {

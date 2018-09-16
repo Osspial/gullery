@@ -214,8 +214,8 @@ impl<'a, F> RawBoundFramebufferRead<'a, F>
                 read_rect.origin.y as GLint,
                 read_rect.width() as GLsizei,
                 read_rect.height() as GLsizei,
-                C::pixel_format(),
-                C::pixel_type(),
+                C::PIXEL_FORMAT,
+                C::PIXEL_TYPE,
                 data.as_mut_ptr() as *mut GLvoid
             );
             assert_eq!(0, self.gl.GetError());
@@ -259,9 +259,9 @@ impl<'a, F> RawBoundFramebufferDraw<'a, F>
     {
         let index_type_option = match mem::size_of::<I>() {
             0 => None,
-            1 => Some(u8::gl_enum()),
-            2 => Some(u16::gl_enum()),
-            4 => Some(u32::gl_enum()),
+            1 => Some(u8::GL_ENUM),
+            2 => Some(u16::GL_ENUM),
+            4 => Some(u32::GL_ENUM),
             _ => panic!("Unexpected index size")
         };
 
@@ -373,7 +373,7 @@ pub unsafe trait RawBoundFramebuffer {
                                 self.gl.FramebufferTexture1D(
                                     self.target,
                                     attachment,
-                                    T::bind_target(),
+                                    T::BIND_TARGET,
                                     *handle,
                                     texture_level.to_glint()
                                 ),
@@ -381,7 +381,7 @@ pub unsafe trait RawBoundFramebuffer {
                                 self.gl.FramebufferTexture2D(
                                     self.target,
                                     attachment,
-                                    T::bind_target(),
+                                    T::BIND_TARGET,
                                     *handle,
                                     texture_level.to_glint()
                                 ),

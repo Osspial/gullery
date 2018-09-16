@@ -138,13 +138,13 @@ pub unsafe trait TextureType: 'static + Sealed {
     type ColorFormat: ColorFormat;
     type Dims: Dims;
 
-    fn bind_target() -> GLenum;
+    const BIND_TARGET: GLenum;
 }
 
 pub unsafe trait TextureTypeSingleImage: TextureType {}
 
 pub unsafe trait ArrayTextureType: TextureType {
-    fn array_bind_target() -> GLenum;
+    const ARRAY_BIND_TARGET: GLenum;
 }
 
 pub trait MipSelector: Copy + Sealed {
@@ -205,7 +205,7 @@ impl<T> RawTexture<T>
     pub fn delete(self, state: &ContextState) {
         unsafe {
             state.gl.DeleteTextures(1, &self.handle);
-            state.sampler_units.0.unbind(self.handle, T::bind_target(), &state.gl);
+            state.sampler_units.0.unbind(self.handle, T::BIND_TARGET, &state.gl);
         }
     }
 }
@@ -263,7 +263,7 @@ impl RawSamplerUnits {
         let bound_texture = &self.sampler_units[unit as usize];
         if bound_texture.get() != tex.handle {
             bound_texture.set(tex.handle);
-            gl.BindTexture(T::bind_target(), tex.handle);
+            gl.BindTexture(T::BIND_TARGET, tex.handle);
         }
 
         RawBoundTexture{ tex, gl }
@@ -309,7 +309,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
 
             if level_int >= self.tex.num_mips() as GLint {
                 self.tex.num_mips = level.try_increment();
-                self.gl.TexParameteri(T::bind_target(), gl::TEXTURE_MAX_LEVEL, level_int);
+                self.gl.TexParameteri(T::BIND_TARGET, gl::TEXTURE_MAX_LEVEL, level_int);
             }
 
 
@@ -338,24 +338,24 @@ impl<'a, T> RawBoundTextureMut<'a, T>
             match self.tex.dims.into() {
                 DimsTag::One(_) => for_each_variant(|gl, image_bind, mip_level, width, _, _, data|
                     gl.TexImage1D(
-                        image_bind, mip_level, T::ColorFormat::internal_format() as GLint,
+                        image_bind, mip_level, T::ColorFormat::INTERNAL_FORMAT as GLint,
                         width,
-                        0, T::ColorFormat::pixel_format(), T::ColorFormat::pixel_type(), data
+                        0, T::ColorFormat::PIXEL_FORMAT, T::ColorFormat::PIXEL_TYPE, data
                     )),
                 DimsTag::Two(_) => for_each_variant(|gl, image_bind, mip_level, width, height, _, data|
                     gl.TexImage2D(
-                        image_bind, mip_level, T::ColorFormat::internal_format() as GLint,
+                        image_bind, mip_level, T::ColorFormat::INTERNAL_FORMAT as GLint,
                         width,
                         height,
-                        0, T::ColorFormat::pixel_format(), T::ColorFormat::pixel_type(), data
+                        0, T::ColorFormat::PIXEL_FORMAT, T::ColorFormat::PIXEL_TYPE, data
                     )),
                 DimsTag::Three(_) => for_each_variant(|gl, image_bind, mip_level, width, height, depth, data|
                     gl.TexImage3D(
-                        image_bind, mip_level, T::ColorFormat::internal_format() as GLint,
+                        image_bind, mip_level, T::ColorFormat::INTERNAL_FORMAT as GLint,
                         width,
                         height,
                         depth,
-                        0, T::ColorFormat::pixel_format(), T::ColorFormat::pixel_type(), data
+                        0, T::ColorFormat::PIXEL_FORMAT, T::ColorFormat::PIXEL_TYPE, data
                     )),
             }
 
@@ -404,7 +404,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
                     image_bind, level.to_glint(),
                     offset[0] as GLint,
                     dims.width() as GLsizei,
-                    T::ColorFormat::pixel_format(), T::ColorFormat::pixel_type(), data.as_ptr() as *const GLvoid
+                    T::ColorFormat::PIXEL_FORMAT, T::ColorFormat::PIXEL_TYPE, data.as_ptr() as *const GLvoid
                 )),
                 Two(dims) => image.variants(|image_bind, data| self.gl.TexSubImage2D(
                     image_bind, level.to_glint(),
@@ -412,7 +412,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
                     offset[1] as GLint,
                     dims.width() as GLsizei,
                     dims.height() as GLsizei,
-                    T::ColorFormat::pixel_format(), T::ColorFormat::pixel_type(), data.as_ptr() as *const GLvoid
+                    T::ColorFormat::PIXEL_FORMAT, T::ColorFormat::PIXEL_TYPE, data.as_ptr() as *const GLvoid
                 )),
                 Three(dims) => image.variants(|image_bind, data| self.gl.TexSubImage3D(
                     image_bind, level.to_glint(),
@@ -422,7 +422,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
                     dims.width() as GLsizei,
                     dims.height() as GLsizei,
                     dims.depth() as GLsizei,
-                    T::ColorFormat::pixel_format(), T::ColorFormat::pixel_type(), data.as_ptr() as *const GLvoid
+                    T::ColorFormat::PIXEL_FORMAT, T::ColorFormat::PIXEL_TYPE, data.as_ptr() as *const GLvoid
                 ))
             }
         }
@@ -436,14 +436,14 @@ impl<'a, T> RawBoundTextureMut<'a, T>
             GLenum::from(b) as i32,
             GLenum::from(a) as i32
         ];
-        unsafe{ self.gl.TexParameteriv(T::bind_target(), gl::TEXTURE_SWIZZLE_RGBA, mask.as_ptr()) };
+        unsafe{ self.gl.TexParameteriv(T::BIND_TARGET, gl::TEXTURE_SWIZZLE_RGBA, mask.as_ptr()) };
     }
 
     #[inline]
     pub fn filtering(&mut self, minify: Filter, magnify: Filter) {
         unsafe {
-            self.gl.TexParameteri(T::bind_target(), gl::TEXTURE_MIN_FILTER, GLenum::from(minify) as GLint);
-            self.gl.TexParameteri(T::bind_target(), gl::TEXTURE_MAG_FILTER, GLenum::from(magnify) as GLint);
+            self.gl.TexParameteri(T::BIND_TARGET, gl::TEXTURE_MIN_FILTER, GLenum::from(minify) as GLint);
+            self.gl.TexParameteri(T::BIND_TARGET, gl::TEXTURE_MAG_FILTER, GLenum::from(magnify) as GLint);
         }
     }
 
@@ -454,35 +454,35 @@ impl<'a, T> RawBoundTextureMut<'a, T>
             let mut max_ma = 0.0;
             self.gl.GetFloatv(gl::MAX_TEXTURE_MAX_ANISOTROPY_EXT, &mut max_ma);
 
-            self.gl.TexParameterf(T::bind_target(), gl::TEXTURE_MAX_ANISOTROPY_EXT, max_anisotropy.max(1.0).min(max_ma));
+            self.gl.TexParameterf(T::BIND_TARGET, gl::TEXTURE_MAX_ANISOTROPY_EXT, max_anisotropy.max(1.0).min(max_ma));
         }
     }
 
     #[inline]
     pub fn texture_wrap_s(&mut self, wrap: TextureWrap) {
         unsafe {
-            self.gl.TexParameteri(T::bind_target(), gl::TEXTURE_WRAP_S, mem::transmute::<_, u16>(wrap) as GLint);
+            self.gl.TexParameteri(T::BIND_TARGET, gl::TEXTURE_WRAP_S, mem::transmute::<_, u16>(wrap) as GLint);
         }
     }
 
     #[inline]
     pub fn texture_wrap_t(&mut self, wrap: TextureWrap) {
         unsafe {
-            self.gl.TexParameteri(T::bind_target(), gl::TEXTURE_WRAP_T, mem::transmute::<_, u16>(wrap) as GLint);
+            self.gl.TexParameteri(T::BIND_TARGET, gl::TEXTURE_WRAP_T, mem::transmute::<_, u16>(wrap) as GLint);
         }
     }
 
     #[inline]
     pub fn texture_wrap_r(&mut self, wrap: TextureWrap) {
         unsafe {
-            self.gl.TexParameteri(T::bind_target(), gl::TEXTURE_WRAP_R, mem::transmute::<_, u16>(wrap) as GLint);
+            self.gl.TexParameteri(T::BIND_TARGET, gl::TEXTURE_WRAP_R, mem::transmute::<_, u16>(wrap) as GLint);
         }
     }
 
     // #[inline]
     // pub fn border_color(&mut self, color: C) {
     //     unsafe {
-    //         self.gl.TexParameterfv(T::bind_target(), gl::TEXTURE_BORDER_COLOR, &color.r);
+    //         self.gl.TexParameterfv(T::BIND_TARGET, gl::TEXTURE_BORDER_COLOR, &color.r);
     //     }
     // }
 }
@@ -677,16 +677,16 @@ impl<'a, C: ColorFormat> Image<'a, targets::CubemapTex<C>> for CubeImage<'a, C> 
 }
 impl<'a, T: TextureTypeSingleImage> Image<'a, T> for &'a [T::ColorFormat] {
     fn variants<F: FnMut(GLenum, &'a [T::ColorFormat])>(self, mut for_each: F) {
-        for_each(T::bind_target(), self);
+        for_each(T::BIND_TARGET, self);
     }
     fn variants_static<F: FnMut(GLenum)>(mut for_each: F) {
-        for_each(T::bind_target());
+        for_each(T::BIND_TARGET);
    }
 }
 impl<'a, T: TextureType> Image<'a, T> for ! {
     fn variants<F: FnMut(GLenum, &'a [T::ColorFormat])>(self, _: F) {    }
     fn variants_static<F: FnMut(GLenum)>(mut for_each: F) {
-        for_each(T::bind_target());
+        for_each(T::BIND_TARGET);
    }
 }
 
