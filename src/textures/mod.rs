@@ -251,8 +251,7 @@ macro_rules! texture_type_uniform {
             where C: ColorFormat,
                 $(C::Scalar: $($scalar_trait +)+)*
         {
-            #[inline]
-            fn uniform_tag() -> TypeTag {TypeTag::Single(TypeBasicTag::$tag_ident)}
+            const UNIFORM_TAG: TypeTag = TypeTag::Single(TypeBasicTag::$tag_ident);
         }
 
         texture_type_uniform!{$($rest)*}
@@ -266,8 +265,7 @@ macro_rules! texture_type_uniform {
             where C: ColorFormat,
                 $(C::Scalar: $($scalar_trait +)+)*
         {
-            #[inline]
-            default fn uniform_tag() -> TypeTag {TypeTag::Single(TypeBasicTag::$tag_ident)}
+            default const UNIFORM_TAG: TypeTag = TypeTag::Single(TypeBasicTag::$tag_ident);
         }
 
         texture_type_uniform!($($rest)*);

@@ -441,7 +441,7 @@ unsafe impl<V: TypeGroup> ShaderStage for VertexStage<V> {
                 cstr_bytes.clear();
 
                 mem::swap(&mut cstr_bytes, &mut self.cstr_bytes);
-                self.location += T::prim_tag().num_attrib_slots() as u32;
+                self.location += T::PRIM_TAG.num_attrib_slots() as u32;
             }
         }
 
@@ -467,7 +467,7 @@ unsafe impl<V: TypeGroup> ShaderStage for VertexStage<V> {
                 let mut attrib_index = None;
                 for (i, &(ref attrib_name, shader_ty)) in self.attrib_types.iter().enumerate() {
                     if attrib_name.as_str() == name {
-                        let rust_ty = TypeTag::Single(T::prim_tag());
+                        let rust_ty = TypeTag::Single(T::PRIM_TAG);
                         attrib_index = Some(i);
 
                         if shader_ty != rust_ty {

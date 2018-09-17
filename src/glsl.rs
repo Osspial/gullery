@@ -64,14 +64,14 @@ pub trait TypeGroup: 'static + Copy {
 }
 
 pub unsafe trait TypeUniform: Copy + Sealed {
-    fn uniform_tag() -> TypeTag;
+    const UNIFORM_TAG: TypeTag;
 }
 
 /// Rust representation of a transparent GLSL type.
 pub unsafe trait TypeTransparent: 'static + Copy + Sealed {
     type Scalar: Scalar;
     /// The OpenGL constant associated with this type.
-    fn prim_tag() -> TypeBasicTag;
+    const PRIM_TAG: TypeBasicTag;
 }
 
 pub unsafe trait Scalar: TypeTransparent {
@@ -168,12 +168,72 @@ pub enum TypeBasicTag {
     USampler2DRect = gl::UNSIGNED_INT_SAMPLER_2D_RECT,
 }
 
+macro_rules! match_tbt {
+    (const $in_tag:expr, $in_num:expr; $(($tag:ident, $count:expr) => $tag_out:ident),+) => {{
+        use glsl::TypeBasicTag::*;
+
+        union Transmute {
+            tag: TypeBasicTag,
+            int: u32
+        }
+
+        Transmute {
+            int: 0$(+
+                ((Transmute{tag: $tag}.int == Transmute{tag: $in_tag}.int && $in_num == $count) as u32 * Transmute{tag: $tag_out}.int)
+            )+
+        }.tag
+    }};
+    ($in_tag:expr, $in_num:expr; $(($tag:ident, $count:expr) => $tag_out:expr),+) => {{
+        use glsl::TypeBasicTag::*;
+        match ($in_tag, $in_num) {
+            $(($tag, $count) => Some($tag_out),)+
+            _ => None
+        }
+    }};
+}
+macro_rules! vectorize {
+    ($(;$const:tt;)* $tag:expr, $len:expr) => {{
+        match_tbt!{
+            $($const)* $tag, $len;
+            (Int, 1) => Int,
+            (Int, 2) => IVec2,
+            (Int, 3) => IVec3,
+            (Int, 4) => IVec4,
+
+            (Float, 1) => Float,
+            (Float, 2) => Vec2,
+            (Float, 3) => Vec3,
+            (Float, 4) => Vec4,
+
+            (UInt, 1) => UInt,
+            (UInt, 2) => UVec2,
+            (UInt, 3) => UVec3,
+            (UInt, 4) => UVec4,
+
+            (Bool, 1) => Bool,
+            (Bool, 2) => BVec2,
+            (Bool, 3) => BVec3,
+            (Bool, 4) => BVec4
+        }
+    }};
+}
+
+macro_rules! matricize {
+    ($(;$const:tt;)* $tag:expr, $len:expr) => {{
+        match_tbt!{
+            $($const)* $tag, $len;
+            (Float, 2) => Mat2,
+            (Float, 3) => Mat3,
+            (Float, 4) => Mat4
+        }
+    }};
+}
+
 macro_rules! impl_glsl_vector {
     ($(impl $vector:ident $num:expr;)*) => {$(
         unsafe impl<P: Scalar> TypeTransparent for $vector<P> {
             type Scalar = P;
-            #[inline]
-            fn prim_tag() -> TypeBasicTag {Self::Scalar::prim_tag().vectorize($num).unwrap()}
+            const PRIM_TAG: TypeBasicTag = unsafe{ vectorize!(;const; P::PRIM_TAG, $num) };
         }
     )*}
 }
@@ -183,8 +243,7 @@ macro_rules! impl_glsl_matrix {
         // upload. No idea if OpenGL actually supports it either.
         unsafe impl TypeTransparent for $matrix<f32> {
             type Scalar = f32;
-            #[inline]
-            fn prim_tag() -> TypeBasicTag {Self::Scalar::prim_tag().matricize($num, $num).unwrap()}
+            const PRIM_TAG: TypeBasicTag = unsafe{ matricize!(;const; Self::Scalar::PRIM_TAG, $num) };
         }
     )*}
 }
@@ -231,8 +290,7 @@ macro_rules! impl_gl_scalar_nonorm {
         unsafe impl TypeTransparent for $scalar {
             type Scalar = $scalar;
             // We treat raw integers as normalized, so every base scalar is technically a float.
-            #[inline]
-            fn prim_tag() -> TypeBasicTag {TypeBasicTag::Float}
+            const PRIM_TAG: TypeBasicTag = TypeBasicTag::Float;
         }
     )*};
 }
@@ -256,17 +314,13 @@ unsafe impl Scalar for bool {
 
 unsafe impl TypeTransparent for bool {
     type Scalar = bool;
-    #[inline]
-    fn prim_tag() -> TypeBasicTag {TypeBasicTag::Bool}
+    const PRIM_TAG: TypeBasicTag = TypeBasicTag::Bool;
 }
 
 macro_rules! impl_glsl_type_uniform_single {
     ($($ty:ty,)*) => ($(
         unsafe impl TypeUniform for $ty {
-            #[inline]
-            fn uniform_tag() -> TypeTag {
-                TypeTag::Single(Self::prim_tag())
-            }
+            const UNIFORM_TAG: TypeTag = TypeTag::Single(Self::PRIM_TAG);
         }
     )*)
 }
@@ -573,59 +627,11 @@ impl TypeBasicTag {
     }
 
     pub fn vectorize(self, len: u8) -> Option<TypeBasicTag> {
-        use self::TypeBasicTag::*;
-        match (self, len) {
-            (Int, 1) => Some(Int),
-            (Int, 2) => Some(IVec2),
-            (Int, 3) => Some(IVec3),
-            (Int, 4) => Some(IVec4),
-
-            (Float, 1) => Some(Float),
-            (Float, 2) => Some(Vec2),
-            (Float, 3) => Some(Vec3),
-            (Float, 4) => Some(Vec4),
-
-            (UInt, 1) => Some(UInt),
-            (UInt, 2) => Some(UVec2),
-            (UInt, 3) => Some(UVec3),
-            (UInt, 4) => Some(UVec4),
-
-            (Bool, 1) => Some(Bool),
-            (Bool, 2) => Some(BVec2),
-            (Bool, 3) => Some(BVec3),
-            (Bool, 4) => Some(BVec4),
-
-            // (Double, 1) => Some(DVec1),
-            // (Double, 2) => Some(DVec2),
-            // (Double, 3) => Some(DVec3),
-            // (Double, 4) => Some(DVec4),
-            _ => None
-        }
+        vectorize!(self, len)
     }
 
-    pub fn matricize(self, width: u8, height: u8) -> Option<TypeBasicTag> {
-        use self::TypeBasicTag::*;
-        match (self, width, height) {
-            (Float, 2, 2) => Some(Mat2),
-            (Float, 3, 3) => Some(Mat3),
-            (Float, 4, 4) => Some(Mat4),
-            // (Float, 2, 3) => Some(Mat2x3),
-            // (Float, 2, 4) => Some(Mat2x4),
-            // (Float, 3, 2) => Some(Mat3x2),
-            // (Float, 3, 4) => Some(Mat3x4),
-            // (Float, 4, 2) => Some(Mat4x2),
-            // (Float, 4, 3) => Some(Mat4x3),
-            // (Double, 2, 2) => Some(DMat2),
-            // (Double, 3, 3) => Some(DMat3),
-            // (Double, 4, 4) => Some(DMat4),
-            // (Double, 2, 3) => Some(DMat2x3),
-            // (Double, 2, 4) => Some(DMat2x4),
-            // (Double, 3, 2) => Some(DMat3x2),
-            // (Double, 3, 4) => Some(DMat3x4),
-            // (Double, 4, 2) => Some(DMat4x2),
-            // (Double, 4, 3) => Some(DMat4x3),
-            _ => None
-        }
+    pub fn matricize(self, dim: u8) -> Option<TypeBasicTag> {
+        matricize!(self, dim)
     }
 
     pub fn from_gl_enum(gl_enum: GLenum) -> Option<TypeBasicTag> {
@@ -782,8 +788,7 @@ macro_rules! impl_glslint {
     ($(impl $scalar:ty = $prim_tag:ident;)*) => {$(
         unsafe impl TypeTransparent for GLSLInt<$scalar> {
             type Scalar = $scalar;
-            #[inline]
-            fn prim_tag() -> TypeBasicTag {TypeBasicTag::$prim_tag}
+            const PRIM_TAG: TypeBasicTag = TypeBasicTag::$prim_tag;
         }
     )*}
 }

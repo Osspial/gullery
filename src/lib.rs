@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![feature(never_type, specialization)]
+#![feature(never_type, specialization, const_fn)]
 #![recursion_limit="256"]
 
 extern crate gullery_bindings as gl;
@@ -31,8 +31,9 @@ extern crate quickcheck;
 extern crate glutin;
 
 pub mod buffers;
-pub mod colors;
+#[macro_use]
 pub mod glsl;
+pub mod colors;
 pub mod framebuffer;
 pub mod program;
 pub mod render_state;

@@ -142,9 +142,9 @@ impl<'a, V: TypeGroup> TyGroupMemberRegistry for VertexAttribBuilder<'a, V> {
         let attrib_offset = attrib_offset as usize;
         assert!(attrib_offset + mem::size_of::<T>() <= mem::size_of::<V>());
 
-        let ty_attrib_slots = T::prim_tag().num_attrib_slots();
+        let ty_attrib_slots = T::PRIM_TAG.num_attrib_slots();
 
-        let attrib_len = T::prim_tag().len() / ty_attrib_slots;
+        let attrib_len = T::PRIM_TAG.len() / ty_attrib_slots;
         let attrib_size = attrib_len * mem::size_of::<T::Scalar>();
         assert!(attrib_size <= mem::size_of::<T>());
 
