@@ -80,18 +80,18 @@ pub struct Red<S: ScalarNum> {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SRgba {
-    pub r: Nu8,
-    pub g: Nu8,
-    pub b: Nu8,
-    pub a: Nu8
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8
 }
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SRgb {
-    pub r: Nu8,
-    pub g: Nu8,
-    pub b: Nu8
+    pub r: u8,
+    pub g: u8,
+    pub b: u8
 }
 
 macro_rules! impl_color {
@@ -138,11 +138,11 @@ impl_color!{
 }
 
 impl SRgba {
-    impl_color!{impl body SRgba<Nu8>(4, colors: r, g, b, a)}
+    impl_color!{impl body SRgba<u8>(4, colors: r, g, b, a)}
 }
 
 impl SRgb {
-    impl_color!{impl body SRgb<Nu8>(3, colors: r, g, b)}
+    impl_color!{impl body SRgb<u8>(3, colors: r, g, b)}
 }
 
 impl<S: ScalarNum> Sealed for Rgba<S> {}
@@ -262,35 +262,35 @@ macro_rules! basic_format {
 }
 
 basic_format!{
-    Nu8 = (RGBA8, RGB8, RG8, R8);
-    Nu16 = (RGBA16, RGB16, RG16, R16);
+    u8 = (RGBA8, RGB8, RG8, R8);
+    u16 = (RGBA16, RGB16, RG16, R16);
 
-    Ni8 = (RGBA8_SNORM, RGB8_SNORM, RG8_SNORM, R8_SNORM);
-    Ni16 = (RGBA16_SNORM, RGB16_SNORM, RG16_SNORM, R16_SNORM);
+    i8 = (RGBA8_SNORM, RGB8_SNORM, RG8_SNORM, R8_SNORM);
+    i16 = (RGBA16_SNORM, RGB16_SNORM, RG16_SNORM, R16_SNORM);
 
     f32 = (RGBA32F, RGB32F, RG32F, R32F);
 
-    u8 = (RGBA8UI, RGB8UI, RG8UI, R8UI);
-    u16 = (RGBA16UI, RGB16UI, RG16UI, R16UI);
-    u32 = (RGBA32UI, RGB32UI, RG32UI, R32UI);
+    GLSLInt<u8> = (RGBA8UI, RGB8UI, RG8UI, R8UI);
+    GLSLInt<u16> = (RGBA16UI, RGB16UI, RG16UI, R16UI);
+    GLSLInt<u32> = (RGBA32UI, RGB32UI, RG32UI, R32UI);
 
-    i8 = (RGBA8I, RGB8I, RG8I, R8I);
-    i16 = (RGBA16I, RGB16I, RG16I, R16I);
-    i32 = (RGBA32I, RGB32I, RG32I, R32I);
+    GLSLInt<i8> = (RGBA8I, RGB8I, RG8I, R8I);
+    GLSLInt<i16> = (RGBA16I, RGB16I, RG16I, R16I);
+    GLSLInt<i32> = (RGBA32I, RGB32I, RG32I, R32I);
 }
 unsafe impl ColorFormat for SRgba {}
 unsafe impl ImageFormat for SRgba {
-    type Scalar = Nu8;
+    type Scalar = u8;
     const INTERNAL_FORMAT: GLenum =  gl::SRGB8_ALPHA8 ;
     const PIXEL_FORMAT: GLenum =  gl::RGBA;
-    const PIXEL_TYPE: GLenum = <Nu8 as Scalar>::GL_ENUM;
+    const PIXEL_TYPE: GLenum = <u8 as Scalar>::GL_ENUM;
 }
 unsafe impl ColorFormat for SRgb {}
 unsafe impl ImageFormat for SRgb {
-    type Scalar = Nu8;
+    type Scalar = u8;
     const INTERNAL_FORMAT: GLenum =  gl::SRGB8 ;
     const PIXEL_FORMAT: GLenum =  gl::RGB;
-    const PIXEL_TYPE: GLenum = <Nu8 as Scalar>::GL_ENUM;
+    const PIXEL_TYPE: GLenum = <u8 as Scalar>::GL_ENUM;
 }
 
 // unsafe impl ImageFormat for Depth16 {

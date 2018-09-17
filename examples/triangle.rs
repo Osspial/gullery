@@ -26,7 +26,6 @@ use gullery::buffers::*;
 use gullery::framebuffer::*;
 use gullery::program::*;
 use gullery::vao::*;
-use gullery::glsl::*;
 use gullery::colors::*;
 use gullery::render_state::*;
 
@@ -40,7 +39,7 @@ use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuild
 #[derive(TypeGroup, Clone, Copy)]
 struct Vertex {
     pos: Vector2<f32>,
-    color: Rgb<Nu8>
+    color: Rgb<u8>
 }
 
 #[derive(Clone, Copy, Uniforms)]
@@ -67,15 +66,15 @@ fn main() {
     let vertex_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[
         Vertex {
             pos: Vector2::new(-1.0, -1.0),
-            color: Rgb::new(Nu8(255), Nu8(0), Nu8(0))
+            color: Rgb::new(255, 0, 0)
         },
         Vertex {
             pos: Vector2::new( 0.0,  1.0),
-            color: Rgb::new(Nu8(0), Nu8(255), Nu8(0))
+            color: Rgb::new(0, 255, 0)
         },
         Vertex {
             pos: Vector2::new( 1.0,  -1.0),
-            color: Rgb::new(Nu8(0), Nu8(0), Nu8(255))
+            color: Rgb::new(0, 0, 255)
         },
     ], state.clone());
     let vao = VertexArrayObj::new_noindex(vertex_buffer);

@@ -22,16 +22,14 @@ use cgmath::{
     BaseNum
 };
 
-use std::{mem, cmp};
+use std::{mem};
 use std::marker::PhantomData;
 use std::fmt::{self, Display, Formatter};
 use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign, Rem, RemAssign};
 
 
 use num_traits::Num;
-use num_traits::float::Float;
 use num_traits::identities::{Zero, One};
-use num_traits::cast::{NumCast, ToPrimitive};
 
 
 pub trait TyGroupMemberRegistry {
@@ -222,31 +220,44 @@ impl_glsl_matrix!{
 }
 
 macro_rules! impl_gl_scalar_nonorm {
-    ($(impl $scalar:ty = ($gl_enum:expr, $prim_tag:ident, $integer:expr);)*) => {$(
+    ($(impl $scalar:ty = ($gl_enum:expr, $normalized:expr);)*) => {$(
         unsafe impl Scalar for $scalar {
             const GL_ENUM: GLenum = $gl_enum;
-            const NORMALIZED: bool = false;
-            const INTEGER: bool = $integer;
+            const NORMALIZED: bool = $normalized;
+            // We treat raw integers as normalized, so we shouldn't tell OpenGL that they're integers.
+            const INTEGER: bool = false;
         }
 
         unsafe impl TypeTransparent for $scalar {
             type Scalar = $scalar;
+            // We treat raw integers as normalized, so every base scalar is technically a float.
             #[inline]
-            fn prim_tag() -> TypeBasicTag {TypeBasicTag::$prim_tag}
+            fn prim_tag() -> TypeBasicTag {TypeBasicTag::Float}
         }
-    )*}
+    )*};
 }
 
 impl_gl_scalar_nonorm!{
-    impl bool = (gl::BOOL, Bool, true);
-    impl u8 = (gl::UNSIGNED_BYTE, UInt, true);
-    impl u16 = (gl::UNSIGNED_SHORT, UInt, true);
-    impl u32 = (gl::UNSIGNED_INT, UInt, true);
-    impl i8 = (gl::BYTE, Int, true);
-    impl i16 = (gl::SHORT, Int, true);
-    impl i32 = (gl::INT, Int, true);
-    impl f32 = (gl::FLOAT, Float, false);
-    // impl f64 = (gl::DOUBLE, Double);
+    impl u8 = (gl::UNSIGNED_BYTE, true);
+    impl u16 = (gl::UNSIGNED_SHORT, true);
+    impl u32 = (gl::UNSIGNED_INT, true);
+    impl i8 = (gl::BYTE, true);
+    impl i16 = (gl::SHORT, true);
+    impl i32 = (gl::INT, true);
+    impl f32 = (gl::FLOAT, false);
+    // impl f64 = (gl::DOUBLE, false);
+}
+
+unsafe impl Scalar for bool {
+    const GL_ENUM: GLenum = gl::BOOL;
+    const NORMALIZED: bool = false;
+    const INTEGER: bool = true;
+}
+
+unsafe impl TypeTransparent for bool {
+    type Scalar = bool;
+    #[inline]
+    fn prim_tag() -> TypeBasicTag {TypeBasicTag::Bool}
 }
 
 macro_rules! impl_glsl_type_uniform_single {
@@ -711,308 +722,196 @@ pub trait Normalized: BaseNum {
     fn divisor() -> Self;
 }
 
-macro_rules! normalized_int {
-    ($(pub struct $name:ident($inner:ident) $to_inner:ident;)*) => ($(
-        /// Normalized integer type.
-        ///
-        /// Treated as a float for arethmetic operations, and such operations are automatically
-        /// bound to the max and min values [-1.0, 1.0] for signed normalized integers, [0.0, 1.0]
-        /// for unsigned normalized integers.
-        #[repr(C)]
-        #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into)]
-        pub struct $name(pub $inner);
 
-        impl $name {
-            #[inline]
-            #[allow(unused_comparisons)]
-            fn bound_float<F: Float>(f: F) -> F {
-                if $inner::min_value() < 0 {
-                    F::max(-F::one(), f.min(F::one()))
-                } else {
-                    F::max(F::zero(), f.min(F::one()))
-                }
-            }
-
-            #[inline]
-            pub fn from_bounded<F: Float>(f: F) -> $name {
-                <$name as NumCast>::from($name::bound_float(f)).unwrap()
-            }
-
-            #[inline(always)]
-            pub fn slice_from_raw(raw: &[$inner]) -> &[$name] {
-                unsafe{ &*(raw as *const [$inner] as *const [$name]) }
-            }
-
-            #[inline(always)]
-            pub fn slice_from_raw_mut(raw: &mut [$inner]) -> &mut [$name] {
-                unsafe{ &mut *(raw as *mut [$inner] as *mut [$name]) }
-            }
-
-            #[inline(always)]
-            pub fn to_raw_slice(slice: &[$name]) -> &[$inner] {
-                unsafe{ &*(slice as *const [$name] as *const [$inner]) }
-            }
-
-            #[inline(always)]
-            pub fn to_raw_slice_mut(slice: &mut [$name]) -> &mut [$inner] {
-                unsafe{ &mut *(slice as *mut [$name] as *mut [$inner]) }
-            }
-        }
-
-        impl BaseNum for $name {}
-
-        impl Normalized for $name {
-            #[inline]
-            fn divisor() -> $name {
-                $name($inner::max_value())
-            }
-        }
-
-        impl Num for $name {
-            type FromStrRadixErr = ParseNormalizedIntError;
-            fn from_str_radix(src: &str, radix: u32) -> Result<$name, ParseNormalizedIntError> {
-                use num_traits::FloatErrorKind;
-                f64::from_str_radix(src, radix).map_err(|e| match e.kind {
-                    FloatErrorKind::Empty => ParseNormalizedIntError::Empty,
-                    FloatErrorKind::Invalid => ParseNormalizedIntError::Invalid
-                }).and_then(|f| <$name as NumCast>::from(f).ok_or(ParseNormalizedIntError::OutOfBounds))
-            }
-        }
-
-        impl ToPrimitive for $name {
-            #[inline]
-            fn to_i64(&self) -> Option<i64> {
-                self.0.to_i64()
-            }
-            #[inline]
-            #[allow(unused_comparisons)]
-            fn to_u64(&self) -> Option<u64> {
-                self.0.to_u64()
-            }
-
-            #[inline]
-            fn to_f32(&self) -> Option<f32> {
-                // Technically, this is using the OpenGL >4.2 method of normalizing, even if the
-                // user has a version of OpenGL less than that. However, the difference shouldn't
-                // be drastic enough to matter. See more info here: https://www.khronos.org/opengl/wiki/Normalized_Integer
-                Some(f32::max(-1.0, self.0 as f32 / $inner::max_value() as f32))
-            }
-
-            #[inline]
-            fn to_f64(&self) -> Option<f64> {
-                Some(f64::max(-1.0, self.0 as f64 / $inner::max_value() as f64))
-            }
-        }
-
-        impl NumCast for $name {
-            #[inline]
-            fn from<T: ToPrimitive>(n: T) -> Option<Self> {
-                /// Conversion to a normalized integer has a different behavior if the type is a
-                /// floating-point value versus if it's an integer. This trait allows us to switch
-                /// between those two behaviors.
-                trait ToNormalized {
-                    fn to_normalized(self) -> Option<$name>;
-                }
-
-                impl<U: ToPrimitive> ToNormalized for U {
-                    #[inline]
-                    #[allow(unused_comparisons)]
-                    default fn to_normalized(self) -> Option<$name> {
-                        trait ToNormalizedInner {
-                            fn to_normalized_inner(self) -> Option<$name>;
-                        }
-                        impl<U: ToPrimitive> ToNormalizedInner for U {
-                            #[inline]
-                            default fn to_normalized_inner(self) -> Option<$name> {
-                                self.$to_inner().map(|x| $name(x))
-                            }
-                        }
-                        impl<N: Normalized> ToNormalizedInner for N {
-                            #[inline]
-                            fn to_normalized_inner(self) -> Option<$name> {
-
-                                if (0 as $inner) < !0 {
-                                    self.to_u64().map(|s| $name((s * $inner::max_value() as u64 / N::divisor().to_u64().unwrap()) as $inner))
-                                } else {
-                                    Some($name((self.to_i64().unwrap() * $inner::max_value() as i64 / N::divisor().to_i64().unwrap()) as $inner))
-                                }
-                            }
-                        }
-
-                        self.to_normalized_inner()
-                    }
-                }
-                impl<F: Float + ::std::fmt::Debug> ToNormalized for F {
-                    #[inline]
-                    #[allow(unused_comparisons)]
-                    fn to_normalized(self) -> Option<$name> {
-                        let bounded = $name::bound_float(self);
-                        if self == bounded {
-                            Some($name((bounded.to_f64().unwrap() * $inner::max_value() as f64) as $inner))
-                        } else {
-                            None
-                        }
-                    }
-                }
-
-                n.to_normalized()
-            }
-        }
-
-        impl Add for $name {
-            type Output = $name;
-
-            #[inline]
-            fn add(self, rhs: $name) -> $name {
-                $name(self.0.saturating_add(rhs.0))
-            }
-        }
-        impl AddAssign for $name {
-            #[inline]
-            fn add_assign(&mut self, rhs: $name) {
-                *self = *self + rhs;
-            }
-        }
-        impl Sub for $name {
-            type Output = $name;
-
-            #[inline]
-            fn sub(self, rhs: $name) -> $name {
-                $name(self.0.saturating_sub(rhs.0))
-            }
-        }
-        impl SubAssign for $name {
-            #[inline]
-            fn sub_assign(&mut self, rhs: $name) {
-                *self = *self - rhs;
-            }
-        }
-        impl Mul for $name {
-            type Output = $name;
-
-            #[inline]
-            fn mul(self, rhs: $name) -> $name {
-                // If unsigned, use unsigned path. Otherwise use signed path.
-                if (0 as $inner) < !0 {
-                    let max = $inner::max_value() as u64;
-                    let numer = self.0 as u64 * rhs.0 as u64;
-                    $name((numer / max) as $inner)
-                } else {
-                    let rhs = cmp::max($inner::min_value() + 1, rhs.0);
-                    let max = $inner::max_value() as i64;
-                    let numer = self.0 as i64 * rhs as i64;
-                    $name((numer / max) as $inner)
-                }
-            }
-        }
-        impl MulAssign for $name {
-            #[inline]
-            fn mul_assign(&mut self, rhs: $name) {
-                *self = *self * rhs;
-            }
-        }
-        impl Mul<$name> for $inner {
-            type Output = $inner;
-            #[inline]
-            fn mul(self, rhs: $name) -> $inner {
-                ($name(self) * rhs).0
-            }
-        }
-        impl MulAssign<$name> for $inner {
-            #[inline]
-            fn mul_assign(&mut self, rhs: $name) {
-                *self = *self * rhs
-            }
-        }
-        impl Div for $name {
-            type Output = $name;
-
-            #[inline]
-            fn div(self, rhs: $name) -> $name {
-                if (0 as $inner) < !0 {
-                    let max = $inner::max_value() as u64;
-                    let numer = self.0 as u64 * max;
-                    $name(cmp::min(numer / rhs.0 as u64, max) as $inner)
-                } else {
-                    let max = $inner::max_value() as i64;
-                    let numer = self.0 as i64 * max;
-                    $name(cmp::max($inner::min_value() as i64, cmp::min(numer / rhs.0 as i64, max)) as $inner)
-                }
-            }
-        }
-        impl DivAssign for $name {
-            #[inline]
-            fn div_assign(&mut self, rhs: $name) {
-                *self = *self / rhs;
-            }
-        }
-        impl Div<$name> for $inner {
-            type Output = $inner;
-            #[inline]
-            fn div(self, rhs: $name) -> $inner {
-                ($name(self) / rhs).0
-            }
-        }
-        impl DivAssign<$name> for $inner {
-            #[inline]
-            fn div_assign(&mut self, rhs: $name) {
-                *self = *self / rhs
-            }
-        }
-        impl Rem for $name {
-            type Output = $name;
-
-            #[inline]
-            fn rem(self, rhs: $name) -> $name {
-                $name(self.0 % rhs.0)
-            }
-        }
-        impl RemAssign for $name {
-            #[inline]
-            fn rem_assign(&mut self, rhs: $name) {
-                *self = *self % rhs;
-            }
-        }
-
-        impl Zero for $name {
-            #[inline]
-            fn zero() -> $name {
-                $name(0)
-            }
-            #[inline]
-            fn is_zero(&self) -> bool {
-                *self == $name::zero()
-            }
-        }
-
-        impl One for $name {
-            #[inline]
-            fn one() -> $name {
-                $name($inner::max_value())
-            }
-        }
-
-        impl Sealed for $name {}
-
-        unsafe impl Scalar for $name {
-            const GL_ENUM: GLenum = $inner::GL_ENUM;
-            const NORMALIZED: bool = true;
-            const INTEGER: bool = false;
-        }
-
-        unsafe impl TypeTransparent for $name {
-            type Scalar = $name;
-            #[inline]
-            fn prim_tag() -> TypeBasicTag {TypeBasicTag::Float}
-        }
-    )*);
+#[repr(transparent)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, From)]
+pub struct GLSLInt<I>(pub I)
+    where GLSLInt<I>: TypeTransparent,
+          I: Num;
+impl<I> Sealed for GLSLInt<I>
+    where GLSLInt<I>: TypeTransparent,
+          I: Num {}
+impl<I> Zero for GLSLInt<I>
+    where GLSLInt<I>: TypeTransparent,
+          I: Num
+{
+    #[inline(always)]
+    fn zero() -> Self {
+        GLSLInt(I::zero())
+    }
+    #[inline(always)]
+    fn is_zero(&self) -> bool {
+        self.0.is_zero()
+    }
+}
+impl<I> One for GLSLInt<I>
+    where GLSLInt<I>: TypeTransparent,
+          I: Num
+{
+    #[inline(always)]
+    fn one() -> Self {
+        GLSLInt(I::one())
+    }
+    #[inline(always)]
+    fn is_one(&self) -> bool {
+        self.0.is_one()
+    }
+}
+impl<I> Num for GLSLInt<I>
+    where GLSLInt<I>: TypeTransparent,
+          I: Num
+{
+    type FromStrRadixErr = I::FromStrRadixErr;
+    #[inline(always)]
+    fn from_str_radix(str: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr> {
+        Ok(GLSLInt(I::from_str_radix(str, radix)?))
+    }
 }
 
-normalized_int!{
-    pub struct Ni8(i8) to_i8;
-    pub struct Ni16(i16) to_i16;
-    pub struct Ni32(i32) to_i32;
-    pub struct Nu8(u8) to_u8;
-    pub struct Nu16(u16) to_u16;
-    pub struct Nu32(u32) to_u32;
+unsafe impl<I> Scalar for GLSLInt<I>
+    where GLSLInt<I>: TypeTransparent,
+          I: Num + Scalar
+{
+    const GL_ENUM: GLenum = I::GL_ENUM;
+    const NORMALIZED: bool = false;
+    const INTEGER: bool = false;
+}
+
+
+macro_rules! impl_glslint {
+    ($(impl $scalar:ty = $prim_tag:ident;)*) => {$(
+        unsafe impl TypeTransparent for GLSLInt<$scalar> {
+            type Scalar = $scalar;
+            #[inline]
+            fn prim_tag() -> TypeBasicTag {TypeBasicTag::$prim_tag}
+        }
+    )*}
+}
+
+impl_glslint!{
+    impl u8 = UInt;
+    impl u16 = UInt;
+    impl u32 = UInt;
+    impl i8 = Int;
+    impl i16 = Int;
+    impl i32 = Int;
+}
+impl<I> Add for GLSLInt<I>
+    where GLSLInt<I>: TypeTransparent,
+          I: Num
+{
+    type Output = GLSLInt<I>;
+
+    #[inline]
+    fn add(self, rhs: GLSLInt<I>) -> GLSLInt<I> {
+        GLSLInt(self.0 + rhs.0)
+    }
+}
+impl<I> AddAssign for GLSLInt<I>
+    where GLSLInt<I>: TypeTransparent,
+          I: Num
+{
+    #[inline]
+    fn add_assign(&mut self, rhs: GLSLInt<I>) {
+        *self = *self + rhs;
+    }
+}
+impl<I> Sub for GLSLInt<I>
+    where GLSLInt<I>: TypeTransparent,
+          I: Num
+{
+    type Output = GLSLInt<I>;
+
+    #[inline]
+    fn sub(self, rhs: GLSLInt<I>) -> GLSLInt<I> {
+        GLSLInt(self.0 - rhs.0)
+    }
+}
+impl<I> SubAssign for GLSLInt<I>
+    where GLSLInt<I>: TypeTransparent,
+          I: Num
+{
+    #[inline]
+    fn sub_assign(&mut self, rhs: GLSLInt<I>) {
+        *self = *self - rhs;
+    }
+}
+impl<I> Mul for GLSLInt<I>
+    where GLSLInt<I>: TypeTransparent,
+          I: Num
+{
+    type Output = GLSLInt<I>;
+
+    #[inline]
+    fn mul(self, rhs: GLSLInt<I>) -> GLSLInt<I> {
+        GLSLInt(self.0 * rhs.0)
+    }
+}
+impl<I> MulAssign for GLSLInt<I>
+    where GLSLInt<I>: TypeTransparent,
+          I: Num
+{
+    #[inline]
+    fn mul_assign(&mut self, rhs: GLSLInt<I>) {
+        *self = *self * rhs;
+    }
+}
+// impl<I> Mul<GLSLInt<I>> for $inner
+//     where GLSLInt<I>: TypeTransparent,
+//           I: Num
+// {
+//     type Output = $inner;
+//     #[inline]
+//     fn mul(self, rhs: GLSLInt<I>) -> $inner {
+//         (GLSLInt(self) * rhs).0
+//     }
+// }
+// impl<I> MulAssign<GLSLInt<I>> for $inner
+//     where GLSLInt<I>: TypeTransparent,
+//           I: Num
+// {
+//     #[inline]
+//     fn mul_assign(&mut self, rhs: GLSLInt<I>) {
+//         *self = *self * rhs
+//     }
+// }
+impl<I> Div for GLSLInt<I>
+    where GLSLInt<I>: TypeTransparent,
+          I: Num
+{
+    type Output = GLSLInt<I>;
+
+    #[inline]
+    fn div(self, rhs: GLSLInt<I>) -> GLSLInt<I> {
+        GLSLInt(self.0 / rhs.0)
+    }
+}
+impl<I> DivAssign for GLSLInt<I>
+    where GLSLInt<I>: TypeTransparent,
+          I: Num
+{
+    #[inline]
+    fn div_assign(&mut self, rhs: GLSLInt<I>) {
+        *self = *self / rhs;
+    }
+}
+impl<I> Rem for GLSLInt<I>
+    where GLSLInt<I>: TypeTransparent,
+          I: Num
+{
+    type Output = GLSLInt<I>;
+
+    #[inline]
+    fn rem(self, rhs: GLSLInt<I>) -> GLSLInt<I> {
+        GLSLInt(self.0 % rhs.0)
+    }
+}
+impl<I> RemAssign for GLSLInt<I>
+    where GLSLInt<I>: TypeTransparent,
+          I: Num
+{
+    #[inline]
+    fn rem_assign(&mut self, rhs: GLSLInt<I>) {
+        *self = *self % rhs;
+    }
 }

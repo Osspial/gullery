@@ -27,7 +27,6 @@ use gullery::textures::{*, targets::*};
 use gullery::framebuffer::*;
 use gullery::program::*;
 use gullery::vao::*;
-use gullery::glsl::*;
 use gullery::colors::*;
 use gullery::render_state::*;
 
@@ -41,7 +40,7 @@ use glutin::*;
 #[derive(TypeGroup, Clone, Copy)]
 struct Vertex {
     pos: Vector2<f32>,
-    color: Rgb<Nu8>
+    color: Rgb<u8>
 }
 
 #[derive(Clone, Copy, Uniforms)]
@@ -68,15 +67,15 @@ fn main() {
     let vertex_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[
         Vertex {
             pos: Vector2::new(-1.0, -1.0),
-            color: Rgb::new(Nu8(255), Nu8(0), Nu8(0))
+            color: Rgb::new(255, 0, 0)
         },
         Vertex {
             pos: Vector2::new( 0.0,  1.0),
-            color: Rgb::new(Nu8(0), Nu8(255), Nu8(0))
+            color: Rgb::new(0, 255, 0)
         },
         Vertex {
             pos: Vector2::new( 1.0,  -1.0),
-            color: Rgb::new(Nu8(0), Nu8(0), Nu8(255))
+            color: Rgb::new(0, 0, 255)
         },
     ], state.clone());
     let vao = VertexArrayObj::new_noindex(vertex_buffer);
@@ -111,7 +110,7 @@ fn main() {
     fbo_attached.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
 
     let (width, height) = (size_x, size_y);
-    let mut data_buffer = vec![SRgb::new(Nu8(0u8), Nu8(0), Nu8(0)); (width * height) as usize * 2];
+    let mut data_buffer = vec![SRgb::new(0, 0, 0); (width * height) as usize * 2];
     fbo_attached.read_pixels_fbo(
         OffsetBox::new2(0, 0, width, height),
         &mut data_buffer[(width * height) as usize..],
@@ -142,7 +141,7 @@ fn main() {
     let mut encoder = png::Encoder::new(w, width, height * 2);
     encoder.set(png::ColorType::RGB).set(png::BitDepth::Eight);
     let mut writer = encoder.write_header().unwrap();
-    writer.write_image_data(Nu8::to_raw_slice(SRgb::to_raw_slice(&data_buffer))).unwrap();
+    writer.write_image_data(SRgb::to_raw_slice(&data_buffer)).unwrap();
 }
 
 const VERTEX_SHADER: &str = r#"
