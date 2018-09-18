@@ -36,8 +36,6 @@ use std::mem;
 use std::rc::Rc;
 use RangeArgument;
 
-use seal::Sealed;
-
 pub(crate) struct FramebufferTargets {
     read: RawFramebufferTargetRead,
     draw: RawFramebufferTargetDraw
@@ -80,7 +78,7 @@ impl<A, F> FramebufferObjectAttached<A, F>
     }
 }
 
-pub trait Framebuffer: Sealed {
+pub trait Framebuffer {
     type Attachments: Attachments<Static=Self::AttachmentsStatic>;
     type AttachmentsStatic: Attachments<AHC=<Self::Attachments as Attachments>::AHC> + 'static;
     /// Really these raw things are just implementation details. You library users don't have to
@@ -280,7 +278,6 @@ impl FramebufferTargets {
     }
 }
 
-impl Sealed for DefaultFramebuffer {}
 impl Framebuffer for DefaultFramebuffer {
     type Attachments = ();
     type AttachmentsStatic = ();
@@ -303,11 +300,6 @@ impl Framebuffer for DefaultFramebuffer {
     }
 }
 
-impl<A: FBOAttachments> Sealed for FramebufferObject<A> {}
-impl<A, F> Sealed for FramebufferObjectAttached<A, F>
-    where A: FBOAttachments,
-          A::Static: FBOAttachments,
-          F: BorrowMut<FramebufferObject<A::Static>> {}
 impl<A, F> Framebuffer for FramebufferObjectAttached<A, F>
     where A: FBOAttachments,
           A::Static: FBOAttachments,

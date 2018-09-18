@@ -25,7 +25,6 @@ pub struct RectTex<C: ColorFormat>(PhantomData<C>);
 pub struct MultisampleTex<C: ColorFormat>(PhantomData<C>);
 
 
-impl<C: ColorFormat, D: Dims> Sealed for SimpleTex<C, D> {}
 unsafe impl<C, D> TextureTypeSingleImage for SimpleTex<C, D>
     where C: ColorFormat,
           D: Dims,
@@ -34,7 +33,7 @@ unsafe impl<C> TextureType for SimpleTex<C, DimsBox<Point1<u32>>>
     where C: ColorFormat
 {
     type MipSelector = u8;
-    type ColorFormat = C;
+    type Format = C;
     type Dims = DimsBox<Point1<u32>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_1D;
@@ -43,7 +42,7 @@ unsafe impl<C> TextureType for SimpleTex<C, DimsBox<Point2<u32>>>
     where C: ColorFormat
 {
     type MipSelector = u8;
-    type ColorFormat = C;
+    type Format = C;
     type Dims = DimsBox<Point2<u32>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_2D;
@@ -52,7 +51,7 @@ unsafe impl<C> TextureType for SimpleTex<C, DimsBox<Point3<u32>>>
     where C: ColorFormat
 {
     type MipSelector = u8;
-    type ColorFormat = C;
+    type Format = C;
     type Dims = DimsBox<Point3<u32>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_3D;
@@ -68,12 +67,11 @@ unsafe impl<C> ArrayTextureType for SimpleTex<C, DimsBox<Point2<u32>>>
     const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_2D_ARRAY;
 }
 
-impl<C: ColorFormat> Sealed for CubemapTex<C> {}
 unsafe impl<C> TextureType for CubemapTex<C>
     where C: ColorFormat
 {
     type MipSelector = u8;
-    type ColorFormat = C;
+    type Format = C;
     type Dims = DimsSquare;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_CUBE_MAP;
@@ -84,14 +82,13 @@ unsafe impl<C> TextureType for CubemapTex<C>
 //     const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_CUBE_MAP_ARRAY;
 // }
 
-impl<C: ColorFormat> Sealed for RectTex<C> {}
 unsafe impl<C> TextureTypeSingleImage for RectTex<C>
     where C: ColorFormat {}
 unsafe impl<C> TextureType for RectTex<C>
     where C: ColorFormat
 {
     type MipSelector = ();
-    type ColorFormat = C;
+    type Format = C;
     type Dims = DimsBox<Point2<u32>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_RECTANGLE;
@@ -110,14 +107,13 @@ unsafe impl<C> TextureType for RectTex<C>
 //
 // }
 
-impl<C: ColorFormat> Sealed for MultisampleTex<C> {}
 unsafe impl<C> TextureTypeSingleImage for MultisampleTex<C>
     where C: ColorFormat {}
 unsafe impl<C> TextureType for MultisampleTex<C>
     where C: ColorFormat
 {
     type MipSelector = ();
-    type ColorFormat = C;
+    type Format = C;
     type Dims = DimsBox<Point2<u32>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_2D_MULTISAMPLE;

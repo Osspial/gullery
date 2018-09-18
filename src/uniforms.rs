@@ -12,11 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use gl::types::*;
-
-use glsl::TypeUniform;
+use gl::{self, Gl, types::*};
 
 use std::marker::PhantomData;
+use cgmath::{Vector1, Vector2, Vector3, Vector4, Point1, Point2, Point3, Matrix2, Matrix3, Matrix4};
+use glsl::{TypeTag, TypeTransparent};
+use textures::{SamplerUnits, Texture, TextureType};
+
+pub struct TextureUniformBinder<'a> {
+    pub(crate) sampler_units: &'a SamplerUnits,
+    pub(crate) unit: &'a mut u32
+}
+
+impl<'a> TextureUniformBinder<'a> {
+    pub unsafe fn bind<T>(&mut self, tex: &Texture<T>, gl: &Gl) -> u32
+        where T: TextureType
+    {
+        let ret = *self.unit;
+        self.sampler_units.bind(*self.unit, tex, gl);
+        *self.unit += 1;
+        ret
+    }
+}
+
+pub unsafe trait TypeUniform: Copy {
+    fn uniform_tag() -> TypeTag;
+    unsafe fn upload(&self, loc: GLint, tex_uniform_binder: &mut TextureUniformBinder, gl: &Gl);
+}
 
 pub trait Uniforms: Sized + Copy {
     type ULC: UniformLocContainer;
@@ -60,6 +82,63 @@ impl Uniforms for () {
     #[inline]
     fn members<R>(_: R)
         where R: UniformsMemberRegistry<Uniforms=()> {}
+}
+
+macro_rules! impl_glsl_type_uniform {
+    () => ();
+    ($ty_base:ident<$gen0:ty>$(<$gen_more:ty>)+, ($self:ident, $loc:pat, $gl:pat) => $expr:expr, $($rest:tt)*) => {
+        impl_glsl_type_uniform!(
+            $ty_base<$gen0>, ($self, $loc, $gl) => $expr,
+            $ty_base$(<$gen_more>)+, ($self, $loc, $gl) => $expr,
+            $($rest)*
+        );
+    };
+    ($ty:ty, ($self:ident, $loc:pat, $gl:pat) => $expr:expr, $($rest:tt)*) => {
+        unsafe impl TypeUniform for $ty {
+            #[inline]
+            fn uniform_tag() -> TypeTag {
+                TypeTag::Single(Self::prim_tag())
+            }
+            unsafe fn upload(&self, $loc: GLint, _: &mut TextureUniformBinder, $gl: &Gl) {
+                let $self = *self;
+                $expr
+            }
+        }
+
+        impl_glsl_type_uniform!($($rest)*);
+    };
+}
+impl_glsl_type_uniform!{
+    f32, (f, loc, gl) => gl.Uniform1f(loc, f),
+    Vector1<f32>, (v, loc, gl) => gl.Uniform1f(loc, v.x),
+    Vector2<f32>, (v, loc, gl) => gl.Uniform2f(loc, v.x, v.y),
+    Vector3<f32>, (v, loc, gl) => gl.Uniform3f(loc, v.x, v.y, v.z),
+    Vector4<f32>, (v, loc, gl) => gl.Uniform4f(loc, v.x, v.y, v.z, v.w),
+    Point1<f32>, (p, loc, gl) => gl.Uniform1f(loc, p.x),
+    Point2<f32>, (p, loc, gl) => gl.Uniform2f(loc, p.x, p.y),
+    Point3<f32>, (p, loc, gl) => gl.Uniform3f(loc, p.x, p.y, p.z),
+    Matrix2<f32>, (m, loc, gl) => gl.UniformMatrix2fv(loc, 1, gl::FALSE, &m.x.x),
+    Matrix3<f32>, (m, loc, gl) => gl.UniformMatrix3fv(loc, 1, gl::FALSE, &m.x.x),
+    Matrix4<f32>, (m, loc, gl) => gl.UniformMatrix4fv(loc, 1, gl::FALSE, &m.x.x),
+
+    bool, (u, loc, gl) => gl.Uniform1ui(loc, u as u32),
+    u32, (u, loc, gl) => gl.Uniform1ui(loc, u),
+    Vector1<u32><bool>, (v, loc, gl) => gl.Uniform1ui(loc, v.x as u32),
+    Vector2<u32><bool>, (v, loc, gl) => gl.Uniform2ui(loc, v.x as u32, v.y as u32),
+    Vector3<u32><bool>, (v, loc, gl) => gl.Uniform3ui(loc, v.x as u32, v.y as u32, v.z as u32),
+    Vector4<u32><bool>, (v, loc, gl) => gl.Uniform4ui(loc, v.x as u32, v.y as u32, v.z as u32, v.w as u32),
+    Point1<u32><bool>, (p, loc, gl) => gl.Uniform1ui(loc, p.x as u32),
+    Point2<u32><bool>, (p, loc, gl) => gl.Uniform2ui(loc, p.x as u32, p.y as u32),
+    Point3<u32><bool>, (p, loc, gl) => gl.Uniform3ui(loc, p.x as u32, p.y as u32, p.z as u32),
+
+    i32, (u, loc, gl) => gl.Uniform1i(loc, u),
+    Vector1<i32>, (v, loc, gl) => gl.Uniform1i(loc, v.x),
+    Vector2<i32>, (v, loc, gl) => gl.Uniform2i(loc, v.x, v.y),
+    Vector3<i32>, (v, loc, gl) => gl.Uniform3i(loc, v.x, v.y, v.z),
+    Vector4<i32>, (v, loc, gl) => gl.Uniform4i(loc, v.x, v.y, v.z, v.w),
+    Point1<i32>, (p, loc, gl) => gl.Uniform1i(loc, p.x),
+    Point2<i32>, (p, loc, gl) => gl.Uniform2i(loc, p.x, p.y),
+    Point3<i32>, (p, loc, gl) => gl.Uniform3i(loc, p.x, p.y, p.z),
 }
 
 macro_rules! impl_ulc_array {

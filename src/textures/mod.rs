@@ -14,15 +14,15 @@
 
 mod raw;
 
-use gl::types::GLuint;
 use gl::Gl;
+use gl::types::*;
 
 use {ContextState, GLObject};
 use self::raw::*;
 use colors::ColorFormat;
 
-use glsl::{TypeUniform, TypeTag, TypeBasicTag};
-use seal::Sealed;
+use glsl::{TypeTag, TypeBasicTag};
+use uniforms::{TypeUniform, TextureUniformBinder};
 
 use std::mem;
 use std::rc::Rc;
@@ -226,9 +226,6 @@ impl<T> Drop for Texture<T>
     }
 }
 
-impl<'a, T> Sealed for &'a Texture<T>
-    where T: TextureType {}
-
 macro_rules! texture_type_uniform {
     () => ();
     (
@@ -268,6 +265,10 @@ macro_rules! texture_type_uniform {
         {
             #[inline]
             default fn uniform_tag() -> TypeTag {TypeTag::Single(TypeBasicTag::$tag_ident)}
+            default unsafe fn upload(&self, loc: GLint, binder: &mut TextureUniformBinder, gl: &Gl) {
+                let unit = binder.bind(self, gl);
+                gl.Uniform1i(loc, unit as GLint);
+            }
         }
 
         texture_type_uniform!($($rest)*);

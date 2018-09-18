@@ -18,7 +18,6 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use ContextState;
-use seal::Sealed;
 use colors::{ColorFormat, ImageFormat};
 
 use std::{mem, ptr, iter};
@@ -123,7 +122,7 @@ pub struct DimsSquare {
     pub side: u32
 }
 
-pub trait Dims: 'static + Into<DimsTag> + Copy + Sealed {
+pub trait Dims: 'static + Into<DimsTag> + Copy {
     type Offset: Index<usize, Output=u32>;
     fn num_pixels(self) -> u32;
     fn max_size(state: &ContextState) -> Self;
@@ -133,9 +132,9 @@ pub trait Dims1D: Dims {}
 pub trait Dims2D: Dims {}
 pub trait Dims3D: Dims {}
 
-pub unsafe trait TextureType: 'static + Sealed {
+pub unsafe trait TextureType: 'static {
     type MipSelector: MipSelector;
-    type ColorFormat: ColorFormat;
+    type Format: ImageFormat;
     type Dims: Dims;
 
     const BIND_TARGET: GLenum;
@@ -147,7 +146,7 @@ pub unsafe trait ArrayTextureType: TextureType {
     const ARRAY_BIND_TARGET: GLenum;
 }
 
-pub trait MipSelector: Copy + Sealed {
+pub trait MipSelector: Copy {
     type IterLess: Iterator<Item=Self>;
 
     fn base() -> Self;
@@ -155,10 +154,10 @@ pub trait MipSelector: Copy + Sealed {
     fn iter_less(self) -> Self::IterLess;
     fn try_increment(self) -> Self;
 }
-pub trait Image<'a, T>: Copy + Sized + Sealed
+pub trait Image<'a, T>: Copy + Sized
     where T: TextureType
 {
-    fn variants<F: FnMut(GLenum, &'a [T::ColorFormat])>(self, for_each: F);
+    fn variants<F: FnMut(GLenum, &'a [T::Format])>(self, for_each: F);
     fn variants_static<F: FnMut(GLenum)>(for_each: F);
 }
 
@@ -338,24 +337,24 @@ impl<'a, T> RawBoundTextureMut<'a, T>
             match self.tex.dims.into() {
                 DimsTag::One(_) => for_each_variant(|gl, image_bind, mip_level, width, _, _, data|
                     gl.TexImage1D(
-                        image_bind, mip_level, T::ColorFormat::INTERNAL_FORMAT as GLint,
+                        image_bind, mip_level, T::Format::INTERNAL_FORMAT as GLint,
                         width,
-                        0, T::ColorFormat::PIXEL_FORMAT, T::ColorFormat::PIXEL_TYPE, data
+                        0, T::Format::PIXEL_FORMAT, T::Format::PIXEL_TYPE, data
                     )),
                 DimsTag::Two(_) => for_each_variant(|gl, image_bind, mip_level, width, height, _, data|
                     gl.TexImage2D(
-                        image_bind, mip_level, T::ColorFormat::INTERNAL_FORMAT as GLint,
+                        image_bind, mip_level, T::Format::INTERNAL_FORMAT as GLint,
                         width,
                         height,
-                        0, T::ColorFormat::PIXEL_FORMAT, T::ColorFormat::PIXEL_TYPE, data
+                        0, T::Format::PIXEL_FORMAT, T::Format::PIXEL_TYPE, data
                     )),
                 DimsTag::Three(_) => for_each_variant(|gl, image_bind, mip_level, width, height, depth, data|
                     gl.TexImage3D(
-                        image_bind, mip_level, T::ColorFormat::INTERNAL_FORMAT as GLint,
+                        image_bind, mip_level, T::Format::INTERNAL_FORMAT as GLint,
                         width,
                         height,
                         depth,
-                        0, T::ColorFormat::PIXEL_FORMAT, T::ColorFormat::PIXEL_TYPE, data
+                        0, T::Format::PIXEL_FORMAT, T::Format::PIXEL_TYPE, data
                     )),
             }
 
@@ -404,7 +403,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
                     image_bind, level.to_glint(),
                     offset[0] as GLint,
                     dims.width() as GLsizei,
-                    T::ColorFormat::PIXEL_FORMAT, T::ColorFormat::PIXEL_TYPE, data.as_ptr() as *const GLvoid
+                    T::Format::PIXEL_FORMAT, T::Format::PIXEL_TYPE, data.as_ptr() as *const GLvoid
                 )),
                 Two(dims) => image.variants(|image_bind, data| self.gl.TexSubImage2D(
                     image_bind, level.to_glint(),
@@ -412,7 +411,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
                     offset[1] as GLint,
                     dims.width() as GLsizei,
                     dims.height() as GLsizei,
-                    T::ColorFormat::PIXEL_FORMAT, T::ColorFormat::PIXEL_TYPE, data.as_ptr() as *const GLvoid
+                    T::Format::PIXEL_FORMAT, T::Format::PIXEL_TYPE, data.as_ptr() as *const GLvoid
                 )),
                 Three(dims) => image.variants(|image_bind, data| self.gl.TexSubImage3D(
                     image_bind, level.to_glint(),
@@ -422,7 +421,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
                     dims.width() as GLsizei,
                     dims.height() as GLsizei,
                     dims.depth() as GLsizei,
-                    T::ColorFormat::PIXEL_FORMAT, T::ColorFormat::PIXEL_TYPE, data.as_ptr() as *const GLvoid
+                    T::Format::PIXEL_FORMAT, T::Format::PIXEL_TYPE, data.as_ptr() as *const GLvoid
                 ))
             }
         }
@@ -675,8 +674,8 @@ impl<'a, C: ColorFormat> Image<'a, targets::CubemapTex<C>> for CubeImage<'a, C> 
         for_each(gl::TEXTURE_CUBE_MAP_NEGATIVE_Z);
    }
 }
-impl<'a, T: TextureTypeSingleImage> Image<'a, T> for &'a [T::ColorFormat] {
-    fn variants<F: FnMut(GLenum, &'a [T::ColorFormat])>(self, mut for_each: F) {
+impl<'a, T: TextureTypeSingleImage> Image<'a, T> for &'a [T::Format] {
+    fn variants<F: FnMut(GLenum, &'a [T::Format])>(self, mut for_each: F) {
         for_each(T::BIND_TARGET, self);
     }
     fn variants_static<F: FnMut(GLenum)>(mut for_each: F) {
@@ -684,14 +683,8 @@ impl<'a, T: TextureTypeSingleImage> Image<'a, T> for &'a [T::ColorFormat] {
    }
 }
 impl<'a, T: TextureType> Image<'a, T> for ! {
-    fn variants<F: FnMut(GLenum, &'a [T::ColorFormat])>(self, _: F) {    }
+    fn variants<F: FnMut(GLenum, &'a [T::Format])>(self, _: F) {    }
     fn variants_static<F: FnMut(GLenum)>(mut for_each: F) {
         for_each(T::BIND_TARGET);
    }
 }
-
-impl Sealed for DimsBox<Point1<u32>> {}
-impl Sealed for DimsBox<Point2<u32>> {}
-impl Sealed for DimsSquare {}
-impl Sealed for DimsBox<Point3<u32>> {}
-impl<'a, C: ColorFormat> Sealed for CubeImage<'a, C> {}

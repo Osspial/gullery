@@ -12,10 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use gl;
-use gl::types::*;
-
-use seal::Sealed;
+use gl::{self, types::*};
 
 use cgmath::{
     Vector1, Vector2, Vector3, Vector4, Point1, Point2, Point3, Matrix2, Matrix3, Matrix4,
@@ -63,12 +60,8 @@ pub trait TypeGroup: 'static + Copy {
     }
 }
 
-pub unsafe trait TypeUniform: Copy + Sealed {
-    fn uniform_tag() -> TypeTag;
-}
-
 /// Rust representation of a transparent GLSL type.
-pub unsafe trait TypeTransparent: 'static + Copy + Sealed {
+pub unsafe trait TypeTransparent: 'static + Copy {
     type Scalar: Scalar;
     /// The OpenGL constant associated with this type.
     fn prim_tag() -> TypeBasicTag;
@@ -258,52 +251,6 @@ unsafe impl TypeTransparent for bool {
     type Scalar = bool;
     #[inline]
     fn prim_tag() -> TypeBasicTag {TypeBasicTag::Bool}
-}
-
-macro_rules! impl_glsl_type_uniform_single {
-    ($($ty:ty,)*) => ($(
-        unsafe impl TypeUniform for $ty {
-            #[inline]
-            fn uniform_tag() -> TypeTag {
-                TypeTag::Single(Self::prim_tag())
-            }
-        }
-    )*)
-}
-
-impl_glsl_type_uniform_single!{
-    i32, u32, bool, f32,
-    Point1<i32>, Vector1<i32>,
-    Point2<i32>, Vector2<i32>,
-    Point3<i32>, Vector3<i32>,
-    Vector4<i32>,
-
-    Point1<u32>, Vector1<u32>,
-    Point2<u32>, Vector2<u32>,
-    Point3<u32>, Vector3<u32>,
-    Vector4<u32>,
-
-    Point1<bool>, Vector1<bool>,
-    Point2<bool>, Vector2<bool>,
-    Point3<bool>, Vector3<bool>,
-    Vector4<bool>,
-
-    Point1<f32>, Vector1<f32>,
-    Point2<f32>, Vector2<f32>,
-    Point3<f32>, Vector3<f32>,
-    Vector4<f32>,
-    Matrix2<f32>,
-    Matrix3<f32>,
-    Matrix4<f32>,
-
-    // Only supported on on OpenGL 4
-    // Point1<f64>, Vector1<f64>,
-    // Point2<f64>, Vector2<f64>,
-    // Point3<f64>, Vector3<f64>,
-    // Vector4<f64>,
-    // Matrix2<f64>,
-    // Matrix3<f64>,
-    // Matrix4<f64>,
 }
 
 impl From<TypeBasicTag> for GLenum {
@@ -728,9 +675,6 @@ pub trait Normalized: BaseNum {
 pub struct GLSLInt<I>(pub I)
     where GLSLInt<I>: TypeTransparent,
           I: Num;
-impl<I> Sealed for GLSLInt<I>
-    where GLSLInt<I>: TypeTransparent,
-          I: Num {}
 impl<I> Zero for GLSLInt<I>
     where GLSLInt<I>: TypeTransparent,
           I: Num

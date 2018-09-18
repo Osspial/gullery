@@ -115,48 +115,6 @@ impl ContextState {
     }
 }
 
-
-mod seal {
-    use cgmath::*;
-    use glsl::Scalar;
-
-    pub trait Sealed {}
-    impl Sealed for bool {}
-    impl Sealed for u8 {}
-    impl Sealed for u16 {}
-    impl Sealed for u32 {}
-    impl Sealed for u64 {}
-    impl Sealed for usize {}
-    impl Sealed for i8 {}
-    impl Sealed for i16 {}
-    impl Sealed for i32 {}
-    impl Sealed for i64 {}
-    impl Sealed for isize {}
-    impl Sealed for f32 {}
-    impl Sealed for f64 {}
-    impl Sealed for () {}
-    impl Sealed for ! {}
-    impl<'a, T> Sealed for &'a [T] {}
-
-    impl<S: Scalar> Sealed for Matrix2<S> {}
-    impl<S: Scalar> Sealed for Matrix3<S> {}
-    impl<S: Scalar> Sealed for Matrix4<S> {}
-    impl<S: Scalar> Sealed for Point1<S> {}
-    impl<S: Scalar> Sealed for Point2<S> {}
-    impl<S: Scalar> Sealed for Point3<S> {}
-    impl<S: Scalar> Sealed for Vector1<S> {}
-    impl<S: Scalar> Sealed for Vector2<S> {}
-    impl<S: Scalar> Sealed for Vector3<S> {}
-    impl<S: Scalar> Sealed for Vector4<S> {}
-
-    macro_rules! impl_sealed_arrays {
-        ($($len:expr),+) => {$(
-            impl<S: Sealed> Sealed for [S; $len] {}
-        )+};
-    }
-    impl_sealed_arrays!(1, 2, 3, 4);
-}
-
 #[cfg(test)]
 mod test_helper {
     use super::*;

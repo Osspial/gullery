@@ -20,13 +20,12 @@ use self::raw::{targets, RawBuffer};
 use gl::Gl;
 use gl::types::*;
 use {ContextState, GLObject};
-use seal::Sealed;
 
 use std::mem;
 use std::rc::Rc;
 use RangeArgument;
 
-pub unsafe trait Index: 'static + Copy + Sealed {}
+pub unsafe trait Index: 'static + Copy {}
 unsafe impl Index for () {}
 unsafe impl Index for u8 {}
 unsafe impl Index for u16 {}

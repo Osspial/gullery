@@ -44,7 +44,7 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct TriUniforms {
-    offset: Point2<u32>
+    offset: Point2<f32>
 }
 
 fn main() {
@@ -100,7 +100,7 @@ fn main() {
                 WindowEvent::Resized(size_x, size_y) => {
                     window.context().resize(size_x, size_y);
                     let uniform = TriUniforms {
-                        offset: Point2::new(0, 0)
+                        offset: Point2::new(0.0, 0.0)
                     };
                     render_state.viewport = OffsetBox::new2(0, 0, size_x, size_y);
                     default_framebuffer.clear_depth(1.0);
@@ -126,7 +126,7 @@ const VERTEX_SHADER: &str = r#"
     in vec3 color;
     out vec3 vert_color;
 
-    uniform uvec2 offset;
+    uniform vec2 offset;
 
     void main() {
         vert_color = color;

@@ -1,5 +1,5 @@
 use textures::{Texture, TextureType, MipSelector};
-use colors::ColorFormat;
+use colors::{ColorFormat, ImageFormat};
 use renderbuffer::Renderbuffer;
 use std::marker::PhantomData;
 use GLObject;
@@ -8,7 +8,7 @@ use gl::types::*;
 pub trait Attachment: GLObject {
     const TARGET_TYPE: AttachmentTargetType;
     const IMAGE_TYPE: AttachmentImageType;
-    type Format: ColorFormat;
+    type Format: ImageFormat;
     type MipSelector: MipSelector;
 
     fn add_to_registry<R>(
@@ -159,7 +159,7 @@ impl<C: ColorFormat> Attachment for Renderbuffer<C> {
 impl<T: TextureType> Attachment for Texture<T> {
     const TARGET_TYPE: AttachmentTargetType = AttachmentTargetType::Texture;
     const IMAGE_TYPE: AttachmentImageType = AttachmentImageType::Color;
-    type Format = T::ColorFormat;
+    type Format = T::Format;
     type MipSelector = T::MipSelector;
 
     fn add_to_registry<R>(registry: &mut R, name: &str, get_member: impl FnOnce(&R::Attachments) -> &Self, mip: Self::MipSelector)

@@ -17,10 +17,9 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use {ContextState, GLObject};
-use glsl::{TypeUniform, TypeGroup, TypeTag, TypeBasicTag, TypeTransparent, TyGroupMemberRegistry};
-use uniforms::{Uniforms, UniformLocContainer, UniformsMemberRegistry};
+use glsl::{TypeGroup, TypeTag, TypeBasicTag, TypeTransparent, TyGroupMemberRegistry};
+use uniforms::{TypeUniform, Uniforms, UniformLocContainer, UniformsMemberRegistry, TextureUniformBinder};
 use super::error::ProgramWarning;
-use seal::Sealed;
 use textures::SamplerUnits;
 
 use std::{ptr, mem};
@@ -59,7 +58,7 @@ pub struct RawProgramShaderAttacher<'a, 'b> {
     _marker: PhantomData<&'b ()>
 }
 
-pub unsafe trait ShaderStage: Sized + Sealed {
+pub unsafe trait ShaderStage: Sized {
     const SHADER_TYPE_ENUM: GLenum;
 
     #[inline]
@@ -278,101 +277,13 @@ impl<'a> RawBoundProgram<'a> {
         impl<'a, U: Uniforms> UniformsMemberRegistry for UniformsUploader<'a, U> {
             type Uniforms = U;
             fn add_member<T: TypeUniform>(&mut self, _: &str, get_member: fn(U) -> T) {
-                use cgmath::*;
-                use textures::{Texture, TextureType};
-
-                struct UniformTypeSwitch<'a> {
-                    gl: &'a Gl,
-                    loc: GLint,
-                    sampler_units: &'a SamplerUnits,
-                    unit: &'a mut u32
-                }
-                trait TypeSwitchTrait<T> {
-                    fn run_expr(self, _: T);
-                }
-                impl<'a, T> TypeSwitchTrait<T> for UniformTypeSwitch<'a> {
-                    #[inline]
-                    default fn run_expr(self, _: T) {
-                        panic!("Unexpected uniform type; isn't TypeUniform supposed to be sealed anyway?!")
-                    }
-                }
-                macro_rules! impl_type_switch {
-                    () => ();
-                    ($ty_base:ident<$gen0:ty>$(<$gen_more:ty>)+, ($self:ident, $bind:ident) => $expr:expr, $($rest:tt)*) => {
-                        impl_type_switch!(
-                            $ty_base<$gen0>, ($self, $bind) => $expr,
-                            $ty_base$(<$gen_more>)+, ($self, $bind) => $expr,
-                            $($rest)*
-                        );
-                    };
-                    ($ty:ty, ($self:ident, $bind:ident) => $expr:expr, $($rest:tt)*) => {
-                        impl<'a> TypeSwitchTrait<$ty> for UniformTypeSwitch<'a> {
-                            #[inline]
-                            fn run_expr(self, $bind: $ty) {unsafe {
-                                let $self = self;
-                                $expr
-                            }}
-                        }
-
-                        impl_type_switch!($($rest)*);
-                    };
-                }
-                impl_type_switch!{
-                    f32, (s, f) => s.gl.Uniform1f(s.loc, f),
-                    Vector1<f32>, (s, v) => s.gl.Uniform1f(s.loc, v.x),
-                    Vector2<f32>, (s, v) => s.gl.Uniform2f(s.loc, v.x, v.y),
-                    Vector3<f32>, (s, v) => s.gl.Uniform3f(s.loc, v.x, v.y, v.z),
-                    Vector4<f32>, (s, v) => s.gl.Uniform4f(s.loc, v.x, v.y, v.z, v.w),
-                    Point1<f32>, (s, p) => s.gl.Uniform1f(s.loc, p.x),
-                    Point2<f32>, (s, p) => s.gl.Uniform2f(s.loc, p.x, p.y),
-                    Point3<f32>, (s, p) => s.gl.Uniform3f(s.loc, p.x, p.y, p.z),
-                    Matrix2<f32>, (s, m) => s.gl.UniformMatrix2fv(s.loc, 1, gl::FALSE, &m.x.x),
-                    Matrix3<f32>, (s, m) => s.gl.UniformMatrix3fv(s.loc, 1, gl::FALSE, &m.x.x),
-                    Matrix4<f32>, (s, m) => s.gl.UniformMatrix4fv(s.loc, 1, gl::FALSE, &m.x.x),
-
-                    bool, (s, u) => s.gl.Uniform1ui(s.loc, u as u32),
-                    u32, (s, u) => s.gl.Uniform1ui(s.loc, u),
-                    Vector1<u32><bool>, (s, v) => s.gl.Uniform1ui(s.loc, v.x as u32),
-                    Vector2<u32><bool>, (s, v) => s.gl.Uniform2ui(s.loc, v.x as u32, v.y as u32),
-                    Vector3<u32><bool>, (s, v) => s.gl.Uniform3ui(s.loc, v.x as u32, v.y as u32, v.z as u32),
-                    Vector4<u32><bool>, (s, v) => s.gl.Uniform4ui(s.loc, v.x as u32, v.y as u32, v.z as u32, v.w as u32),
-                    Point1<u32><bool>, (s, p) => s.gl.Uniform1ui(s.loc, p.x as u32),
-                    Point2<u32><bool>, (s, p) => s.gl.Uniform2ui(s.loc, p.x as u32, p.y as u32),
-                    Point3<u32><bool>, (s, p) => s.gl.Uniform3ui(s.loc, p.x as u32, p.y as u32, p.z as u32),
-
-                    i32, (s, u) => s.gl.Uniform1i(s.loc, u),
-                    Vector1<i32>, (s, v) => s.gl.Uniform1i(s.loc, v.x),
-                    Vector2<i32>, (s, v) => s.gl.Uniform2i(s.loc, v.x, v.y),
-                    Vector3<i32>, (s, v) => s.gl.Uniform3i(s.loc, v.x, v.y, v.z),
-                    Vector4<i32>, (s, v) => s.gl.Uniform4i(s.loc, v.x, v.y, v.z, v.w),
-                    Point1<i32>, (s, p) => s.gl.Uniform1i(s.loc, p.x),
-                    Point2<i32>, (s, p) => s.gl.Uniform2i(s.loc, p.x, p.y),
-                    Point3<i32>, (s, p) => s.gl.Uniform3i(s.loc, p.x, p.y, p.z),
-                }
-
-                impl<'a, T> TypeSwitchTrait<&'a Texture<T>> for UniformTypeSwitch<'a>
-                    where T: TextureType,
-                          &'a Texture<T>: TypeUniform
-                {
-                    #[inline]
-                    fn run_expr(self, tex: &'a Texture<T>) {
-                        unsafe {
-                            self.gl.Uniform1i(self.loc, *self.unit as GLint);
-                            self.sampler_units.bind(*self.unit, tex, self.gl);
-                        }
-                        *self.unit += 1;
-                    }
-                }
-
                 let loc = self.locs[self.loc_index];
                 if loc != -1 {
-                    let ts = UniformTypeSwitch {
-                        gl: self.gl,
-                        loc,
-                        sampler_units: self.sampler_units,
+                    let mut binder = TextureUniformBinder {
+                        sampler_units: &self.sampler_units,
                         unit: &mut self.unit
                     };
-                    <UniformTypeSwitch as TypeSwitchTrait<T>>::run_expr(ts, get_member(self.uniforms));
+                    unsafe{ get_member(self.uniforms).upload(loc, &mut binder, self.gl); }
                 }
 
                 debug_assert_eq!(0, unsafe{ self.gl.GetError() });
@@ -626,7 +537,3 @@ unsafe impl<A: Attachments> ShaderStage for FragmentStage<A> {
         }))
     }
 }
-
-impl<V: TypeGroup> Sealed for VertexStage<V> {}
-impl Sealed for GeometryStage {}
-impl<A: Attachments> Sealed for FragmentStage<A> {}

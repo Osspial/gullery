@@ -16,7 +16,6 @@ use gl;
 use gl::types::*;
 
 use glsl::*;
-use seal::Sealed;
 
 use cgmath::{Vector1, Vector2, Vector3, Vector4};
 
@@ -46,6 +45,24 @@ pub struct Depth32F(pub f32);
 // #[repr(C)]
 // #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 // pub struct Depth24Stencil8(pub u32);
+
+unsafe impl DepthFormat for Depth16 {}
+unsafe impl ImageFormat for Depth16 {
+    type Scalar = u16;
+
+    const INTERNAL_FORMAT: GLenum = gl::DEPTH_COMPONENT16;
+    const PIXEL_FORMAT: GLenum = gl::DEPTH_COMPONENT;
+    const PIXEL_TYPE: GLenum = <u16 as Scalar>::GL_ENUM;
+}
+
+unsafe impl DepthFormat for Depth32F {}
+unsafe impl ImageFormat for Depth32F {
+    type Scalar = f32;
+
+    const INTERNAL_FORMAT: GLenum = gl::DEPTH_COMPONENT32F;
+    const PIXEL_FORMAT: GLenum = gl::DEPTH_COMPONENT;
+    const PIXEL_TYPE: GLenum = <f32 as Scalar>::GL_ENUM;
+}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -144,13 +161,6 @@ impl SRgba {
 impl SRgb {
     impl_color!{impl body SRgb<u8>(3, colors: r, g, b)}
 }
-
-impl<S: ScalarNum> Sealed for Rgba<S> {}
-impl<S: ScalarNum> Sealed for Rgb<S> {}
-impl<S: ScalarNum> Sealed for Rg<S> {}
-impl<S: ScalarNum> Sealed for Red<S> {}
-impl Sealed for SRgba {}
-impl Sealed for SRgb {}
 
 impl<S: ScalarNum> From<Rgb<S>> for Rgba<S> {
     #[inline]
