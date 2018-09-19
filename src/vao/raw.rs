@@ -157,7 +157,7 @@ impl<'a, V: TypeGroup> TyGroupMemberRegistry for VertexAttribBuilder<'a, V> {
                     gl.EnableVertexAttribArray(self.attrib_loc + slot);
                     let slot_offset = slot as usize * attrib_size;
 
-                    if T::Scalar::INTEGER {
+                    if T::Scalar::GLSL_INTEGER {
                         gl.VertexAttribIPointer(
                             self.attrib_loc + slot,
                             attrib_len as GLint,

@@ -21,13 +21,11 @@ use {ContextState, GLObject};
 use self::raw::*;
 use colors::ColorFormat;
 
-use glsl::{TypeTag, TypeBasicTag};
+use glsl::{TypeTag, TypeBasicTag, Scalar};
 use uniforms::{TypeUniform, TextureUniformBinder};
 
 use std::mem;
 use std::rc::Rc;
-
-use num_traits::{PrimInt, Signed};
 
 pub use self::raw::{targets, Dims, DimsSquare, DimsTag, Swizzle, Filter, MipSelector, Image, TextureType, ArrayTextureType};
 
@@ -227,52 +225,26 @@ impl<T> Drop for Texture<T>
 }
 
 macro_rules! texture_type_uniform {
-    () => ();
-    (
+    ($(
         impl &Texture<$texture_type:ty> = ($tag_ident:ident, $u_tag_ident:ident, $i_tag_ident:ident);
-        $($rest:tt)*
-    ) => {
-        texture_type_uniform!{
-            default impl &Texture<$texture_type> = $tag_ident;
-            default impl &Texture<$texture_type> = $u_tag_ident where C::Scalar: PrimInt;
-            impl &Texture<$texture_type> = $i_tag_ident where C::Scalar: PrimInt, Signed;
-            $($rest)*
-        }
-    };
-    (
-        impl &Texture<$texture_type:ty> = $tag_ident:ident
-            $(where C::Scalar: $($scalar_trait:path),+)*;
-        $($rest:tt)*
-    ) => {
+    )*) => {$(
         unsafe impl<'a, C> TypeUniform for &'a Texture<$texture_type>
-            where C: ColorFormat,
-                $(C::Scalar: $($scalar_trait +)+)*
+            where C: ColorFormat
         {
             #[inline]
-            fn uniform_tag() -> TypeTag {TypeTag::Single(TypeBasicTag::$tag_ident)}
-        }
-
-        texture_type_uniform!{$($rest)*}
-    };
-    (
-        default impl &Texture<$texture_type:ty> = $tag_ident:ident
-            $(where C::Scalar: $($scalar_trait:path),+)*;
-        $($rest:tt)*
-    ) => {
-        unsafe impl<'a, C> TypeUniform for &'a Texture<$texture_type>
-            where C: ColorFormat,
-                $(C::Scalar: $($scalar_trait +)+)*
-        {
-            #[inline]
-            default fn uniform_tag() -> TypeTag {TypeTag::Single(TypeBasicTag::$tag_ident)}
-            default unsafe fn upload(&self, loc: GLint, binder: &mut TextureUniformBinder, gl: &Gl) {
+            fn uniform_tag() -> TypeTag {
+                TypeTag::Single(match (C::Scalar::GLSL_INTEGER, C::Scalar::SIGNED) {
+                    (false, _) => TypeBasicTag::$tag_ident,
+                    (true, true) => TypeBasicTag::$i_tag_ident,
+                    (true, false) => TypeBasicTag::$u_tag_ident
+                })
+            }
+            unsafe fn upload(&self, loc: GLint, binder: &mut TextureUniformBinder, gl: &Gl) {
                 let unit = binder.bind(self, gl);
                 gl.Uniform1i(loc, unit as GLint);
             }
         }
-
-        texture_type_uniform!($($rest)*);
-    };
+    )*};
 }
 
 texture_type_uniform!{

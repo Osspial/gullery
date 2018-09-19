@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![feature(never_type, specialization)]
+#![feature(never_type)]
 #![recursion_limit="256"]
 
 extern crate gullery_bindings as gl;

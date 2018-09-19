@@ -241,7 +241,7 @@ macro_rules! basic_format {
             type Scalar = $prim;
             #[inline]
             const INTERNAL_FORMAT: GLenum = gl::$rgba_enum;
-            const PIXEL_FORMAT: GLenum = if_or_else!(if <$prim as Scalar>::INTEGER => (gl::RGBA_INTEGER) else (gl::RGBA));
+            const PIXEL_FORMAT: GLenum = if_or_else!(if <$prim as Scalar>::GLSL_INTEGER => (gl::RGBA_INTEGER) else (gl::RGBA));
             const PIXEL_TYPE: GLenum = <$prim as Scalar>::GL_ENUM;
         }
         unsafe impl ColorFormat for Rgb<$prim> {}
@@ -249,7 +249,7 @@ macro_rules! basic_format {
             type Scalar = $prim;
             #[inline]
             const INTERNAL_FORMAT: GLenum = gl::$rgb_enum;
-            const PIXEL_FORMAT: GLenum = if_or_else!(if <$prim as Scalar>::INTEGER => (gl::RGB_INTEGER) else (gl::RGB));
+            const PIXEL_FORMAT: GLenum = if_or_else!(if <$prim as Scalar>::GLSL_INTEGER => (gl::RGB_INTEGER) else (gl::RGB));
             const PIXEL_TYPE: GLenum = <$prim as Scalar>::GL_ENUM;
         }
         unsafe impl ColorFormat for Rg<$prim> {}
@@ -257,7 +257,7 @@ macro_rules! basic_format {
             type Scalar = $prim;
             #[inline]
             const INTERNAL_FORMAT: GLenum = gl::$rg_enum;
-            const PIXEL_FORMAT: GLenum = if_or_else!(if <$prim as Scalar>::INTEGER => (gl::RG_INTEGER) else (gl::RG));
+            const PIXEL_FORMAT: GLenum = if_or_else!(if <$prim as Scalar>::GLSL_INTEGER => (gl::RG_INTEGER) else (gl::RG));
             const PIXEL_TYPE: GLenum = <$prim as Scalar>::GL_ENUM;
         }
         unsafe impl ColorFormat for Red<$prim> {}
@@ -265,7 +265,7 @@ macro_rules! basic_format {
             type Scalar = $prim;
             #[inline]
             const INTERNAL_FORMAT: GLenum = gl::$r_enum;
-            const PIXEL_FORMAT: GLenum = if_or_else!(if <$prim as Scalar>::INTEGER => (gl::RED_INTEGER) else (gl::RED));
+            const PIXEL_FORMAT: GLenum = if_or_else!(if <$prim as Scalar>::GLSL_INTEGER => (gl::RED_INTEGER) else (gl::RED));
             const PIXEL_TYPE: GLenum = <$prim as Scalar>::GL_ENUM;
         }
     )*}

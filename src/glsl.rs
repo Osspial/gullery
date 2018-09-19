@@ -70,7 +70,8 @@ pub unsafe trait TypeTransparent: 'static + Copy {
 pub unsafe trait Scalar: TypeTransparent {
     const GL_ENUM: GLenum;
     const NORMALIZED: bool;
-    const INTEGER: bool;
+    const GLSL_INTEGER: bool;
+    const SIGNED: bool;
 }
 
 pub unsafe trait ScalarNum: Scalar + Num {}
@@ -213,12 +214,13 @@ impl_glsl_matrix!{
 }
 
 macro_rules! impl_gl_scalar_nonorm {
-    ($(impl $scalar:ty = ($gl_enum:expr, $normalized:expr);)*) => {$(
+    ($(impl $scalar:ty = ($gl_enum:expr, $normalized:expr, $signed:expr);)*) => {$(
         unsafe impl Scalar for $scalar {
             const GL_ENUM: GLenum = $gl_enum;
             const NORMALIZED: bool = $normalized;
             // We treat raw integers as normalized, so we shouldn't tell OpenGL that they're integers.
-            const INTEGER: bool = false;
+            const GLSL_INTEGER: bool = false;
+            const SIGNED: bool = $signed;
         }
 
         unsafe impl TypeTransparent for $scalar {
@@ -231,20 +233,21 @@ macro_rules! impl_gl_scalar_nonorm {
 }
 
 impl_gl_scalar_nonorm!{
-    impl u8 = (gl::UNSIGNED_BYTE, true);
-    impl u16 = (gl::UNSIGNED_SHORT, true);
-    impl u32 = (gl::UNSIGNED_INT, true);
-    impl i8 = (gl::BYTE, true);
-    impl i16 = (gl::SHORT, true);
-    impl i32 = (gl::INT, true);
-    impl f32 = (gl::FLOAT, false);
+    impl u8 = (gl::UNSIGNED_BYTE, true, false);
+    impl u16 = (gl::UNSIGNED_SHORT, true, false);
+    impl u32 = (gl::UNSIGNED_INT, true, false);
+    impl i8 = (gl::BYTE, true, true);
+    impl i16 = (gl::SHORT, true, true);
+    impl i32 = (gl::INT, true, true);
+    impl f32 = (gl::FLOAT, false, true);
     // impl f64 = (gl::DOUBLE, false);
 }
 
 unsafe impl Scalar for bool {
     const GL_ENUM: GLenum = gl::BOOL;
     const NORMALIZED: bool = false;
-    const INTEGER: bool = true;
+    const GLSL_INTEGER: bool = true;
+    const SIGNED: bool = false;
 }
 
 unsafe impl TypeTransparent for bool {
@@ -718,7 +721,8 @@ unsafe impl<I> Scalar for GLSLInt<I>
 {
     const GL_ENUM: GLenum = I::GL_ENUM;
     const NORMALIZED: bool = false;
-    const INTEGER: bool = false;
+    const GLSL_INTEGER: bool = true;
+    const SIGNED: bool = I::SIGNED;
 }
 
 
