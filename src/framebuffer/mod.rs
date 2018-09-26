@@ -27,7 +27,7 @@ use buffers::Index;
 use vao::VertexArrayObj;
 use uniforms::Uniforms;
 use program::Program;
-use colors::{ColorFormat, Rgba};
+use colors::{ColorFormat, Rgba, ImageFormat, ImageFormatType};
 use render_state::RenderState;
 use cgmath_geometry::OffsetBox;
 use cgmath_geometry::cgmath::Point2;
@@ -155,15 +155,15 @@ pub trait Framebuffer {
             type Attachments = A;
             fn add_member<At: Attachment>(&mut self, _: &str, get_member: impl FnOnce(&A) -> &At) {
                 if !*self.valid {
-                    let image_type = At::IMAGE_TYPE;
+                    let image_type = At::Format::FORMAT_TYPE;
                     if get_member(self.attachments) as *const _ as *const () == self.ptr {
-                        if image_type == AttachmentImageType::Color {
+                        if image_type == ImageFormatType::Color {
                             *self.color_index = Some(self.color_index_wip);
                         }
                         *self.valid = true;
                     }
 
-                    if image_type == AttachmentImageType::Color {
+                    if image_type == ImageFormatType::Color {
                         self.color_index_wip += 1;
                     }
                 }

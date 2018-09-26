@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use framebuffer::attachments::{Attachment, Attachments, AttachmentsMemberRegistryNoSpecifics, AMRNSImpl, AttachmentImageType};
+use framebuffer::attachments::{Attachment, Attachments, AttachmentsMemberRegistryNoSpecifics, AMRNSImpl};
+use colors::{ImageFormat, ImageFormatType};
 use gl::{self, Gl};
 use gl::types::*;
 
@@ -456,7 +457,7 @@ unsafe impl<A: Attachments> ShaderStage for FragmentStage<A> {
             fn add_member<T>(&mut self, name: &str, _: impl FnOnce(&A) -> &T)
                 where T: Attachment
             {
-                if T::IMAGE_TYPE == AttachmentImageType::Color {
+                if T::Format::FORMAT_TYPE == ImageFormatType::Color {
                     // We can't just take ownership of the Vec<u8> to make it a CString, so we have to
                     // create a dummy buffer and swap it to self.cstr_bytes. At the end we swap it back.
                     let mut cstr_bytes = Vec::new();
@@ -502,7 +503,7 @@ unsafe impl<A: Attachments> ShaderStage for FragmentStage<A> {
             fn add_member<T>(&mut self, name: &str, _: impl FnOnce(&A) -> &T)
                 where T: Attachment
             {
-                if T::IMAGE_TYPE == AttachmentImageType::Color {
+                if T::Format::FORMAT_TYPE == ImageFormatType::Color {
                     // We can't just take ownership of the Vec<u8> to make it a CString, so we have to
                     // create a dummy buffer and swap it to self.cstr_bytes. At the end we swap it back.
                     let mut cstr_bytes = Vec::new();

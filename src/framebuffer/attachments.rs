@@ -7,7 +7,6 @@ use gl::types::*;
 
 pub trait Attachment: GLObject {
     const TARGET_TYPE: AttachmentTargetType;
-    const IMAGE_TYPE: AttachmentImageType;
     type Format: ImageFormat;
     type MipSelector: MipSelector;
 
@@ -67,21 +66,12 @@ pub enum AttachmentTargetType {
     Texture
 }
 
-#[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum AttachmentImageType {
-    Color,
-    // Depth,
-    // Stencil,
-    // DepthStencil
-}
-
 pub trait AttachmentsMemberRegistry {
     type Attachments: Attachments;
-    fn add_renderbuffer<C: ColorFormat>(
+    fn add_renderbuffer<I: ImageFormat>(
         &mut self,
         name: &str,
-        get_member: impl FnOnce(&Self::Attachments) -> &Renderbuffer<C>
+        get_member: impl FnOnce(&Self::Attachments) -> &Renderbuffer<I>
     );
     fn add_texture<T>(
         &mut self,
@@ -105,8 +95,8 @@ impl<R> AttachmentsMemberRegistry for AMRNSImpl<R>
 {
     type Attachments = <R as AttachmentsMemberRegistryNoSpecifics>::Attachments;
     #[inline]
-    fn add_renderbuffer<C>(&mut self, name: &str, get_member: impl FnOnce(&Self::Attachments) -> &Renderbuffer<C>)
-        where C: ColorFormat
+    fn add_renderbuffer<I>(&mut self, name: &str, get_member: impl FnOnce(&Self::Attachments) -> &Renderbuffer<I>)
+        where I: ImageFormat
     {
         self.0.add_member(name, get_member);
     }
@@ -143,10 +133,9 @@ impl Attachments for () {
 }
 unsafe impl DefaultFramebufferAttachments for () {}
 
-impl<C: ColorFormat> Attachment for Renderbuffer<C> {
+impl<I: ImageFormat> Attachment for Renderbuffer<I> {
     const TARGET_TYPE: AttachmentTargetType = AttachmentTargetType::Renderbuffer;
-    const IMAGE_TYPE: AttachmentImageType = AttachmentImageType::Color;
-    type Format = C;
+    type Format = I;
     type MipSelector = ();
 
     fn add_to_registry<R>(registry: &mut R, name: &str, get_member: impl FnOnce(&R::Attachments) -> &Self, _: ())
@@ -158,7 +147,6 @@ impl<C: ColorFormat> Attachment for Renderbuffer<C> {
 
 impl<T: TextureType> Attachment for Texture<T> {
     const TARGET_TYPE: AttachmentTargetType = AttachmentTargetType::Texture;
-    const IMAGE_TYPE: AttachmentImageType = AttachmentImageType::Color;
     type Format = T::Format;
     type MipSelector = T::MipSelector;
 
@@ -171,7 +159,6 @@ impl<T: TextureType> Attachment for Texture<T> {
 
 impl<'a, A: 'a + Attachment> Attachment for &'a mut A {
     const TARGET_TYPE: AttachmentTargetType = A::TARGET_TYPE;
-    const IMAGE_TYPE: AttachmentImageType = A::IMAGE_TYPE;
     type Format = A::Format;
     type MipSelector = A::MipSelector;
 

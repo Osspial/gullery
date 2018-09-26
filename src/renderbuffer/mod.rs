@@ -15,7 +15,7 @@
 use {ContextState, GLObject};
 mod raw;
 use self::raw::{RawRenderbuffer, RawRenderbufferTarget};
-use colors::ColorFormat;
+use colors::ImageFormat;
 use gl::types::*;
 
 use cgmath::Point2;
@@ -25,12 +25,12 @@ use std::rc::Rc;
 use std::marker::PhantomData;
 
 pub(crate) struct RenderbufferTarget(RawRenderbufferTarget);
-pub struct Renderbuffer<C: ColorFormat> {
+pub struct Renderbuffer<I: ImageFormat> {
     raw: RawRenderbuffer,
     samples: u32,
     dims: DimsBox<Point2<u32>>,
     state: Rc<ContextState>,
-    _format: PhantomData<C>
+    _format: PhantomData<I>
 }
 
 impl RenderbufferTarget {
@@ -39,12 +39,12 @@ impl RenderbufferTarget {
     }
 }
 
-impl<C: ColorFormat> Renderbuffer<C> {
-    pub fn new(dims: DimsBox<Point2<u32>>, samples: u32, state: Rc<ContextState>) -> Renderbuffer<C> {
+impl<I: ImageFormat> Renderbuffer<I> {
+    pub fn new(dims: DimsBox<Point2<u32>>, samples: u32, state: Rc<ContextState>) -> Renderbuffer<I> {
         let mut raw = RawRenderbuffer::new(&state.gl);
         unsafe {
             let mut bind = state.renderbuffer_target.0.bind_mut(&mut raw, &state.gl);
-            bind.alloc_storage(C::INTERNAL_FORMAT, dims, samples);
+            bind.alloc_storage(I::INTERNAL_FORMAT, dims, samples);
         }
 
         Renderbuffer {
@@ -64,14 +64,14 @@ impl<C: ColorFormat> Renderbuffer<C> {
     }
 }
 
-impl<C: ColorFormat> GLObject for Renderbuffer<C> {
+impl<I: ImageFormat> GLObject for Renderbuffer<I> {
     #[inline(always)]
     fn handle(&self) -> GLuint {
         self.raw.handle()
     }
 }
 
-impl<C: ColorFormat> Drop for Renderbuffer<C> {
+impl<I: ImageFormat> Drop for Renderbuffer<I> {
     fn drop(&mut self) {
         let mut buffer = unsafe{ mem::uninitialized() };
         mem::swap(&mut buffer, &mut self.raw);

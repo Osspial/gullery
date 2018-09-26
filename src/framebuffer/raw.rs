@@ -16,7 +16,7 @@ use textures::{Texture, TextureType, DimsTag, MipSelector};
 use renderbuffer::Renderbuffer;
 use cgmath_geometry::cgmath::Point2;
 use cgmath_geometry::{OffsetBox, GeoBox};
-use colors::ColorFormat;
+use colors::{ColorFormat, ImageFormat, ImageFormatType};
 use gl::{self, Gl};
 use gl::types::*;
 
@@ -318,6 +318,7 @@ pub unsafe trait RawBoundFramebuffer {
     fn set_attachments<A: Attachments>(&mut self, handles: &mut [GLuint], attachments: &A) {
         struct Attacher<'a, A: 'a + Attachments, I: Iterator<Item=&'a mut GLuint>> {
             color_index: GLenum,
+            depth_attachment_used: bool,
             gl: &'a Gl,
             handles: I,
             target: GLenum,
@@ -325,18 +326,25 @@ pub unsafe trait RawBoundFramebuffer {
         }
         impl<'a, A: Attachments, I: Iterator<Item=&'a mut GLuint>> AttachmentsMemberRegistry for Attacher<'a, A, I> {
             type Attachments = A;
-            fn add_renderbuffer<C>(&mut self, _: &str, get_member: impl FnOnce(&A) -> &Renderbuffer<C>)
-                where C: ColorFormat
+            fn add_renderbuffer<Im>(&mut self, _: &str, get_member: impl FnOnce(&A) -> &Renderbuffer<Im>)
+                where Im: ImageFormat
             {
                 let member = get_member(self.attachments);
                 let handle = self.handles.next().expect("Mismatched attachment handle container length");
                 if member.handle() != *handle {
                     *handle = member.handle();
                     let attachment: GLenum;
-                    match <Renderbuffer<C> as Attachment>::IMAGE_TYPE {
-                        AttachmentImageType::Color => {
+                    match <Renderbuffer<Im> as Attachment>::Format::FORMAT_TYPE {
+                        ImageFormatType::Color => {
                             attachment = gl::COLOR_ATTACHMENT0 + self.color_index;
                             self.color_index += 1;
+                        },
+                        ImageFormatType::Depth => {
+                            if self.depth_attachment_used {
+                                panic!("Attempted to attach multiple depth images to a single FBO");
+                            }
+                            self.depth_attachment_used = true;
+                            attachment = gl::DEPTH_ATTACHMENT;
                         }
                     }
 
@@ -359,10 +367,17 @@ pub unsafe trait RawBoundFramebuffer {
                 if texture.handle() != *handle {
                     *handle = texture.handle();
                     let attachment: GLenum;
-                    match <Texture<T> as Attachment>::IMAGE_TYPE {
-                        AttachmentImageType::Color => {
+                    match <Texture<T> as Attachment>::Format::FORMAT_TYPE {
+                        ImageFormatType::Color => {
                             attachment = gl::COLOR_ATTACHMENT0 + self.color_index;
                             self.color_index += 1;
+                        },
+                        ImageFormatType::Depth => {
+                            if self.depth_attachment_used {
+                                panic!("Attempted to attach multiple depth images to a single FBO");
+                            }
+                            self.depth_attachment_used = true;
+                            attachment = gl::DEPTH_ATTACHMENT;
                         }
                     }
 
@@ -395,11 +410,13 @@ pub unsafe trait RawBoundFramebuffer {
 
         A::members(Attacher {
             color_index: 0,
+            depth_attachment_used: false,
             handles: handles.iter_mut(),
             gl: self.gl(),
             target: Self::TARGET,
             attachments: attachments
-        })
+        });
+        unsafe{ self.gl().CheckFramebufferStatus(Self::TARGET); }
     }
 }
 

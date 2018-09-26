@@ -21,12 +21,22 @@ use cgmath::{Vector1, Vector2, Vector3, Vector4};
 
 use std::slice;
 
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ImageFormatType {
+    Color,
+    Depth,
+    // Stencil,
+    // DepthStencil
+}
+
 pub unsafe trait ImageFormat: 'static + Copy {
     type Scalar: ScalarNum;
 
     const INTERNAL_FORMAT: GLenum;
     const PIXEL_FORMAT: GLenum;
     const PIXEL_TYPE: GLenum;
+    const FORMAT_TYPE: ImageFormatType;
 }
 
 pub unsafe trait ColorFormat: ImageFormat {}
@@ -53,6 +63,7 @@ unsafe impl ImageFormat for Depth16 {
     const INTERNAL_FORMAT: GLenum = gl::DEPTH_COMPONENT16;
     const PIXEL_FORMAT: GLenum = gl::DEPTH_COMPONENT;
     const PIXEL_TYPE: GLenum = <u16 as Scalar>::GL_ENUM;
+    const FORMAT_TYPE: ImageFormatType = ImageFormatType::Depth;
 }
 
 unsafe impl DepthFormat for Depth32F {}
@@ -62,6 +73,7 @@ unsafe impl ImageFormat for Depth32F {
     const INTERNAL_FORMAT: GLenum = gl::DEPTH_COMPONENT32F;
     const PIXEL_FORMAT: GLenum = gl::DEPTH_COMPONENT;
     const PIXEL_TYPE: GLenum = <f32 as Scalar>::GL_ENUM;
+    const FORMAT_TYPE: ImageFormatType = ImageFormatType::Depth;
 }
 
 #[repr(C)]
@@ -243,6 +255,7 @@ macro_rules! basic_format {
             const INTERNAL_FORMAT: GLenum = gl::$rgba_enum;
             const PIXEL_FORMAT: GLenum = if_or_else!(if <$prim as Scalar>::GLSL_INTEGER => (gl::RGBA_INTEGER) else (gl::RGBA));
             const PIXEL_TYPE: GLenum = <$prim as Scalar>::GL_ENUM;
+            const FORMAT_TYPE: ImageFormatType = ImageFormatType::Color;
         }
         unsafe impl ColorFormat for Rgb<$prim> {}
         unsafe impl ImageFormat for Rgb<$prim> {
@@ -251,6 +264,7 @@ macro_rules! basic_format {
             const INTERNAL_FORMAT: GLenum = gl::$rgb_enum;
             const PIXEL_FORMAT: GLenum = if_or_else!(if <$prim as Scalar>::GLSL_INTEGER => (gl::RGB_INTEGER) else (gl::RGB));
             const PIXEL_TYPE: GLenum = <$prim as Scalar>::GL_ENUM;
+            const FORMAT_TYPE: ImageFormatType = ImageFormatType::Color;
         }
         unsafe impl ColorFormat for Rg<$prim> {}
         unsafe impl ImageFormat for Rg<$prim> {
@@ -259,6 +273,7 @@ macro_rules! basic_format {
             const INTERNAL_FORMAT: GLenum = gl::$rg_enum;
             const PIXEL_FORMAT: GLenum = if_or_else!(if <$prim as Scalar>::GLSL_INTEGER => (gl::RG_INTEGER) else (gl::RG));
             const PIXEL_TYPE: GLenum = <$prim as Scalar>::GL_ENUM;
+            const FORMAT_TYPE: ImageFormatType = ImageFormatType::Color;
         }
         unsafe impl ColorFormat for Red<$prim> {}
         unsafe impl ImageFormat for Red<$prim> {
@@ -267,6 +282,7 @@ macro_rules! basic_format {
             const INTERNAL_FORMAT: GLenum = gl::$r_enum;
             const PIXEL_FORMAT: GLenum = if_or_else!(if <$prim as Scalar>::GLSL_INTEGER => (gl::RED_INTEGER) else (gl::RED));
             const PIXEL_TYPE: GLenum = <$prim as Scalar>::GL_ENUM;
+            const FORMAT_TYPE: ImageFormatType = ImageFormatType::Color;
         }
     )*}
 }
@@ -294,6 +310,7 @@ unsafe impl ImageFormat for SRgba {
     const INTERNAL_FORMAT: GLenum =  gl::SRGB8_ALPHA8 ;
     const PIXEL_FORMAT: GLenum =  gl::RGBA;
     const PIXEL_TYPE: GLenum = <u8 as Scalar>::GL_ENUM;
+    const FORMAT_TYPE: ImageFormatType = ImageFormatType::Color;
 }
 unsafe impl ColorFormat for SRgb {}
 unsafe impl ImageFormat for SRgb {
@@ -301,8 +318,5 @@ unsafe impl ImageFormat for SRgb {
     const INTERNAL_FORMAT: GLenum =  gl::SRGB8 ;
     const PIXEL_FORMAT: GLenum =  gl::RGB;
     const PIXEL_TYPE: GLenum = <u8 as Scalar>::GL_ENUM;
+    const FORMAT_TYPE: ImageFormatType = ImageFormatType::Color;
 }
-
-// unsafe impl ImageFormat for Depth16 {
-//     type Scalar =
-// }

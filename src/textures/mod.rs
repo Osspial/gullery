@@ -19,7 +19,7 @@ use gl::types::*;
 
 use {ContextState, GLObject};
 use self::raw::*;
-use colors::ColorFormat;
+use colors::ImageFormat;
 
 use glsl::{TypeTag, TypeBasicTag, Scalar};
 use uniforms::{TypeUniform, TextureUniformBinder};
@@ -229,7 +229,7 @@ macro_rules! texture_type_uniform {
         impl &Texture<$texture_type:ty> = ($tag_ident:ident, $u_tag_ident:ident, $i_tag_ident:ident);
     )*) => {$(
         unsafe impl<'a, C> TypeUniform for &'a Texture<$texture_type>
-            where C: ColorFormat
+            where C: ImageFormat
         {
             #[inline]
             fn uniform_tag() -> TypeTag {

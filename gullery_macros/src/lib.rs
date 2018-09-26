@@ -196,24 +196,24 @@ fn impl_attachments(derive_input: &DeriveInput) -> Tokens {
                     unsafe impl #impl_generics _gullery::framebuffer::attachments::FBOAttachments for #ident #ty_generics #where_clause {}
 
                     impl #impl_generics #ident #ty_generics #where_clause {
-                        /// Check to see that we have at least one color attachment type. If we don't,
+                        /// Check to see that we have at no more than one depth attachment type. If we do,
                         /// we fail to compile.
                         ///
                         /// Thanks to static_assertions crate and rust #49450 for inspiration on how to
                         /// do this.
                         #[allow(dead_code)]
-                        fn assert_has_color_attachments() {
+                        fn assert_depth_attachment_number() {
                             union Transmute {
-                                from: _gullery::framebuffer::attachments::AttachmentImageType,
+                                from: _gullery::colors::ImageFormatType,
                                 to: u8
                             }
-                            const NUM_COLOR_ATTACHMENTS: usize = 0
+                            const NUM_DEPTH_ATTACHMENTS: usize = 0
                                 #(+ unsafe {
-                                    Transmute{ from: <#types as _gullery::framebuffer::attachments::Attachment>::IMAGE_TYPE }.to
+                                    Transmute{ from: <<#types as _gullery::framebuffer::attachments::Attachment>::Format as _gullery::colors::ImageFormat>::FORMAT_TYPE }.to
                                     ==
-                                    Transmute{ from: _gullery::framebuffer::attachments::AttachmentImageType::Color}.to
+                                    Transmute{ from: _gullery::colors::ImageFormatType::Depth}.to
                                  } as usize)*;
-                            let _has_at_least_one_color_attachment = [(); 0 - (NUM_COLOR_ATTACHMENTS == 0) as usize];
+                            let _has_at_least_one_color_attachment = [(); 0 - (NUM_DEPTH_ATTACHMENTS > 1) as usize];
                         }
                     }
 
