@@ -134,7 +134,7 @@ pub mod targets {
         )*);
     }
 
-    // The ARRAY_BUFFER and ELEMENT_ARRAY_BUFFER targets are implemented in the buffers::vao module,
+    // The ARRAY_BUFFER and ELEMENT_ARRAY_BUFFER targets are implemented in the vertex::vao module,
     // under the VertexArrayObjTarget struct.
     raw_bind_target!{
         pub target RawCopyRead = gl::COPY_READ_BUFFER;

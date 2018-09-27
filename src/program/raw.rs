@@ -13,15 +13,16 @@
 // limitations under the License.
 
 use framebuffer::attachments::{Attachment, Attachments, AttachmentsMemberRegistryNoSpecifics, AMRNSImpl};
-use colors::{ImageFormat, ImageFormatType};
+use color::{ImageFormat, ImageFormatType};
 use gl::{self, Gl};
 use gl::types::*;
 
 use {ContextState, GLObject};
-use glsl::{TypeGroup, TypeTag, TypeBasicTag, TypeTransparent, TyGroupMemberRegistry};
-use uniforms::{TypeUniform, Uniforms, UniformLocContainer, UniformsMemberRegistry, TextureUniformBinder};
+use glsl::{TypeTag, TypeBasicTag, TransparentType};
+use vertex::{Vertex, VertexMemberRegistry};
+use uniform::{UniformType, Uniforms, UniformLocContainer, UniformsMemberRegistry, TextureUniformBinder};
 use super::error::ProgramWarning;
-use textures::SamplerUnits;
+use texture::SamplerUnits;
 
 use std::{ptr, mem};
 use std::cell::Cell;
@@ -70,7 +71,7 @@ pub unsafe trait ShaderStage: Sized {
     unsafe fn program_post_link_hook(_: &RawProgram, _: &Gl, _: &mut Vec<ProgramWarning>) {}
 }
 
-pub enum VertexStage<V: TypeGroup> {#[doc(hidden)]_Unused(!, V)}
+pub enum VertexStage<V: Vertex> {#[doc(hidden)]_Unused(!, V)}
 pub enum GeometryStage {}
 pub enum FragmentStage<A: Attachments> {#[doc(hidden)]_Unused(!, A)}
 
@@ -174,7 +175,7 @@ impl RawProgram {
         }
         impl<'a, U: Uniforms> UniformsMemberRegistry for UniformsLocGetter<'a, U> {
             type Uniforms = U;
-            fn add_member<T: TypeUniform>(&mut self, name: &str, _: fn(U) -> T) {
+            fn add_member<T: UniformType>(&mut self, name: &str, _: fn(U) -> T) {
                 let mut cstr_bytes = Vec::new();
                 mem::swap(&mut cstr_bytes, &mut self.cstr_bytes);
 
@@ -266,25 +267,25 @@ impl<'a, 'b> RawProgramShaderAttacher<'a, 'b> {
 }
 
 impl<'a> RawBoundProgram<'a> {
-    pub(crate) fn upload_uniforms<U: Uniforms>(&self, uniforms: U, locs: &[GLint], sampler_units: &SamplerUnits, gl: &Gl) {
+    pub(crate) fn upload_uniforms<U: Uniforms>(&self, uniform: U, locs: &[GLint], sampler_units: &SamplerUnits, gl: &Gl) {
         struct UniformsUploader<'a, U: Uniforms> {
             locs: &'a [GLint],
             loc_index: usize,
             unit: u32,
             sampler_units: &'a SamplerUnits,
             gl: &'a Gl,
-            uniforms: U
+            uniform: U
         }
         impl<'a, U: Uniforms> UniformsMemberRegistry for UniformsUploader<'a, U> {
             type Uniforms = U;
-            fn add_member<T: TypeUniform>(&mut self, _: &str, get_member: fn(U) -> T) {
+            fn add_member<T: UniformType>(&mut self, _: &str, get_member: fn(U) -> T) {
                 let loc = self.locs[self.loc_index];
                 if loc != -1 {
                     let mut binder = TextureUniformBinder {
                         sampler_units: &self.sampler_units,
                         unit: &mut self.unit
                     };
-                    unsafe{ get_member(self.uniforms).upload(loc, &mut binder, self.gl); }
+                    unsafe{ get_member(self.uniform).upload(loc, &mut binder, self.gl); }
                 }
 
                 debug_assert_eq!(0, unsafe{ self.gl.GetError() });
@@ -298,7 +299,7 @@ impl<'a> RawBoundProgram<'a> {
             unit: 0,
             sampler_units,
             gl,
-            uniforms
+            uniform
         })
     }
 }
@@ -317,21 +318,21 @@ impl GLObject for RawProgram {
     }
 }
 
-unsafe impl<V: TypeGroup> ShaderStage for VertexStage<V> {
+unsafe impl<V: Vertex> ShaderStage for VertexStage<V> {
     const SHADER_TYPE_ENUM: GLenum = gl::VERTEX_SHADER;
 
     unsafe fn program_pre_link_hook(program: &RawProgram, gl: &Gl) {
-        struct VertexAttribLocBinder<'a, V: TypeGroup> {
+        struct VertexAttribLocBinder<'a, V: Vertex> {
             cstr_bytes: Vec<u8>,
             location: GLuint,
             program: &'a RawProgram,
             gl: &'a Gl,
             _marker: PhantomData<V>
         }
-        impl<'a, V: TypeGroup> TyGroupMemberRegistry for VertexAttribLocBinder<'a, V> {
+        impl<'a, V: Vertex> VertexMemberRegistry for VertexAttribLocBinder<'a, V> {
             type Group = V;
             fn add_member<T>(&mut self, name: &str, _: fn(*const V) -> *const T)
-                where T: TypeTransparent
+                where T: TransparentType
             {
                 // We can't just take ownership of the Vec<u8> to make it a CString, so we have to
                 // create a dummy buffer and swap it to self.cstr_bytes. At the end we swap it back.
@@ -366,15 +367,15 @@ unsafe impl<V: TypeGroup> ShaderStage for VertexStage<V> {
     }
 
     unsafe fn program_post_link_hook(program: &RawProgram, gl: &Gl, warnings: &mut Vec<ProgramWarning>) {
-        struct VertexAttribTypeChecker<'a, V: TypeGroup> {
+        struct VertexAttribTypeChecker<'a, V: Vertex> {
             attrib_types: &'a mut Vec<(String, TypeTag)>,
             warnings: &'a mut Vec<ProgramWarning>,
             _marker: PhantomData<V>
         }
-        impl<'a, V: TypeGroup> TyGroupMemberRegistry for VertexAttribTypeChecker<'a, V> {
+        impl<'a, V: Vertex> VertexMemberRegistry for VertexAttribTypeChecker<'a, V> {
             type Group = V;
             fn add_member<T>(&mut self, name: &str, _: fn(*const V) -> *const T)
-                where T: TypeTransparent
+                where T: TransparentType
             {
                 let mut attrib_index = None;
                 for (i, &(ref attrib_name, shader_ty)) in self.attrib_types.iter().enumerate() {

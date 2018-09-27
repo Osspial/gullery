@@ -22,13 +22,12 @@ extern crate png;
 extern crate num_traits;
 
 use gullery::ContextState;
-use gullery::buffers::*;
-use gullery::textures::{*, targets::*};
-use gullery::framebuffer::*;
+use gullery::buffer::*;
+use gullery::texture::{*, targets::*};
+use gullery::framebuffer::{*, render_state::*};
 use gullery::program::*;
-use gullery::vao::*;
-use gullery::colors::*;
-use gullery::render_state::*;
+use gullery::color::*;
+use gullery::vertex::VertexArrayObject;
 
 use cgmath_geometry::cgmath;
 use cgmath_geometry::{DimsBox, OffsetBox};
@@ -37,12 +36,12 @@ use cgmath::*;
 
 use glutin::*;
 
-#[derive(TypeGroup, Clone, Copy)]
+#[derive(Vertex, Clone, Copy)]
 struct Vertex {
     pos: Vector3<f32>
 }
 
-#[derive(TypeGroup, Clone, Copy)]
+#[derive(Vertex, Clone, Copy)]
 struct TextureVertex {
     pos: Vector2<f32>,
     uv: Vector2<u16>
@@ -92,7 +91,7 @@ fn main() {
                 pos: Vector3::new( 1.0,  -1.0, -1.0),
             },
         ], state.clone());
-        let vao = VertexArrayObj::new_noindex(vertex_buffer);
+        let vao = VertexArrayObject::new_noindex(vertex_buffer);
 
 
         let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();
@@ -143,7 +142,7 @@ fn main() {
             0, 1, 2,
             2, 3, 0u16
         ], state.clone());
-        let vao = VertexArrayObj::new(vertex_buffer, index_buffer);
+        let vao = VertexArrayObject::new(vertex_buffer, index_buffer);
 
         let vertex_shader = Shader::new(TEX_TO_WINDOW_VERTEX_SHADER, state.clone()).unwrap();
         let fragment_shader = Shader::new(TEX_TO_WINDOW_FRAGMENT_DEPTH_SHADER, state.clone()).unwrap();

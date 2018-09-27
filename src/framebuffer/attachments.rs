@@ -1,6 +1,6 @@
-use textures::{Texture, TextureType, MipSelector};
-use colors::{ColorFormat, ImageFormat};
-use renderbuffer::Renderbuffer;
+use texture::{Texture, TextureType, MipSelector};
+use color::ImageFormat;
+use framebuffer::Renderbuffer;
 use std::marker::PhantomData;
 use GLObject;
 use gl::types::*;

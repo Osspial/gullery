@@ -12,21 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use textures::{Texture, TextureType, DimsTag, MipSelector};
-use renderbuffer::Renderbuffer;
+use texture::{Texture, TextureType, DimsTag, MipSelector};
 use cgmath_geometry::cgmath::Point2;
 use cgmath_geometry::{OffsetBox, GeoBox};
-use colors::{ColorFormat, ImageFormat, ImageFormatType};
+use color::{ColorFormat, ImageFormat, ImageFormatType};
 use gl::{self, Gl};
 use gl::types::*;
 
 use {ContextState, GLObject};
-use glsl::{TypeGroup, Scalar};
-use buffers::Index;
-use vao::BoundVAO;
-use uniforms::Uniforms;
+use glsl::Scalar;
+use vertex::Vertex;
+use buffer::Index;
+use vertex::vao::BoundVAO;
+use uniform::Uniforms;
 use program::BoundProgram;
-use colors::Rgba;
+use color::Rgba;
+use super::Renderbuffer;
 use super::attachments::*;
 
 use std::mem;
@@ -245,14 +246,14 @@ impl<'a, F> RawBoundFramebufferDraw<'a, F>
     }
 
     #[inline]
-    pub(crate) fn draw_buffers(&mut self, buffers: &[GLenum]) {
-        unsafe{ self.gl.DrawBuffers(buffers.len() as GLsizei, buffers.as_ptr()); }
+    pub(crate) fn draw_buffers(&mut self, buffer: &[GLenum]) {
+        unsafe{ self.gl.DrawBuffers(buffer.len() as GLsizei, buffer.as_ptr()); }
     }
 
     #[inline]
     pub(crate) fn draw<R, V, I, U, A>(&mut self, mode: DrawMode, range: R, bound_vao: &BoundVAO<V, I>, _bound_program: &BoundProgram<V, U, A>)
         where R: RangeArgument<usize>,
-              V: TypeGroup,
+              V: Vertex,
               I: Index,
               U: Uniforms,
               A: Attachments

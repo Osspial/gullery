@@ -30,16 +30,14 @@ extern crate quickcheck;
 #[cfg(test)]
 extern crate glutin;
 
-pub mod buffers;
-pub mod colors;
+pub mod buffer;
+pub mod color;
 pub mod glsl;
 pub mod framebuffer;
 pub mod program;
-pub mod render_state;
-pub mod renderbuffer;
-pub mod textures;
-pub mod uniforms;
-pub mod vao;
+pub mod texture;
+pub mod uniform;
+pub mod vertex;
 
 use gl::Gl;
 use gl::types::*;
@@ -68,13 +66,13 @@ impl<'a, O: GLObject> GLObject for &'a mut O {
 }
 
 pub struct ContextState {
-    buffer_binds: buffers::BufferBinds,
+    buffer_binds: buffer::BufferBinds,
     program_target: program::ProgramTarget,
-    vao_target: vao::VAOTarget,
+    vao_target: vertex::vao::VAOTarget,
     framebuffer_targets: framebuffer::FramebufferTargets,
-    render_state: Cell<render_state::RenderState>,
-    sampler_units: textures::SamplerUnits,
-    renderbuffer_target: renderbuffer::RenderbufferTarget,
+    render_state: Cell<framebuffer::render_state::RenderState>,
+    sampler_units: texture::SamplerUnits,
+    renderbuffer_target: framebuffer::renderbuffer::RenderbufferTarget,
     gl: Gl
 }
 
@@ -103,13 +101,13 @@ impl ContextState {
         // }
 
         Rc::new(ContextState {
-            buffer_binds: buffers::BufferBinds::new(),
+            buffer_binds: buffer::BufferBinds::new(),
             program_target: program::ProgramTarget::new(),
-            vao_target: vao::VAOTarget::new(),
+            vao_target: vertex::vao::VAOTarget::new(),
             framebuffer_targets: framebuffer::FramebufferTargets::new(),
-            render_state: Cell::new(render_state::RenderState::default()),
-            sampler_units: textures::SamplerUnits::new(&gl),
-            renderbuffer_target: renderbuffer::RenderbufferTarget::new(),
+            render_state: Cell::new(framebuffer::render_state::RenderState::default()),
+            sampler_units: texture::SamplerUnits::new(&gl),
+            renderbuffer_target: framebuffer::renderbuffer::RenderbufferTarget::new(),
             gl
         })
     }
@@ -118,7 +116,7 @@ impl ContextState {
 #[cfg(test)]
 mod test_helper {
     use super::*;
-    use glsl::{TypeGroup, TyGroupMemberRegistry};
+    use vertex::{Vertex, VertexMemberRegistry};
     use glutin::{HeadlessRendererBuilder, HeadlessContext, GlRequest, GlContext, Api};
     use quickcheck::{Arbitrary, Gen};
     use cgmath::{Point2, Point3};
@@ -129,9 +127,9 @@ mod test_helper {
         color: Point3<f32>
     }
 
-    impl TypeGroup for TestVertex {
+    impl Vertex for TestVertex {
         fn members<M>(mut attrib_builder: M)
-            where M: TyGroupMemberRegistry<Group=Self>
+            where M: VertexMemberRegistry<Group=Self>
         {
             attrib_builder.add_member("pos", |t| unsafe{ &(*t).pos });
             attrib_builder.add_member("color", |t| unsafe{ &(*t).color });

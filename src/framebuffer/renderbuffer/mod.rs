@@ -15,7 +15,7 @@
 use {ContextState, GLObject};
 mod raw;
 use self::raw::{RawRenderbuffer, RawRenderbufferTarget};
-use colors::ImageFormat;
+use color::ImageFormat;
 use gl::types::*;
 
 use cgmath::Point2;

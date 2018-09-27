@@ -124,12 +124,12 @@ pub struct SRgb {
 }
 
 macro_rules! impl_color {
-    ($(impl $name:ident<S>($len:expr, colors: $($channel:ident),+);)*) => {$(
+    ($(impl $name:ident<S>($len:expr, color: $($channel:ident),+);)*) => {$(
         impl<S: ScalarNum> $name<S> {
-            impl_color!{impl body $name<S>($len, colors: $($channel),+)}
+            impl_color!{impl body $name<S>($len, color: $($channel),+)}
         }
     )*};
-    (impl body $name:ident<$ty:ty>($len:expr, colors: $($channel:ident),+)) => {
+    (impl body $name:ident<$ty:ty>($len:expr, color: $($channel:ident),+)) => {
         #[inline]
         pub fn new($($channel: $ty),*) -> Self {
             $name{ $($channel),* }
@@ -160,55 +160,55 @@ macro_rules! impl_color {
 }
 
 impl_color!{
-    impl Rgba<S>(4, colors: r, g, b, a);
-    impl Rgb<S>(3, colors: r, g, b);
-    impl Rg<S>(2, colors: r, g);
-    impl Red<S>(1, colors: r);
+    impl Rgba<S>(4, color: r, g, b, a);
+    impl Rgb<S>(3, color: r, g, b);
+    impl Rg<S>(2, color: r, g);
+    impl Red<S>(1, color: r);
 }
 
 impl SRgba {
-    impl_color!{impl body SRgba<u8>(4, colors: r, g, b, a)}
+    impl_color!{impl body SRgba<u8>(4, color: r, g, b, a)}
 }
 
 impl SRgb {
-    impl_color!{impl body SRgb<u8>(3, colors: r, g, b)}
+    impl_color!{impl body SRgb<u8>(3, color: r, g, b)}
 }
 
 impl<S: ScalarNum> From<Rgb<S>> for Rgba<S> {
     #[inline]
-    fn from(colors: Rgb<S>) -> Rgba<S> {
-        Rgba::new(colors.r, colors.g, colors.b, S::one())
+    fn from(color: Rgb<S>) -> Rgba<S> {
+        Rgba::new(color.r, color.g, color.b, S::one())
     }
 }
 impl<S: ScalarNum> From<Rg<S>> for Rgba<S> {
     #[inline]
-    fn from(colors: Rg<S>) -> Rgba<S> {
-        Rgba::new(colors.r, colors.g, S::zero(), S::one())
+    fn from(color: Rg<S>) -> Rgba<S> {
+        Rgba::new(color.r, color.g, S::zero(), S::one())
     }
 }
 impl<S: ScalarNum> From<Red<S>> for Rgba<S> {
     #[inline]
-    fn from(colors: Red<S>) -> Rgba<S> {
-        Rgba::new(colors.r, S::zero(), S::zero(), S::one())
+    fn from(color: Red<S>) -> Rgba<S> {
+        Rgba::new(color.r, S::zero(), S::zero(), S::one())
     }
 }
 
-unsafe impl<S: ScalarNum> TypeTransparent for Rgba<S> {
+unsafe impl<S: ScalarNum> TransparentType for Rgba<S> {
     type Scalar = S;
     #[inline]
     fn prim_tag() -> TypeBasicTag {Self::Scalar::prim_tag().vectorize(4).unwrap()}
 }
-unsafe impl<S: ScalarNum> TypeTransparent for Rgb<S> {
+unsafe impl<S: ScalarNum> TransparentType for Rgb<S> {
     type Scalar = S;
     #[inline]
     fn prim_tag() -> TypeBasicTag {Self::Scalar::prim_tag().vectorize(3).unwrap()}
 }
-unsafe impl<S: ScalarNum> TypeTransparent for Rg<S> {
+unsafe impl<S: ScalarNum> TransparentType for Rg<S> {
     type Scalar = S;
     #[inline]
     fn prim_tag() -> TypeBasicTag {Self::Scalar::prim_tag().vectorize(2).unwrap()}
 }
-unsafe impl<S: ScalarNum> TypeTransparent for Red<S> {
+unsafe impl<S: ScalarNum> TransparentType for Red<S> {
     type Scalar = S;
     #[inline]
     fn prim_tag() -> TypeBasicTag {Self::Scalar::prim_tag().vectorize(1).unwrap()}

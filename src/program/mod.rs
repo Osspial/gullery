@@ -21,8 +21,8 @@ use self::error::{ShaderError, LinkError, ProgramWarning};
 use gl::types::*;
 
 use {ContextState, GLObject};
-use glsl::TypeGroup;
-use uniforms::Uniforms;
+use vertex::Vertex;
+use uniform::Uniforms;
 use framebuffer::attachments::Attachments;
 
 use std::mem;
@@ -36,7 +36,7 @@ pub struct Shader<S: ShaderStage> {
     state: Rc<ContextState>
 }
 
-pub struct Program<V: TypeGroup, U: 'static + Uniforms, A: 'static + Attachments> {
+pub struct Program<V: Vertex, U: 'static + Uniforms, A: 'static + Attachments> {
     raw: RawProgram,
     uniform_locs: U::ULC,
     state: Rc<ContextState>,
@@ -44,7 +44,7 @@ pub struct Program<V: TypeGroup, U: 'static + Uniforms, A: 'static + Attachments
 }
 
 pub(crate) struct ProgramTarget(RawProgramTarget);
-pub(crate) struct BoundProgram<'a, V: 'a + TypeGroup, U: 'static + Uniforms, A: 'static + Attachments> {
+pub(crate) struct BoundProgram<'a, V: 'a + Vertex, U: 'static + Uniforms, A: 'static + Attachments> {
     raw: RawBoundProgram<'a>,
     program: &'a Program<V, U, A>
 }
@@ -59,7 +59,7 @@ impl<S: ShaderStage> Shader<S> {
     }
 }
 
-impl<V: TypeGroup, U: Uniforms, A: Attachments> Program<V, U, A> {
+impl<V: Vertex, U: Uniforms, A: Attachments> Program<V, U, A> {
     pub fn new(vert: &Shader<VertexStage<V>>, geom: Option<&Shader<GeometryStage>>, frag: &Shader<FragmentStage<A>>) -> Result<(Program<V, U, A>, Vec<ProgramWarning>), LinkError> {
         // Temporary variables storing the pointers to the OpenGL state for each of the shaders.
         let vsp = vert.state.as_ref() as *const _;
@@ -101,7 +101,7 @@ impl ProgramTarget {
 
     #[inline]
     pub unsafe fn bind<'a, V, U, A>(&'a self, program: &'a Program<V, U, A>) -> BoundProgram<'a, V, U, A>
-        where V: TypeGroup,
+        where V: Vertex,
               U: Uniforms,
               A: Attachments
     {
@@ -113,15 +113,15 @@ impl ProgramTarget {
 }
 
 impl<'a, V, U, A> BoundProgram<'a, V, U, A>
-    where V: TypeGroup,
+    where V: Vertex,
           U: Uniforms,
           A: Attachments
 {
     #[inline]
-    pub fn upload_uniforms<N>(&self, uniforms: N)
+    pub fn upload_uniforms<N>(&self, uniform: N)
         where N: Uniforms<ULC=U::ULC, Static=U>
     {
-        self.raw.upload_uniforms(uniforms, self.program.uniform_locs.as_ref(), &self.program.state.sampler_units, &self.program.state.gl)
+        self.raw.upload_uniforms(uniform, self.program.uniform_locs.as_ref(), &self.program.state.sampler_units, &self.program.state.gl)
     }
 }
 
@@ -134,7 +134,7 @@ impl<S: ShaderStage> GLObject for Shader<S> {
 }
 
 impl<V, U, A> GLObject for Program<V, U, A>
-    where V: TypeGroup,
+    where V: Vertex,
           U: Uniforms,
           A: Attachments
 {
@@ -153,7 +153,7 @@ impl<S: ShaderStage> Drop for Shader<S> {
 }
 
 impl<V, U, A> Drop for Program<V, U, A>
-    where V: TypeGroup,
+    where V: Vertex,
           U: Uniforms,
           A: Attachments
 {
@@ -169,7 +169,7 @@ mod tests {
     use super::*;
     use test_helper::{TestVertex, CONTEXT_STATE};
     use cgmath::Vector3;
-    use uniforms::{Uniforms, UniformsMemberRegistry};
+    use uniform::{Uniforms, UniformsMemberRegistry};
 
     const VERTEX_SHADER: &str = r#"
         #version 330

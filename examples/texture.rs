@@ -22,23 +22,22 @@ extern crate png;
 extern crate num_traits;
 
 use gullery::ContextState;
-use gullery::buffers::*;
-use gullery::framebuffer::*;
+use gullery::buffer::*;
+use gullery::framebuffer::{*, render_state::*};
 use gullery::program::*;
-use gullery::vao::*;
-use gullery::colors::*;
-use gullery::render_state::*;
-use gullery::textures::*;
-use gullery::textures::targets::SimpleTex;
+use gullery::color::*;
+use gullery::texture::*;
+use gullery::texture::targets::SimpleTex;
+use gullery::vertex::VertexArrayObject;
 
 use cgmath_geometry::cgmath;
 use cgmath_geometry::{OffsetBox, DimsBox};
 
 use cgmath::*;
 
-use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuilder, ContextBuilder, GlWindow, GlProfile, GlRequest};
+use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuilder, ContextBuilder, GlWindow, GlRequest};
 
-#[derive(TypeGroup, Clone, Copy)]
+#[derive(Vertex, Clone, Copy)]
 struct Vertex {
     pos: Vector2<f32>,
     tex_coord: Vector2<u16>,
@@ -86,11 +85,11 @@ fn main() {
         0, 1, 2,
         2, 3, 0u16
     ], state.clone());
-    let vao = VertexArrayObj::new(vertex_buffer, index_buffer);
+    let vao = VertexArrayObject::new(vertex_buffer, index_buffer);
     println!("vao created");
     let (ferris_image, ferris_dims) = {
         use std::fs::File;
-        let decoder = png::Decoder::new(&include_bytes!("ferris.png")[..]);
+        let decoder = png::Decoder::new(File::open("ferris.png").unwrap());
         let (info, mut reader) = decoder.read_info().unwrap();
         let mut buf = vec![0; info.buffer_size()];
         reader.next_frame(&mut buf).unwrap();

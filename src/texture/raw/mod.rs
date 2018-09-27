@@ -18,7 +18,7 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use ContextState;
-use colors::{ColorFormat, ImageFormat};
+use color::{ColorFormat, ImageFormat};
 
 use std::{mem, ptr, iter};
 use std::cell::Cell;
@@ -47,7 +47,7 @@ pub struct RawTexture<T>
 // }
 
 pub struct RawSamplerUnits {
-    /// The number of sampler units is never going to change, so storing this as Box<[]> means we
+    /// The number of sampler units is never going to change, so storing this as `Box<[]>` means we
     /// don't have to deal with storing the capacity.
     sampler_units: Box<[Cell<GLuint>]>,
     active_unit: Cell<u32>

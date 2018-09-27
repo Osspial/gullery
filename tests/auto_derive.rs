@@ -17,17 +17,17 @@ extern crate cgmath_geometry;
 #[macro_use]
 extern crate gullery_macros;
 
-use gullery::glsl::TypeTransparent;
+use gullery::glsl::TransparentType;
 use cgmath_geometry::cgmath::{Vector3, Vector4};
 
-#[derive(TypeGroup, Clone, Copy)]
+#[derive(Vertex, Clone, Copy)]
 pub struct TestBlock {
     pub vec3: Vector3<f32>,
     pub vec4: Vector4<f32>
 }
 
-#[derive(TypeGroup, Clone, Copy)]
-pub struct TestBlockGeneric<T: TypeTransparent> {
+#[derive(Vertex, Clone, Copy)]
+pub struct TestBlockGeneric<T: TransparentType> {
     pub glsl_type: T,
     pub float: f32
 }

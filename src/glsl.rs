@@ -14,13 +14,9 @@
 
 use gl::{self, types::*};
 
-use cgmath::{
-    Vector1, Vector2, Vector3, Vector4, Point1, Point2, Point3, Matrix2, Matrix3, Matrix4,
-    BaseNum
-};
+use cgmath::{Vector1, Vector2, Vector3, Vector4, Point1, Point2, Point3, Matrix2, Matrix3, Matrix4};
 
 use std::{mem};
-use std::marker::PhantomData;
 use std::fmt::{self, Display, Formatter};
 use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign, Rem, RemAssign};
 
@@ -28,46 +24,14 @@ use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign, R
 use num_traits::Num;
 use num_traits::identities::{Zero, One};
 
-
-pub trait TyGroupMemberRegistry {
-    type Group: TypeGroup;
-    /// Add a member to the registry. Note that the value pointed to by `get_type` is allowed to be
-    /// instantiated with `mem::zeroed()`, and any references inside should not be dereferenced.
-    fn add_member<T>(&mut self, name: &str, get_type: fn(*const Self::Group) -> *const T)
-        where T: TypeTransparent;
-}
-
-pub trait TypeGroup: 'static + Copy {
-    fn members<M>(reg: M)
-        where M: TyGroupMemberRegistry<Group=Self>;
-
-    #[inline]
-    fn num_members() -> usize {
-        struct MemberCounter<'a, G>(&'a mut usize, PhantomData<G>);
-        impl<'a, G: TypeGroup> TyGroupMemberRegistry for MemberCounter<'a, G> {
-            type Group = G;
-            #[inline]
-            fn add_member<T>(&mut self, _: &str, _: fn(*const G) -> *const T)
-                where T: TypeTransparent
-            {
-                *self.0 += 1;
-            }
-        }
-
-        let mut num = 0;
-        Self::members(MemberCounter::<Self>(&mut num, PhantomData));
-        num
-    }
-}
-
 /// Rust representation of a transparent GLSL type.
-pub unsafe trait TypeTransparent: 'static + Copy {
+pub unsafe trait TransparentType: 'static + Copy {
     type Scalar: Scalar;
     /// The OpenGL constant associated with this type.
     fn prim_tag() -> TypeBasicTag;
 }
 
-pub unsafe trait Scalar: TypeTransparent {
+pub unsafe trait Scalar: TransparentType {
     const GL_ENUM: GLenum;
     const NORMALIZED: bool;
     const GLSL_INTEGER: bool;
@@ -164,7 +128,7 @@ pub enum TypeBasicTag {
 
 macro_rules! impl_glsl_vector {
     ($(impl $vector:ident $num:expr;)*) => {$(
-        unsafe impl<P: Scalar> TypeTransparent for $vector<P> {
+        unsafe impl<P: Scalar> TransparentType for $vector<P> {
             type Scalar = P;
             #[inline]
             fn prim_tag() -> TypeBasicTag {Self::Scalar::prim_tag().vectorize($num).unwrap()}
@@ -175,7 +139,7 @@ macro_rules! impl_glsl_matrix {
     ($(impl $matrix:ident $num:expr;)*) => {$(
         // We aren't implementing matrix for normalized integers because that complicates uniform
         // upload. No idea if OpenGL actually supports it either.
-        unsafe impl TypeTransparent for $matrix<f32> {
+        unsafe impl TransparentType for $matrix<f32> {
             type Scalar = f32;
             #[inline]
             fn prim_tag() -> TypeBasicTag {Self::Scalar::prim_tag().matricize($num, $num).unwrap()}
@@ -186,7 +150,7 @@ macro_rules! impl_glsl_matrix {
 // it's worth the effort rn.
 // macro_rules! impl_glsl_array {
 //     ($($num:expr),*) => {$(
-//         unsafe impl<T: TypeTransparent> TypeTransparent for [T; $num] {
+//         unsafe impl<T: TransparentType> TransparentType for [T; $num] {
 //             #[inline]
 //             fn len() -> usize {$num}
 //             #[inline]
@@ -223,7 +187,7 @@ macro_rules! impl_gl_scalar_nonorm {
             const SIGNED: bool = $signed;
         }
 
-        unsafe impl TypeTransparent for $scalar {
+        unsafe impl TransparentType for $scalar {
             type Scalar = $scalar;
             // We treat raw integers as normalized, so every base scalar is technically a float.
             #[inline]
@@ -250,7 +214,7 @@ unsafe impl Scalar for bool {
     const SIGNED: bool = false;
 }
 
-unsafe impl TypeTransparent for bool {
+unsafe impl TransparentType for bool {
     type Scalar = bool;
     #[inline]
     fn prim_tag() -> TypeBasicTag {TypeBasicTag::Bool}
@@ -668,18 +632,14 @@ pub enum ParseNormalizedIntError {
     OutOfBounds
 }
 
-pub trait Normalized: BaseNum {
-    fn divisor() -> Self;
-}
-
 
 #[repr(transparent)]
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, From)]
 pub struct GLSLInt<I>(pub I)
-    where GLSLInt<I>: TypeTransparent,
+    where GLSLInt<I>: TransparentType,
           I: Num;
 impl<I> Zero for GLSLInt<I>
-    where GLSLInt<I>: TypeTransparent,
+    where GLSLInt<I>: TransparentType,
           I: Num
 {
     #[inline(always)]
@@ -692,7 +652,7 @@ impl<I> Zero for GLSLInt<I>
     }
 }
 impl<I> One for GLSLInt<I>
-    where GLSLInt<I>: TypeTransparent,
+    where GLSLInt<I>: TransparentType,
           I: Num
 {
     #[inline(always)]
@@ -705,7 +665,7 @@ impl<I> One for GLSLInt<I>
     }
 }
 impl<I> Num for GLSLInt<I>
-    where GLSLInt<I>: TypeTransparent,
+    where GLSLInt<I>: TransparentType,
           I: Num
 {
     type FromStrRadixErr = I::FromStrRadixErr;
@@ -716,7 +676,7 @@ impl<I> Num for GLSLInt<I>
 }
 
 unsafe impl<I> Scalar for GLSLInt<I>
-    where GLSLInt<I>: TypeTransparent,
+    where GLSLInt<I>: TransparentType,
           I: Num + Scalar
 {
     const GL_ENUM: GLenum = I::GL_ENUM;
@@ -728,7 +688,7 @@ unsafe impl<I> Scalar for GLSLInt<I>
 
 macro_rules! impl_glslint {
     ($(impl $scalar:ty = $prim_tag:ident;)*) => {$(
-        unsafe impl TypeTransparent for GLSLInt<$scalar> {
+        unsafe impl TransparentType for GLSLInt<$scalar> {
             type Scalar = $scalar;
             #[inline]
             fn prim_tag() -> TypeBasicTag {TypeBasicTag::$prim_tag}
@@ -745,7 +705,7 @@ impl_glslint!{
     impl i32 = Int;
 }
 impl<I> Add for GLSLInt<I>
-    where GLSLInt<I>: TypeTransparent,
+    where GLSLInt<I>: TransparentType,
           I: Num
 {
     type Output = GLSLInt<I>;
@@ -756,7 +716,7 @@ impl<I> Add for GLSLInt<I>
     }
 }
 impl<I> AddAssign for GLSLInt<I>
-    where GLSLInt<I>: TypeTransparent,
+    where GLSLInt<I>: TransparentType,
           I: Num
 {
     #[inline]
@@ -765,7 +725,7 @@ impl<I> AddAssign for GLSLInt<I>
     }
 }
 impl<I> Sub for GLSLInt<I>
-    where GLSLInt<I>: TypeTransparent,
+    where GLSLInt<I>: TransparentType,
           I: Num
 {
     type Output = GLSLInt<I>;
@@ -776,7 +736,7 @@ impl<I> Sub for GLSLInt<I>
     }
 }
 impl<I> SubAssign for GLSLInt<I>
-    where GLSLInt<I>: TypeTransparent,
+    where GLSLInt<I>: TransparentType,
           I: Num
 {
     #[inline]
@@ -785,7 +745,7 @@ impl<I> SubAssign for GLSLInt<I>
     }
 }
 impl<I> Mul for GLSLInt<I>
-    where GLSLInt<I>: TypeTransparent,
+    where GLSLInt<I>: TransparentType,
           I: Num
 {
     type Output = GLSLInt<I>;
@@ -796,7 +756,7 @@ impl<I> Mul for GLSLInt<I>
     }
 }
 impl<I> MulAssign for GLSLInt<I>
-    where GLSLInt<I>: TypeTransparent,
+    where GLSLInt<I>: TransparentType,
           I: Num
 {
     #[inline]
@@ -805,7 +765,7 @@ impl<I> MulAssign for GLSLInt<I>
     }
 }
 // impl<I> Mul<GLSLInt<I>> for $inner
-//     where GLSLInt<I>: TypeTransparent,
+//     where GLSLInt<I>: TransparentType,
 //           I: Num
 // {
 //     type Output = $inner;
@@ -815,7 +775,7 @@ impl<I> MulAssign for GLSLInt<I>
 //     }
 // }
 // impl<I> MulAssign<GLSLInt<I>> for $inner
-//     where GLSLInt<I>: TypeTransparent,
+//     where GLSLInt<I>: TransparentType,
 //           I: Num
 // {
 //     #[inline]
@@ -824,7 +784,7 @@ impl<I> MulAssign for GLSLInt<I>
 //     }
 // }
 impl<I> Div for GLSLInt<I>
-    where GLSLInt<I>: TypeTransparent,
+    where GLSLInt<I>: TransparentType,
           I: Num
 {
     type Output = GLSLInt<I>;
@@ -835,7 +795,7 @@ impl<I> Div for GLSLInt<I>
     }
 }
 impl<I> DivAssign for GLSLInt<I>
-    where GLSLInt<I>: TypeTransparent,
+    where GLSLInt<I>: TransparentType,
           I: Num
 {
     #[inline]
@@ -844,7 +804,7 @@ impl<I> DivAssign for GLSLInt<I>
     }
 }
 impl<I> Rem for GLSLInt<I>
-    where GLSLInt<I>: TypeTransparent,
+    where GLSLInt<I>: TransparentType,
           I: Num
 {
     type Output = GLSLInt<I>;
@@ -855,7 +815,7 @@ impl<I> Rem for GLSLInt<I>
     }
 }
 impl<I> RemAssign for GLSLInt<I>
-    where GLSLInt<I>: TypeTransparent,
+    where GLSLInt<I>: TransparentType,
           I: Num
 {
     #[inline]

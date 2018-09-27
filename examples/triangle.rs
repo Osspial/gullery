@@ -22,12 +22,11 @@ extern crate png;
 extern crate num_traits;
 
 use gullery::ContextState;
-use gullery::buffers::*;
-use gullery::framebuffer::*;
+use gullery::buffer::*;
+use gullery::framebuffer::{*, render_state::*};
 use gullery::program::*;
-use gullery::vao::*;
-use gullery::colors::*;
-use gullery::render_state::*;
+use gullery::color::*;
+use gullery::vertex::VertexArrayObject;
 
 use cgmath_geometry::cgmath;
 use cgmath_geometry::OffsetBox;
@@ -36,7 +35,7 @@ use cgmath::*;
 
 use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuilder, ContextBuilder, GlWindow, GlProfile, GlRequest};
 
-#[derive(TypeGroup, Clone, Copy)]
+#[derive(Vertex, Clone, Copy)]
 struct Vertex {
     pos: Vector2<f32>,
     color: Rgb<u8>
@@ -77,7 +76,7 @@ fn main() {
             color: Rgb::new(0, 0, 255)
         },
     ], state.clone());
-    let vao = VertexArrayObj::new_noindex(vertex_buffer);
+    let vao = VertexArrayObject::new_noindex(vertex_buffer);
 
 
     let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();

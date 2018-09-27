@@ -16,8 +16,8 @@ use gl::{self, Gl, types::*};
 
 use std::marker::PhantomData;
 use cgmath::{Vector1, Vector2, Vector3, Vector4, Point1, Point2, Point3, Matrix2, Matrix3, Matrix4};
-use glsl::{TypeTag, TypeTransparent};
-use textures::{SamplerUnits, Texture, TextureType};
+use glsl::{TypeTag, TransparentType};
+use texture::{SamplerUnits, Texture, TextureType};
 
 pub struct TextureUniformBinder<'a> {
     pub(crate) sampler_units: &'a SamplerUnits,
@@ -35,7 +35,7 @@ impl<'a> TextureUniformBinder<'a> {
     }
 }
 
-pub unsafe trait TypeUniform: Copy {
+pub unsafe trait UniformType: Copy {
     fn uniform_tag() -> TypeTag;
     unsafe fn upload(&self, loc: GLint, tex_uniform_binder: &mut TextureUniformBinder, gl: &Gl);
 }
@@ -54,7 +54,7 @@ pub trait Uniforms: Sized + Copy {
             type Uniforms = U;
             #[inline]
             fn add_member<T>(&mut self, _: &str, _: fn(Self::Uniforms) -> T)
-                where T: TypeUniform
+                where T: UniformType
             {
                 *self.0 += 1;
             }
@@ -72,7 +72,7 @@ pub trait UniformLocContainer: AsRef<[GLint]> + AsMut<[GLint]> {
 
 pub trait UniformsMemberRegistry {
     type Uniforms: Uniforms;
-    fn add_member<T: TypeUniform>(&mut self, name: &str, get_member: fn(Self::Uniforms) -> T);
+    fn add_member<T: UniformType>(&mut self, name: &str, get_member: fn(Self::Uniforms) -> T);
 }
 
 impl Uniforms for () {
@@ -94,7 +94,7 @@ macro_rules! impl_glsl_type_uniform {
         );
     };
     ($ty:ty, ($self:ident, $loc:pat, $gl:pat) => $expr:expr, $($rest:tt)*) => {
-        unsafe impl TypeUniform for $ty {
+        unsafe impl UniformType for $ty {
             #[inline]
             fn uniform_tag() -> TypeTag {
                 TypeTag::Single(Self::prim_tag())

@@ -19,10 +19,10 @@ use gl::types::*;
 
 use {ContextState, GLObject};
 use self::raw::*;
-use colors::ImageFormat;
+use color::ImageFormat;
 
 use glsl::{TypeTag, TypeBasicTag, Scalar};
-use uniforms::{TypeUniform, TextureUniformBinder};
+use uniform::{UniformType, TextureUniformBinder};
 
 use std::mem;
 use std::rc::Rc;
@@ -86,7 +86,7 @@ impl<T> Texture<T>
             // during modification.
             //
             // (If you're reading this source code because your program is accidentally using a texture because
-            // it's using the last texture, congratulations! You have waaay to many textures. Scale it back yo)
+            // it's using the last texture, congratulations! You have waaay to many texture. Scale it back yo)
             let last_unit = state.sampler_units.0.num_units() - 1;
             let mut bind = unsafe{ state.sampler_units.0.bind_mut(last_unit, &mut raw, &state.gl) };
 
@@ -228,7 +228,7 @@ macro_rules! texture_type_uniform {
     ($(
         impl &Texture<$texture_type:ty> = ($tag_ident:ident, $u_tag_ident:ident, $i_tag_ident:ident);
     )*) => {$(
-        unsafe impl<'a, C> TypeUniform for &'a Texture<$texture_type>
+        unsafe impl<'a, C> UniformType for &'a Texture<$texture_type>
             where C: ImageFormat
         {
             #[inline]

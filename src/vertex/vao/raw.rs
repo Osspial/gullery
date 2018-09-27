@@ -16,14 +16,15 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use {ContextState, GLObject};
-use glsl::{TypeGroup, TyGroupMemberRegistry, TypeTransparent, Scalar};
-use buffers::{Buffer, Index};
+use glsl::{TransparentType, Scalar};
+use vertex::{Vertex, VertexMemberRegistry};
+use buffer::{Buffer, Index};
 
 use std::mem;
 use std::cell::Cell;
 use std::marker::PhantomData;
 
-pub struct RawVAO<V: TypeGroup> {
+pub struct RawVAO<V: Vertex> {
     handle: GLuint,
     /// Handle of the bound vertex buffer
     vbuf: Cell<GLuint>,
@@ -37,9 +38,9 @@ pub struct RawVAOTarget {
     _sendsync_optout: PhantomData<*const ()>
 }
 
-pub struct RawBoundVAO<'a, V: TypeGroup>(PhantomData<(&'a RawVAO<V>, *const ())>);
+pub struct RawBoundVAO<'a, V: Vertex>(PhantomData<(&'a RawVAO<V>, *const ())>);
 
-struct VertexAttribBuilder<'a, V: TypeGroup> {
+struct VertexAttribBuilder<'a, V: Vertex> {
     attrib_loc: u32,
     max_attribs: u32,
     gl: &'a Gl,
@@ -47,7 +48,7 @@ struct VertexAttribBuilder<'a, V: TypeGroup> {
 }
 
 
-impl<V: TypeGroup> RawVAO<V> {
+impl<V: Vertex> RawVAO<V> {
     #[inline]
     pub fn new(gl: &Gl) -> RawVAO<V> {
         unsafe {
@@ -86,7 +87,7 @@ impl RawVAOTarget {
 
     #[inline]
     pub unsafe fn bind<'a, V, I>(&'a self, vao: &'a RawVAO<V>, vbuf: &Buffer<V>, ibuf: &Buffer<I>, gl: &Gl) -> RawBoundVAO<'a, V>
-        where V: TypeGroup,
+        where V: Vertex,
               I: Index
     {
         if self.bound_vao.get() != vao.handle {
@@ -94,7 +95,7 @@ impl RawVAOTarget {
             self.bound_vao.set(vao.handle);
         }
 
-        // Make sure the given buffers are bound and if they aren't, bind them.
+        // Make sure the given buffer are bound and if they aren't, bind them.
         if vbuf.handle() != vao.vbuf.get() {
             gl.BindBuffer(gl::ARRAY_BUFFER, vbuf.handle());
             vao.vbuf.set(vbuf.handle());
@@ -125,11 +126,11 @@ impl RawVAOTarget {
     }
 }
 
-impl<'a, V: TypeGroup> TyGroupMemberRegistry for VertexAttribBuilder<'a, V> {
+impl<'a, V: Vertex> VertexMemberRegistry for VertexAttribBuilder<'a, V> {
     type Group = V;
 
     fn add_member<T>(&mut self, name: &str, get_type: fn(*const V) -> *const T)
-        where T: TypeTransparent
+        where T: TransparentType
     {
         let gl = self.gl;
         let vertex = unsafe{ mem::zeroed() };
@@ -199,7 +200,7 @@ impl<'a, V: TypeGroup> TyGroupMemberRegistry for VertexAttribBuilder<'a, V> {
     }
 }
 
-impl<V: TypeGroup> GLObject for RawVAO<V> {
+impl<V: Vertex> GLObject for RawVAO<V> {
     #[inline]
     fn handle(&self) -> GLuint {
         self.handle

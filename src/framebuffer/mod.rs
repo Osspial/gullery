@@ -13,22 +13,26 @@
 // limitations under the License.
 
 pub mod attachments;
+pub mod render_state;
 mod raw;
+pub(crate) mod renderbuffer;
+
 use std::borrow::BorrowMut;
 use self::raw::*;
 use self::attachments::*;
 pub use self::raw::DrawMode;
+pub use self::renderbuffer::Renderbuffer;
 
 use gl::{self, Gl};
 use gl::types::*;
 use ContextState;
-use glsl::TypeGroup;
-use buffers::Index;
-use vao::VertexArrayObj;
-use uniforms::Uniforms;
+use vertex::Vertex;
+use buffer::Index;
+use vertex::VertexArrayObject;
+use uniform::Uniforms;
 use program::Program;
-use colors::{ColorFormat, Rgba, ImageFormat, ImageFormatType};
-use render_state::RenderState;
+use color::{ColorFormat, Rgba, ImageFormat, ImageFormatType};
+use self::render_state::RenderState;
 use cgmath_geometry::OffsetBox;
 use cgmath_geometry::cgmath::Point2;
 
@@ -198,13 +202,13 @@ pub trait Framebuffer {
         &mut self,
         mode: DrawMode,
         range: R,
-        vao: &VertexArrayObj<V, I>,
+        vao: &VertexArrayObject<V, I>,
         program: &Program<V, U::Static, Self::AttachmentsStatic>,
-        uniforms: U,
+        uniform: U,
         render_state: RenderState
     )
         where R: RangeArgument<usize>,
-              V: TypeGroup,
+              V: Vertex,
               I: Index,
               U: Uniforms
     {
@@ -214,7 +218,7 @@ pub trait Framebuffer {
             let vao_bind = state.vao_target.bind(vao);
 
             let program_bind = state.program_target.bind(program);
-            program_bind.upload_uniforms(uniforms);
+            program_bind.upload_uniforms(uniform);
 
             let mut framebuffer_bind = state.framebuffer_targets.draw.bind(raw_mut, &state.gl);
             framebuffer_bind.set_attachments(arm.ahc, arm.attachments);

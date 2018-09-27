@@ -23,7 +23,7 @@ use proc_macro::TokenStream;
 use syn::*;
 use quote::Tokens;
 
-#[proc_macro_derive(TypeGroup)]
+#[proc_macro_derive(Vertex)]
 pub fn derive_type_group(input_tokens: TokenStream) -> TokenStream {
     let input = input_tokens.to_string();
     let item = syn::parse_derive_input(&input).expect("Attempted derive on non-item");
@@ -59,7 +59,7 @@ fn impl_type_group(derive_input: &DeriveInput) -> Tokens {
     } = *derive_input;
 
     match *body {
-        Body::Enum(..) => panic!("TypeGroup can only be derived on structs"),
+        Body::Enum(..) => panic!("Vertex can only be derived on structs"),
         Body::Struct(ref variant) => {
             let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
             let gen_idents = || variant.fields().iter()
@@ -79,10 +79,10 @@ fn impl_type_group(derive_input: &DeriveInput) -> Tokens {
                 const #dummy_const: () = {
                     extern crate gullery as _gullery;
                     #[automatically_derived]
-                    impl #impl_generics _gullery::glsl::TypeGroup for #ident #ty_generics #where_clause {
+                    impl #impl_generics _gullery::vertex::Vertex for #ident #ty_generics #where_clause {
                         #[inline]
                         fn members<M>(mut reg: M)
-                            where M: _gullery::glsl::TyGroupMemberRegistry<Group=Self>
+                            where M: _gullery::vertex::VertexMemberRegistry<Group=Self>
                         {
                             #(
                                 reg.add_member(stringify!(#idents), |t| unsafe{ &(*t).#idents_1 });
@@ -130,12 +130,12 @@ fn impl_uniforms(derive_input: &DeriveInput) -> Tokens {
                 const #dummy_const: () = {
                     extern crate gullery as _gullery;
                     #[automatically_derived]
-                    impl #impl_generics _gullery::uniforms::Uniforms for #ident #ty_generics #where_clause {
+                    impl #impl_generics _gullery::uniform::Uniforms for #ident #ty_generics #where_clause {
                         type ULC = [i32; #num_members];
                         type Static = #ident #static_ty_generics;
                         #[inline]
                         fn members<M>(mut reg: M)
-                            where M: _gullery::uniforms::UniformsMemberRegistry<Uniforms=Self>
+                            where M: _gullery::uniform::UniformsMemberRegistry<Uniforms=Self>
                         {
                             #(
                                 reg.add_member(stringify!(#idents), |t| t.#idents_1);
@@ -204,14 +204,14 @@ fn impl_attachments(derive_input: &DeriveInput) -> Tokens {
                         #[allow(dead_code)]
                         fn assert_depth_attachment_number() {
                             union Transmute {
-                                from: _gullery::colors::ImageFormatType,
+                                from: _gullery::color::ImageFormatType,
                                 to: u8
                             }
                             const NUM_DEPTH_ATTACHMENTS: usize = 0
                                 #(+ unsafe {
-                                    Transmute{ from: <<#types as _gullery::framebuffer::attachments::Attachment>::Format as _gullery::colors::ImageFormat>::FORMAT_TYPE }.to
+                                    Transmute{ from: <<#types as _gullery::framebuffer::attachments::Attachment>::Format as _gullery::color::ImageFormat>::FORMAT_TYPE }.to
                                     ==
-                                    Transmute{ from: _gullery::colors::ImageFormatType::Depth}.to
+                                    Transmute{ from: _gullery::color::ImageFormatType::Depth}.to
                                  } as usize)*;
                             let _has_at_least_one_color_attachment = [(); 0 - (NUM_DEPTH_ATTACHMENTS > 1) as usize];
                         }

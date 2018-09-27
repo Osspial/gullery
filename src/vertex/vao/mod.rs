@@ -15,30 +15,30 @@
 mod raw;
 use self::raw::*;
 
-use glsl::TypeGroup;
-use buffers::{Index, Buffer, BufferUsage};
+use vertex::Vertex;
+use buffer::{Index, Buffer, BufferUsage};
 
 use std::{mem, ptr};
 
-pub struct VertexArrayObj<V: TypeGroup, I: Index> {
+pub struct VertexArrayObject<V: Vertex, I: Index> {
     raw: RawVAO<V>,
     vertex_buffer: Buffer<V>,
     index_buffer: Buffer<I>
 }
 
 pub(crate) struct VAOTarget(RawVAOTarget);
-pub(crate) struct BoundVAO<'a, V: TypeGroup, I: Index> {
-    vao: &'a VertexArrayObj<V, I>,
+pub(crate) struct BoundVAO<'a, V: Vertex, I: Index> {
+    vao: &'a VertexArrayObject<V, I>,
     _bind: RawBoundVAO<'a, V>
 }
 
-impl<V: TypeGroup, I: Index> VertexArrayObj<V, I> {
-    pub fn new(vertex_buffer: Buffer<V>, index_buffer: Buffer<I>) -> VertexArrayObj<V, I> {
+impl<V: Vertex, I: Index> VertexArrayObject<V, I> {
+    pub fn new(vertex_buffer: Buffer<V>, index_buffer: Buffer<I>) -> VertexArrayObject<V, I> {
         if vertex_buffer.state().as_ref() as *const _ != index_buffer.state().as_ref() as *const _ {
              panic!("vertex buffer and index buffer using different contexts");
         }
 
-        VertexArrayObj {
+        VertexArrayObject {
             raw: RawVAO::new(&vertex_buffer.state().gl),
             vertex_buffer,
             index_buffer
@@ -68,15 +68,15 @@ impl<V: TypeGroup, I: Index> VertexArrayObj<V, I> {
     pub fn unwrap(mut self) -> (Buffer<V>, Buffer<I>) {
         unsafe {
             self.destroy_in_place();
-            let buffers = (ptr::read(&self.vertex_buffer), ptr::read(&self.index_buffer));
+            let buffer = (ptr::read(&self.vertex_buffer), ptr::read(&self.index_buffer));
 
             mem::forget(self);
 
-            buffers
+            buffer
         }
     }
 
-    /// Destroy the VAO **without** recursively dropping the contained vertex and index buffers
+    /// Destroy the VAO **without** recursively dropping the contained vertex and index buffer
     unsafe fn destroy_in_place(&mut self) {
         let mut raw_vao = mem::uninitialized();
         mem::swap(&mut raw_vao, &mut self.raw);
@@ -84,11 +84,11 @@ impl<V: TypeGroup, I: Index> VertexArrayObj<V, I> {
     }
 }
 
-impl<V: TypeGroup> VertexArrayObj<V, ()> {
+impl<V: Vertex> VertexArrayObject<V, ()> {
     #[inline]
-    pub fn new_noindex(vertex_buffer: Buffer<V>) -> VertexArrayObj<V, ()> {
+    pub fn new_noindex(vertex_buffer: Buffer<V>) -> VertexArrayObject<V, ()> {
         let index_buffer: Buffer<()> = Buffer::with_size(BufferUsage::StaticDraw, 0, vertex_buffer.state().clone());
-        VertexArrayObj::new(vertex_buffer, index_buffer)
+        VertexArrayObject::new(vertex_buffer, index_buffer)
     }
 }
 
@@ -99,8 +99,8 @@ impl VAOTarget {
     }
 
     #[inline]
-    pub unsafe fn bind<'a, V, I>(&'a self, vao: &'a VertexArrayObj<V, I>) -> BoundVAO<'a, V, I>
-        where V: TypeGroup,
+    pub unsafe fn bind<'a, V, I>(&'a self, vao: &'a VertexArrayObject<V, I>) -> BoundVAO<'a, V, I>
+        where V: Vertex,
               I: Index
     {
         BoundVAO {
@@ -110,13 +110,13 @@ impl VAOTarget {
     }
 }
 
-impl<'a, V: TypeGroup, I: Index> BoundVAO<'a, V, I> {
-    pub fn vao(&self) -> &VertexArrayObj<V, I> {
+impl<'a, V: Vertex, I: Index> BoundVAO<'a, V, I> {
+    pub fn vao(&self) -> &VertexArrayObject<V, I> {
         self.vao
     }
 }
 
-impl<V: TypeGroup, I: Index> Drop for VertexArrayObj<V, I> {
+impl<V: Vertex, I: Index> Drop for VertexArrayObject<V, I> {
     fn drop(&mut self) {
         unsafe{ self.destroy_in_place() }
     }
@@ -131,7 +131,7 @@ mod tests {
         fn make_vao_noindex(buffer_data: Vec<TestVertex>) -> () {
             CONTEXT_STATE.with(|context_state| {
                 let vertex_buffer = Buffer::with_data(BufferUsage::StaticDraw, &buffer_data, context_state.clone());
-                let _vao = VertexArrayObj::new_noindex(vertex_buffer);
+                let _vao = VertexArrayObject::new_noindex(vertex_buffer);
             });
         }
     }
