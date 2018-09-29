@@ -2,7 +2,7 @@ use texture::{Texture, TextureType, MipSelector};
 use color::ImageFormat;
 use framebuffer::Renderbuffer;
 use std::marker::PhantomData;
-use GLObject;
+use {Handle, GLObject};
 use gl::types::*;
 
 pub trait Attachment: GLObject {
@@ -56,7 +56,7 @@ pub trait Attachments: Sized {
 pub unsafe trait FBOAttachments: Attachments {}
 pub unsafe trait DefaultFramebufferAttachments: Attachments {}
 
-pub trait AttachmentHandleContainer: AsRef<[GLuint]> + AsMut<[GLuint]> {
+pub trait AttachmentHandleContainer: AsRef<[Option<Handle>]> + AsMut<[Option<Handle>]> {
     fn new_zeroed() -> Self;
 }
 
@@ -110,10 +110,10 @@ impl<R> AttachmentsMemberRegistry for AMRNSImpl<R>
 
 macro_rules! impl_attachment_array {
     ($($len:expr),*) => {$(
-        impl AttachmentHandleContainer for [GLuint; $len] {
+        impl AttachmentHandleContainer for [Option<Handle>; $len] {
             #[inline]
-            fn new_zeroed() -> [GLuint; $len] {
-                [0; $len]
+            fn new_zeroed() -> [Option<Handle>; $len] {
+                [None; $len]
             }
         }
     )*}
@@ -125,7 +125,7 @@ impl_attachment_array!{
 }
 
 impl Attachments for () {
-    type AHC = [GLuint; 0];
+    type AHC = [Option<Handle>; 0];
     type Static = Self;
 
     fn members<R>(_reg: R)

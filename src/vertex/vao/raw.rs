@@ -15,7 +15,7 @@
 use gl::{self, Gl};
 use gl::types::*;
 
-use {ContextState, GLObject};
+use {Handle, ContextState, GLObject};
 use glsl::{TransparentType, Scalar};
 use vertex::{Vertex, VertexMemberRegistry};
 use buffer::{Buffer, Index};
@@ -25,16 +25,16 @@ use std::cell::Cell;
 use std::marker::PhantomData;
 
 pub struct RawVAO<V: Vertex> {
-    handle: GLuint,
+    handle: Handle,
     /// Handle of the bound vertex buffer
-    vbuf: Cell<GLuint>,
+    vbuf: Cell<Option<Handle>>,
     /// Handle of the bound index buffer
-    ibuf: Cell<GLuint>,
+    ibuf: Cell<Option<Handle>>,
     _sendsync_optout: PhantomData<(*const (), V)>
 }
 
 pub struct RawVAOTarget {
-    bound_vao: Cell<GLuint>,
+    bound_vao: Cell<Option<Handle>>,
     _sendsync_optout: PhantomData<*const ()>
 }
 
@@ -54,12 +54,12 @@ impl<V: Vertex> RawVAO<V> {
         unsafe {
             let mut handle = 0;
             gl.GenVertexArrays(1, &mut handle);
-            assert_ne!(handle, 0);
+            let handle = Handle::new(handle).expect("Invalid handle returned from OpenGL");
 
             RawVAO {
                 handle,
-                vbuf: Cell::new(0),
-                ibuf: Cell::new(0),
+                vbuf: Cell::new(None),
+                ibuf: Cell::new(None),
                 _sendsync_optout: PhantomData
             }
         }
@@ -67,9 +67,9 @@ impl<V: Vertex> RawVAO<V> {
 
     pub fn delete(self, state: &ContextState) {
         unsafe {
-            state.gl.DeleteVertexArrays(1, &self.handle);
+            state.gl.DeleteVertexArrays(1, &self.handle.get());
             let bound_vao = state.vao_target.0.bound_vao.get();
-            if bound_vao == self.handle {
+            if bound_vao == Some(self.handle) {
                 state.vao_target.0.reset_bind(&state.gl);
             }
         }
@@ -80,25 +80,25 @@ impl RawVAOTarget {
     #[inline]
     pub fn new() -> RawVAOTarget {
         RawVAOTarget {
-            bound_vao: Cell::new(0),
+            bound_vao: Cell::new(None),
             _sendsync_optout: PhantomData
         }
     }
 
     #[inline]
-    pub unsafe fn bind<'a, V, I>(&'a self, vao: &'a RawVAO<V>, vbuf: &Buffer<V>, ibuf: &Buffer<I>, gl: &Gl) -> RawBoundVAO<'a, V>
+    pub unsafe fn bind<'a, V, I>(&'a self, vao: &'a RawVAO<V>, vbuf: &Buffer<V>, ibuf: &Option<Buffer<I>>, gl: &Gl) -> RawBoundVAO<'a, V>
         where V: Vertex,
               I: Index
     {
-        if self.bound_vao.get() != vao.handle {
-            gl.BindVertexArray(vao.handle);
-            self.bound_vao.set(vao.handle);
+        if self.bound_vao.get() != Some(vao.handle) {
+            gl.BindVertexArray(vao.handle.get());
+            self.bound_vao.set(Some(vao.handle));
         }
 
         // Make sure the given buffer are bound and if they aren't, bind them.
-        if vbuf.handle() != vao.vbuf.get() {
-            gl.BindBuffer(gl::ARRAY_BUFFER, vbuf.handle());
-            vao.vbuf.set(vbuf.handle());
+        if Some(vbuf.handle()) != vao.vbuf.get() {
+            gl.BindBuffer(gl::ARRAY_BUFFER, vbuf.handle().get());
+            vao.vbuf.set(Some(vbuf.handle()));
 
             let mut max_attribs = 0;
             gl.GetIntegerv(gl::MAX_VERTEX_ATTRIBS, &mut max_attribs);
@@ -111,9 +111,10 @@ impl RawVAOTarget {
                 _marker: PhantomData
             })
         }
-        if ibuf.handle() != vao.ibuf.get() {
-            gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibuf.handle());
-            vao.ibuf.set(ibuf.handle());
+        let ibuf_handle_opt = ibuf.as_ref().map(|ib| ib.handle());
+        if ibuf_handle_opt != vao.ibuf.get() {
+            gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibuf_handle_opt.map(|h| h.get()).unwrap_or(0));
+            vao.ibuf.set(ibuf_handle_opt);
         }
 
         RawBoundVAO(PhantomData)
@@ -121,7 +122,7 @@ impl RawVAOTarget {
 
     #[inline]
     pub unsafe fn reset_bind(&self, gl: &Gl) {
-        self.bound_vao.set(0);
+        self.bound_vao.set(None);
         gl.BindVertexArray(0);
     }
 }
@@ -202,7 +203,7 @@ impl<'a, V: Vertex> VertexMemberRegistry for VertexAttribBuilder<'a, V> {
 
 impl<V: Vertex> GLObject for RawVAO<V> {
     #[inline]
-    fn handle(&self) -> GLuint {
+    fn handle(&self) -> Handle {
         self.handle
     }
 }

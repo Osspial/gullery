@@ -20,7 +20,7 @@ use self::error::{ShaderError, LinkError, ProgramWarning};
 
 use gl::types::*;
 
-use {ContextState, GLObject};
+use {Handle, ContextState, GLObject};
 use vertex::Vertex;
 use uniform::Uniforms;
 use framebuffer::attachments::Attachments;
@@ -128,7 +128,7 @@ impl<'a, V, U, A> BoundProgram<'a, V, U, A>
 
 impl<S: ShaderStage> GLObject for Shader<S> {
     #[inline]
-    fn handle(&self) -> GLenum {
+    fn handle(&self) -> Handle {
         self.raw.handle()
     }
 }
@@ -139,7 +139,7 @@ impl<V, U, A> GLObject for Program<V, U, A>
           A: Attachments
 {
     #[inline]
-    fn handle(&self) -> GLenum {
+    fn handle(&self) -> Handle {
         self.raw.handle()
     }
 }

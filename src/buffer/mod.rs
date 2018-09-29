@@ -17,19 +17,29 @@ mod raw;
 pub use self::raw::{RawBindTarget, BufferUsage};
 use self::raw::{targets, RawBuffer};
 
-use gl::Gl;
-use gl::types::*;
-use {ContextState, GLObject};
+use gl::{Gl, types::*};
+use glsl::Scalar;
+use {Handle, ContextState, GLObject};
 
 use std::mem;
 use std::rc::Rc;
 use RangeArgument;
 
-pub unsafe trait Index: 'static + Copy {}
-unsafe impl Index for () {}
-unsafe impl Index for u8 {}
-unsafe impl Index for u16 {}
-unsafe impl Index for u32 {}
+pub unsafe trait Index: 'static + Copy {
+    const INDEX_GL_ENUM: Option<GLenum>;
+}
+unsafe impl Index for ! {
+    const INDEX_GL_ENUM: Option<GLenum> = None;
+}
+unsafe impl Index for u8 {
+    const INDEX_GL_ENUM: Option<GLenum> = Some(u8::GL_ENUM);
+}
+unsafe impl Index for u16 {
+    const INDEX_GL_ENUM: Option<GLenum> = Some(u16::GL_ENUM);
+}
+unsafe impl Index for u32 {
+    const INDEX_GL_ENUM: Option<GLenum> = Some(u32::GL_ENUM);
+}
 
 pub(crate) struct BufferBinds {
     copy_read: targets::RawCopyRead,
@@ -45,10 +55,10 @@ impl BufferBinds {
     }
 
     unsafe fn unbind<T: Copy>(&self, buf: &RawBuffer<T>, gl: &Gl) {
-        if self.copy_read.bound_buffer().get() == buf.handle() {
+        if self.copy_read.bound_buffer().get() == Some(buf.handle()) {
             self.copy_read.reset_bind(gl);
         }
-        if self.copy_write.bound_buffer().get() == buf.handle() {
+        if self.copy_write.bound_buffer().get() == Some(buf.handle()) {
             self.copy_write.reset_bind(gl);
         }
     }
@@ -150,7 +160,7 @@ impl<T: 'static + Copy> Buffer<T> {
 
 impl<T: 'static + Copy> GLObject for Buffer<T> {
     #[inline]
-    fn handle(&self) -> GLenum {
+    fn handle(&self) -> Handle {
         self.raw.handle()
     }
 }

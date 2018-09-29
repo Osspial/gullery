@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use {ContextState, GLObject};
+use {ContextState, GLObject, Handle};
 
 use gl::{self, Gl};
 use gl::types::*;
@@ -24,7 +24,7 @@ use std::cell::Cell;
 use std::marker::PhantomData;
 
 pub struct RawBuffer<T: Copy> {
-    handle: GLuint,
+    handle: Handle,
     size: usize,
     /// `*const ()` used to opt out of `Send` and `Sync` without relying on the unstable opt-out
     /// features.
@@ -72,18 +72,25 @@ pub enum BufferUsage {
 
 pub unsafe trait RawBindTarget: 'static + Sized {
     const TARGET: GLenum;
-    fn bound_buffer(&self) -> &Cell<GLuint>;
+    fn bound_buffer(&self) -> &Cell<Option<Handle>>;
 
     #[inline]
     unsafe fn bind<'a, T: Copy>(&'a self, buffer: &'a RawBuffer<T>, gl: &'a Gl) -> RawBoundBuffer<'a, T, Self> {
         let handle = buffer.handle;
         let bound_buffer = self.bound_buffer();
-        if bound_buffer.get() != handle {
-            gl.BindBuffer(Self::TARGET, buffer.handle);
-            bound_buffer.set(handle);
+        if bound_buffer.get() != Some(handle) {
+            gl.BindBuffer(Self::TARGET, handle.get());
+            bound_buffer.set(Some(handle));
         }
 
-        debug_assert_eq!(handle, {let mut bound = 0; gl.GetIntegerv(Self::TARGET, &mut bound); bound as u32});
+        debug_assert_eq!(
+            Some(handle),
+            {
+                let mut bound = 0;
+                gl.GetIntegerv(Self::TARGET, &mut bound);
+                Handle::new(bound as u32)
+            }
+        );
         RawBoundBuffer {
             bind: PhantomData,
             buffer, gl
@@ -99,7 +106,7 @@ pub unsafe trait RawBindTarget: 'static + Sized {
     }
     #[inline]
     unsafe fn reset_bind(&self, gl: &Gl) {
-        self.bound_buffer().set(0);
+        self.bound_buffer().set(None);
         gl.BindBuffer(Self::TARGET, 0)
     }
 }
@@ -111,14 +118,14 @@ pub mod targets {
             pub target $target_name:ident = $target_enum:expr;
         )*) => ($(
             pub struct $target_name {
-                bound_buffer: Cell<GLuint>,
+                bound_buffer: Cell<Option<Handle>>,
                 _marker: PhantomData<*const ()>
             }
             impl $target_name {
                 #[inline]
                 pub(crate) fn new() -> $target_name {
                     $target_name {
-                        bound_buffer: Cell::new(0),
+                        bound_buffer: Cell::new(None),
                         _marker: PhantomData
                     }
                 }
@@ -127,7 +134,7 @@ pub mod targets {
                 const TARGET: GLenum = $target_enum;
 
                 #[inline]
-                fn bound_buffer(&self) -> &Cell<GLuint> {
+                fn bound_buffer(&self) -> &Cell<Option<Handle>> {
                     &self.bound_buffer
                 }
             }
@@ -150,29 +157,19 @@ pub mod targets {
 
 
 impl<T: Copy> RawBuffer<T> {
-    /// Allocate a new RawBuffer on the GPU. If we're allocating a ZST, the GPU does nothing and
-    /// the handle associated with this buffer is 0. No GPU operations are performed on this buffer
-    /// if it's a ZST.
+    /// Allocate a new RawBuffer on the GPU.
     #[inline]
     pub(crate) fn new(gl: &Gl) -> RawBuffer<T> {
         unsafe {
-            if mem::size_of::<T>() != 0 {
-                let mut handle = 0;
+            let mut handle = 0;
 
-                gl.GenBuffers(1, &mut handle);
-                assert_ne!(handle, 0);
+            gl.GenBuffers(1, &mut handle);
+            let handle = Handle::new(handle).expect("Invalid handle returned from OpenGL");
 
-                RawBuffer {
-                    handle,
-                    size: 0,
-                    _marker: PhantomData
-                }
-            } else {
-                RawBuffer {
-                    handle: 0,
-                    size: isize::max_value() as usize,
-                    _marker: PhantomData
-                }
+            RawBuffer {
+                handle,
+                size: 0,
+                _marker: PhantomData
             }
         }
     }
@@ -187,7 +184,7 @@ impl<T: Copy> RawBuffer<T> {
         unsafe {
             if mem::size_of::<T>() != 0 {
                 state.buffer_binds.unbind(&self, &state.gl);
-                state.gl.DeleteBuffers(1, &self.handle);
+                state.gl.DeleteBuffers(1, &self.handle.get());
             }
         }
     }
@@ -195,7 +192,7 @@ impl<T: Copy> RawBuffer<T> {
 
 impl<T: Copy> GLObject for RawBuffer<T> {
     #[inline]
-    fn handle(&self) -> GLuint {
+    fn handle(&self) -> Handle {
         self.handle
     }
 }

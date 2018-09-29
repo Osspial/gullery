@@ -17,7 +17,7 @@ use color::{ImageFormat, ImageFormatType};
 use gl::{self, Gl};
 use gl::types::*;
 
-use {ContextState, GLObject};
+use {Handle, ContextState, GLObject};
 use glsl::{TypeTag, TypeBasicTag, TransparentType};
 use vertex::{Vertex, VertexMemberRegistry};
 use uniform::{UniformType, Uniforms, UniformLocContainer, UniformsMemberRegistry, TextureUniformBinder};
@@ -30,24 +30,24 @@ use std::ffi::CString;
 use std::marker::PhantomData;
 
 pub struct RawShader<S: ShaderStage> {
-    handle: GLuint,
+    handle: Handle,
     _marker: PhantomData<(S, *const ())>
 }
 
 pub struct RawProgram {
-    handle: GLuint,
+    handle: Handle,
     _sendsync_optout: PhantomData<*const ()>
 }
 
 pub struct RawProgramTarget {
-    bound_buffer: Cell<GLuint>,
+    bound_program: Cell<Option<Handle>>,
     _sendsync_optout: PhantomData<*const ()>
 }
 
 pub struct RawBoundProgram<'a>(PhantomData<&'a RawProgram>);
 
 struct AttachedShader {
-    handle: GLuint,
+    handle: Handle,
     post_link_hook: unsafe fn(&RawProgram, &Gl, &mut Vec<ProgramWarning>)
 }
 
@@ -64,10 +64,8 @@ pub unsafe trait ShaderStage: Sized {
     const SHADER_TYPE_ENUM: GLenum;
 
     #[inline]
-    #[doc(hidden)]
     unsafe fn program_pre_link_hook(_: &RawProgram, _: &Gl) {}
     #[inline]
-    #[doc(hidden)]
     unsafe fn program_post_link_hook(_: &RawProgram, _: &Gl, _: &mut Vec<ProgramWarning>) {}
 }
 
@@ -106,6 +104,7 @@ impl<S: ShaderStage> RawShader<S> {
                 let string_info_log = String::from_utf8_unchecked(info_log);
                 Err(string_info_log)
             } else {
+                let handle = Handle::new(handle).expect("Invalid handle returned from OpenGL");
                 Ok(RawShader {
                     handle,
                     _marker: PhantomData
@@ -116,7 +115,7 @@ impl<S: ShaderStage> RawShader<S> {
 
     pub fn delete(self, gl: &Gl) {
         unsafe {
-            gl.DeleteShader(self.handle);
+            gl.DeleteShader(self.handle.get());
         }
     }
 }
@@ -126,7 +125,10 @@ impl RawProgram {
         where for<'a> F: FnOnce(RawProgramShaderAttacher<'a, 'b>)
     {
         unsafe {
-            let program = RawProgram{ handle: gl.CreateProgram(), _sendsync_optout: PhantomData };
+            let program = RawProgram {
+                handle: Handle::new(gl.CreateProgram()).expect("Invalid handle returned from OpenGL"),
+                _sendsync_optout: PhantomData
+            };
             let (mut warnings, mut attached_shaders) = (Vec::new(), Vec::new());
 
             attach_shaders(RawProgramShaderAttacher {
@@ -138,25 +140,25 @@ impl RawProgram {
 
             // Try to link the program together, and return the program if successful. If not,
             // get the error message, return it, and delete the program.
-            gl.LinkProgram(program.handle);
+            gl.LinkProgram(program.handle.get());
 
             let mut is_linked = 0;
-            gl.GetProgramiv(program.handle, gl::LINK_STATUS, &mut is_linked);
+            gl.GetProgramiv(program.handle.get(), gl::LINK_STATUS, &mut is_linked);
 
             if is_linked == gl::TRUE as GLint {
-                for AttachedShader{handle, post_link_hook} in attached_shaders {
-                    gl.DetachShader(program.handle, handle);
+                for AttachedShader{handle: shader_handle, post_link_hook} in attached_shaders {
+                    gl.DetachShader(program.handle.get(), shader_handle.get());
                     post_link_hook(&program, gl, &mut warnings);
                 }
                 Ok((program, warnings))
             } else {
                 let mut info_log_length = 0;
-                gl.GetProgramiv(program.handle, gl::INFO_LOG_LENGTH, &mut info_log_length);
+                gl.GetProgramiv(program.handle.get(), gl::INFO_LOG_LENGTH, &mut info_log_length);
 
                 let mut info_log = vec![0; info_log_length as usize];
-                gl.GetProgramInfoLog(program.handle, info_log_length, ptr::null_mut(), info_log.as_mut_ptr() as *mut GLchar);
+                gl.GetProgramInfoLog(program.handle.get(), info_log_length, ptr::null_mut(), info_log.as_mut_ptr() as *mut GLchar);
 
-                gl.DeleteProgram(program.handle);
+                gl.DeleteProgram(program.handle.get());
                 Err(String::from_utf8_unchecked(info_log))
             }
         }
@@ -187,7 +189,7 @@ impl RawProgram {
 
                 let loc: GLint;
                 unsafe {
-                    loc = self.gl.GetUniformLocation(self.program.handle, cstr.as_ptr());
+                    loc = self.gl.GetUniformLocation(self.program.handle.get(), cstr.as_ptr());
                     assert_eq!(0, self.gl.GetError());
 
                     if loc == -1 {
@@ -218,8 +220,8 @@ impl RawProgram {
 
     pub fn delete(self, state: &ContextState) {
         unsafe {
-            state.gl.DeleteProgram(self.handle);
-            if state.program_target.0.bound_buffer.get() == self.handle {
+            state.gl.DeleteProgram(self.handle.get());
+            if state.program_target.0.bound_program.get() == Some(self.handle) {
                 state.program_target.0.reset_bind(&state.gl);
             }
         }
@@ -230,16 +232,16 @@ impl RawProgramTarget {
     #[inline]
     pub fn new() -> RawProgramTarget {
         RawProgramTarget {
-            bound_buffer: Cell::new(0),
+            bound_program: Cell::new(None),
             _sendsync_optout: PhantomData
         }
     }
 
     #[inline]
     pub unsafe fn bind<'a>(&'a self, program: &'a RawProgram, gl: &Gl) -> RawBoundProgram<'a> {
-        if self.bound_buffer.get() != program.handle {
-            self.bound_buffer.set(program.handle);
-            gl.UseProgram(program.handle);
+        if self.bound_program.get() != Some(program.handle) {
+            self.bound_program.set(Some(program.handle));
+            gl.UseProgram(program.handle.get());
         }
 
         RawBoundProgram(PhantomData)
@@ -247,7 +249,7 @@ impl RawProgramTarget {
 
     #[inline]
     pub unsafe fn reset_bind(&self, gl: &Gl) {
-        self.bound_buffer.set(0);
+        self.bound_program.set(None);
         gl.UseProgram(0);
     }
 }
@@ -256,7 +258,7 @@ impl<'a, 'b> RawProgramShaderAttacher<'a, 'b> {
     #[inline]
     pub fn attach_shader<S: 'a + ShaderStage>(&mut self, shader: &'b RawShader<S>) {
         unsafe {
-            self.gl.AttachShader(self.program.handle, shader.handle);
+            self.gl.AttachShader(self.program.handle.get(), shader.handle.get());
             S::program_pre_link_hook(&self.program, &self.gl);
             self.attached_shaders.push(AttachedShader {
                 handle: shader.handle,
@@ -306,14 +308,14 @@ impl<'a> RawBoundProgram<'a> {
 
 impl<S: ShaderStage> GLObject for RawShader<S> {
     #[inline]
-    fn handle(&self) -> GLuint {
+    fn handle(&self) -> Handle {
         self.handle
     }
 }
 
 impl GLObject for RawProgram {
     #[inline]
-    fn handle(&self) -> GLuint {
+    fn handle(&self) -> Handle {
         self.handle
     }
 }
@@ -346,7 +348,7 @@ unsafe impl<V: Vertex> ShaderStage for VertexStage<V> {
                 let cstr = CString::new(cstr_bytes).expect("Null terminator in member name string");
 
                 unsafe {
-                    self.gl.BindAttribLocation(self.program.handle, self.location, cstr.as_ptr());
+                    self.gl.BindAttribLocation(self.program.handle.get(), self.location, cstr.as_ptr());
                     assert_eq!(0, self.gl.GetError());
                 }
 
@@ -401,8 +403,8 @@ unsafe impl<V: Vertex> ShaderStage for VertexStage<V> {
         }
 
         let (mut num_attribs, mut max_name_buffer_len) = (0, 0);
-        gl.GetProgramiv(program.handle, gl::ACTIVE_ATTRIBUTES, &mut num_attribs);
-        gl.GetProgramiv(program.handle, gl::ACTIVE_ATTRIBUTE_MAX_LENGTH, &mut max_name_buffer_len);
+        gl.GetProgramiv(program.handle.get(), gl::ACTIVE_ATTRIBUTES, &mut num_attribs);
+        gl.GetProgramiv(program.handle.get(), gl::ACTIVE_ATTRIBUTE_MAX_LENGTH, &mut max_name_buffer_len);
         let mut attrib_types = Vec::with_capacity(num_attribs as usize);
 
         for attrib in 0..num_attribs {
@@ -410,7 +412,7 @@ unsafe impl<V: Vertex> ShaderStage for VertexStage<V> {
             let mut name_buffer: Vec<u8> = vec![0; max_name_buffer_len as usize];
 
             gl.GetActiveAttrib(
-                program.handle,
+                program.handle.get(),
                 attrib as GLuint,
                 max_name_buffer_len,
                 &mut name_len,
@@ -471,7 +473,7 @@ unsafe impl<A: Attachments> ShaderStage for FragmentStage<A> {
                     let cstr = CString::new(cstr_bytes).expect("Null terminator in member name string");
 
                     unsafe {
-                        self.gl.BindFragDataLocation(self.program.handle, self.location, cstr.as_ptr());
+                        self.gl.BindFragDataLocation(self.program.handle.get(), self.location, cstr.as_ptr());
                         assert_eq!(0, self.gl.GetError());
                     }
 
@@ -517,7 +519,7 @@ unsafe impl<A: Attachments> ShaderStage for FragmentStage<A> {
                     let cstr = CString::new(cstr_bytes).expect("Null terminator in member name string");
 
                     unsafe {
-                        let data_location = self.gl.GetFragDataLocation(self.program.handle, cstr.as_ptr());
+                        let data_location = self.gl.GetFragDataLocation(self.program.handle.get(), cstr.as_ptr());
                         if data_location == -1 {
                             self.warnings.push(ProgramWarning::UnusedColor(name.to_string()));
                         }

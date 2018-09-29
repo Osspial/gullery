@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#![feature(never_type)]
 
 extern crate gullery;
 #[macro_use]
@@ -91,7 +92,7 @@ fn main() {
                 pos: Vector3::new( 1.0,  -1.0, -1.0),
             },
         ], state.clone());
-        let vao = VertexArrayObject::new_noindex(vertex_buffer);
+        let vao = VertexArrayObject::<_, !>::new(vertex_buffer, None);
 
 
         let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();
@@ -142,7 +143,7 @@ fn main() {
             0, 1, 2,
             2, 3, 0u16
         ], state.clone());
-        let vao = VertexArrayObject::new(vertex_buffer, index_buffer);
+        let vao = VertexArrayObject::new(vertex_buffer, Some(index_buffer));
 
         let vertex_shader = Shader::new(TEX_TO_WINDOW_VERTEX_SHADER, state.clone()).unwrap();
         let fragment_shader = Shader::new(TEX_TO_WINDOW_FRAGMENT_DEPTH_SHADER, state.clone()).unwrap();

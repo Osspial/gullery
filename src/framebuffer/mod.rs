@@ -25,7 +25,7 @@ pub use self::renderbuffer::Renderbuffer;
 
 use gl::{self, Gl};
 use gl::types::*;
-use ContextState;
+use {Handle, ContextState};
 use vertex::Vertex;
 use buffer::Index;
 use vertex::VertexArrayObject;
@@ -68,7 +68,7 @@ pub struct FramebufferObjectAttached<A, F=FramebufferObject<<A as Attachments>::
 #[doc(hidden)]
 pub struct AttachmentsRefMut<'a, A: 'a + Attachments> {
     attachments: &'a mut A,
-    ahc: &'a mut [GLuint]
+    ahc: &'a mut [Option<Handle>]
 }
 
 impl<A, F> FramebufferObjectAttached<A, F>

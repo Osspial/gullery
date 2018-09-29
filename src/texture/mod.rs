@@ -17,7 +17,7 @@ mod raw;
 use gl::Gl;
 use gl::types::*;
 
-use {ContextState, GLObject};
+use {ContextState, GLObject, Handle};
 use self::raw::*;
 use color::ImageFormat;
 
@@ -53,7 +53,7 @@ pub enum TexCreateError<T>
 impl<T> GLObject for Texture<T>
     where T: TextureType
 {
-    fn handle(&self) -> GLuint {
+    fn handle(&self) -> Handle {
         self.raw.handle()
     }
 }

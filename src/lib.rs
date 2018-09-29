@@ -46,21 +46,23 @@ use std::rc::Rc;
 use std::cell::Cell;
 use std::collections::Bound;
 use std::ops::{Range, RangeFrom, RangeTo, RangeFull};
+use std::num::NonZeroU32;
 
+pub type Handle = NonZeroU32;
 pub trait GLObject {
-    fn handle(&self) -> GLuint;
+    fn handle(&self) -> Handle;
 }
 
 impl<'a, O: GLObject> GLObject for &'a O {
     #[inline(always)]
-    fn handle(&self) -> GLuint {
+    fn handle(&self) -> Handle {
         O::handle(*self)
     }
 }
 
 impl<'a, O: GLObject> GLObject for &'a mut O {
     #[inline(always)]
-    fn handle(&self) -> GLuint {
+    fn handle(&self) -> Handle {
         O::handle(*self)
     }
 }

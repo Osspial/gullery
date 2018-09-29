@@ -18,18 +18,18 @@ use gl::types::*;
 use cgmath::Point2;
 use cgmath_geometry::{DimsBox, GeoBox};
 
-use ContextState;
+use {ContextState, Handle};
 
 use std::cell::Cell;
 use std::marker::PhantomData;
 
 pub struct RawRenderbuffer {
-    handle: GLuint,
+    handle: Handle,
     _sendsync_optout: PhantomData<*const ()>
 }
 
 pub struct RawRenderbufferTarget {
-    bound_buffer: Cell<GLuint>,
+    bound_buffer: Cell<Option<Handle>>,
     _sendsync_optout: PhantomData<*const ()>
 }
 
@@ -43,7 +43,7 @@ impl RawRenderbuffer {
         unsafe {
             let mut handle = 0;
             gl.GenRenderbuffers(1, &mut handle);
-            assert_ne!(0, handle);
+            let handle = Handle::new(handle).expect("Invalid handle returned from OpenGL");
 
             RawRenderbuffer {
                 handle,
@@ -53,16 +53,16 @@ impl RawRenderbuffer {
     }
 
     #[inline(always)]
-    pub fn handle(&self) -> GLuint {
+    pub fn handle(&self) -> Handle {
         self.handle
     }
 
     pub fn delete(self, state: &ContextState) {
         unsafe {
-            if state.renderbuffer_target.0.bound_buffer.get() == self.handle {
+            if state.renderbuffer_target.0.bound_buffer.get() == Some(self.handle) {
                 state.renderbuffer_target.0.reset_bind(&state.gl);
             }
-            state.gl.DeleteRenderbuffers(1, &self.handle);
+            state.gl.DeleteRenderbuffers(1, &self.handle.get());
         }
     }
 }
@@ -71,16 +71,16 @@ impl RawRenderbufferTarget {
     #[inline]
     pub fn new() -> RawRenderbufferTarget {
         RawRenderbufferTarget {
-            bound_buffer: Cell::new(0),
+            bound_buffer: Cell::new(None),
             _sendsync_optout: PhantomData
         }
     }
 
     #[inline]
     pub unsafe fn bind_mut<'a>(&'a self, renderbuffer: &'a mut RawRenderbuffer, gl: &'a Gl) -> RawBoundRenderbufferMut<'a> {
-        if self.bound_buffer.get() != renderbuffer.handle {
-            self.bound_buffer.set(renderbuffer.handle);
-            gl.BindRenderbuffer(gl::RENDERBUFFER, renderbuffer.handle);
+        if self.bound_buffer.get() != Some(renderbuffer.handle) {
+            self.bound_buffer.set(Some(renderbuffer.handle));
+            gl.BindRenderbuffer(gl::RENDERBUFFER, renderbuffer.handle.get());
         }
 
         RawBoundRenderbufferMut {
@@ -90,7 +90,7 @@ impl RawRenderbufferTarget {
 
     #[inline]
     pub unsafe fn reset_bind(&self, gl: &Gl) {
-        self.bound_buffer.set(0);
+        self.bound_buffer.set(None);
         gl.BindRenderbuffer(gl::RENDERBUFFER, 0);
     }
 }

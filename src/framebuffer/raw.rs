@@ -19,7 +19,7 @@ use color::{ColorFormat, ImageFormat, ImageFormatType};
 use gl::{self, Gl};
 use gl::types::*;
 
-use {ContextState, GLObject};
+use {Handle, ContextState, GLObject};
 use glsl::Scalar;
 use vertex::Vertex;
 use buffer::Index;
@@ -36,32 +36,32 @@ use std::marker::PhantomData;
 use RangeArgument;
 
 pub unsafe trait RawFramebuffer {
-    fn handle(&self) -> GLuint;
+    fn handle(&self) -> Option<Handle>;
 }
 
 pub struct RawDefaultFramebuffer;
 unsafe impl RawFramebuffer for RawDefaultFramebuffer {
     #[inline]
-    fn handle(&self) -> GLuint {0}
+    fn handle(&self) -> Option<Handle> {None}
 }
 
 pub struct RawFramebufferObject {
-    handle: GLuint,
+    handle: Handle,
     _sendsync_optout: PhantomData<*const ()>
 }
 unsafe impl RawFramebuffer for RawFramebufferObject {
     #[inline]
-    fn handle(&self) -> GLuint {
-        self.handle
+    fn handle(&self) -> Option<Handle> {
+        Some(self.handle)
     }
 }
 
 pub struct RawFramebufferTargetRead {
-    bound_fb: Cell<GLuint>
+    bound_fb: Cell<Option<Handle>>
 }
 
 pub struct RawFramebufferTargetDraw {
-    bound_fb: Cell<GLuint>
+    bound_fb: Cell<Option<Handle>>
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -102,7 +102,7 @@ impl RawFramebufferObject {
         unsafe {
             let mut handle = 0;
             gl.GenFramebuffers(1, &mut handle);
-            assert_ne!(handle, 0);
+            let handle = Handle::new(handle).expect("Invalid handle returned from OpenGL");
 
             RawFramebufferObject {
                 handle,
@@ -114,7 +114,7 @@ impl RawFramebufferObject {
     pub fn delete(self, state: &ContextState) {
         unsafe {
             state.framebuffer_targets.unbind(&self, &state.gl);
-            state.gl.DeleteFramebuffers(1, &self.handle);
+            state.gl.DeleteFramebuffers(1, &self.handle.get());
         }
     }
 }
@@ -123,7 +123,7 @@ impl RawFramebufferTargetRead {
     #[inline]
     pub fn new() -> RawFramebufferTargetRead {
         RawFramebufferTargetRead {
-            bound_fb: Cell::new(0)
+            bound_fb: Cell::new(None)
         }
     }
 
@@ -133,7 +133,7 @@ impl RawFramebufferTargetRead {
     {
         if self.bound_fb.get() != framebuffer.handle() {
             self.bound_fb.set(framebuffer.handle());
-            gl.BindFramebuffer(gl::READ_FRAMEBUFFER, framebuffer.handle());
+            gl.BindFramebuffer(gl::READ_FRAMEBUFFER, framebuffer.handle().map(|h| h.get()).unwrap_or(0));
         }
 
         RawBoundFramebufferRead {
@@ -144,12 +144,12 @@ impl RawFramebufferTargetRead {
 
     #[inline]
     pub unsafe fn reset_bind(&self, gl: &Gl) {
-        self.bound_fb.set(0);
+        self.bound_fb.set(None);
         gl.BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
     }
 
     #[inline]
-    pub fn bound_buffer(&self) -> &Cell<GLuint> {
+    pub fn bound_buffer(&self) -> &Cell<Option<Handle>> {
         &self.bound_fb
     }
 }
@@ -158,7 +158,7 @@ impl RawFramebufferTargetDraw {
     #[inline]
     pub fn new() -> RawFramebufferTargetDraw {
         RawFramebufferTargetDraw {
-            bound_fb: Cell::new(0)
+            bound_fb: Cell::new(None)
         }
     }
 
@@ -168,7 +168,7 @@ impl RawFramebufferTargetDraw {
     {
         if self.bound_fb.get() != framebuffer.handle() {
             self.bound_fb.set(framebuffer.handle());
-            gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, framebuffer.handle());
+            gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, framebuffer.handle().map(|h| h.get()).unwrap_or(0));
         }
 
         RawBoundFramebufferDraw {
@@ -179,12 +179,12 @@ impl RawFramebufferTargetDraw {
 
     #[inline]
     pub unsafe fn reset_bind(&self, gl: &Gl) {
-        self.bound_fb.set(0);
+        self.bound_fb.set(None);
         gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
     }
 
     #[inline]
-    pub fn bound_buffer(&self) -> &Cell<GLuint> {
+    pub fn bound_buffer(&self) -> &Cell<Option<Handle>> {
         &self.bound_fb
     }
 }
@@ -258,18 +258,11 @@ impl<'a, F> RawBoundFramebufferDraw<'a, F>
               U: Uniforms,
               A: Attachments
     {
-        let index_type_option = match mem::size_of::<I>() {
-            0 => None,
-            1 => Some(u8::GL_ENUM),
-            2 => Some(u16::GL_ENUM),
-            4 => Some(u32::GL_ENUM),
-            _ => panic!("Unexpected index size")
-        };
-
+        let index_type_option = I::INDEX_GL_ENUM;
         let read_offset = ::bound_to_num_start(range.start(), 0);
 
-        if let Some(index_type) = index_type_option {
-            let read_end = ::bound_to_num_end(range.end(), bound_vao.vao().index_buffer().size());
+        if let (Some(index_type), Some(index_buffer)) = (index_type_option, bound_vao.vao().index_buffer()) {
+            let read_end = ::bound_to_num_end(range.end(), index_buffer.size());
             assert!(read_offset <= read_end);
             assert!((read_end - read_offset) <= GLsizei::max_value() as usize);
 
@@ -316,8 +309,8 @@ pub unsafe trait RawBoundFramebuffer {
     const TARGET: GLenum;
     fn gl(&self) -> &Gl;
 
-    fn set_attachments<A: Attachments>(&mut self, handles: &mut [GLuint], attachments: &A) {
-        struct Attacher<'a, A: 'a + Attachments, I: Iterator<Item=&'a mut GLuint>> {
+    fn set_attachments<A: Attachments>(&mut self, handles: &mut [Option<Handle>], attachments: &A) {
+        struct Attacher<'a, A: 'a + Attachments, I: Iterator<Item=&'a mut Option<Handle>>> {
             color_index: GLenum,
             depth_attachment_used: bool,
             gl: &'a Gl,
@@ -325,15 +318,16 @@ pub unsafe trait RawBoundFramebuffer {
             target: GLenum,
             attachments: &'a A
         }
-        impl<'a, A: Attachments, I: Iterator<Item=&'a mut GLuint>> AttachmentsMemberRegistry for Attacher<'a, A, I> {
+        impl<'a, A: Attachments, I: Iterator<Item=&'a mut Option<Handle>>> AttachmentsMemberRegistry for Attacher<'a, A, I> {
             type Attachments = A;
             fn add_renderbuffer<Im>(&mut self, _: &str, get_member: impl FnOnce(&A) -> &Renderbuffer<Im>)
                 where Im: ImageFormat
             {
                 let member = get_member(self.attachments);
                 let handle = self.handles.next().expect("Mismatched attachment handle container length");
-                if member.handle() != *handle {
-                    *handle = member.handle();
+                if Some(member.handle()) != *handle {
+                    *handle = Some(member.handle());
+                    let handle = member.handle();
                     let attachment: GLenum;
                     match <Renderbuffer<Im> as Attachment>::Format::FORMAT_TYPE {
                         ImageFormatType::Color => {
@@ -354,7 +348,7 @@ pub unsafe trait RawBoundFramebuffer {
                             self.target,
                             attachment,
                             gl::RENDERBUFFER,
-                            *handle
+                            handle.get()
                         );
                         assert_eq!(0, self.gl.GetError());
                     }
@@ -365,8 +359,9 @@ pub unsafe trait RawBoundFramebuffer {
             {
                 let texture = get_member(self.attachments);
                 let handle = self.handles.next().expect("Mismatched attachment handle container length");
-                if texture.handle() != *handle {
-                    *handle = texture.handle();
+                if Some(texture.handle()) != *handle {
+                    *handle = Some(texture.handle());
+                    let handle = texture.handle();
                     let attachment: GLenum;
                     match <Texture<T> as Attachment>::Format::FORMAT_TYPE {
                         ImageFormatType::Color => {
@@ -390,7 +385,7 @@ pub unsafe trait RawBoundFramebuffer {
                                     self.target,
                                     attachment,
                                     T::BIND_TARGET,
-                                    *handle,
+                                    handle.get(),
                                     texture_level.to_glint()
                                 ),
                             DimsTag::Two(_) =>
@@ -398,7 +393,7 @@ pub unsafe trait RawBoundFramebuffer {
                                     self.target,
                                     attachment,
                                     T::BIND_TARGET,
-                                    *handle,
+                                    handle.get(),
                                     texture_level.to_glint()
                                 ),
                             DimsTag::Three(_) => unimplemented!()

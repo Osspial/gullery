@@ -85,11 +85,11 @@ fn main() {
         0, 1, 2,
         2, 3, 0u16
     ], state.clone());
-    let vao = VertexArrayObject::new(vertex_buffer, index_buffer);
+    let vao = VertexArrayObject::new(vertex_buffer, Some(index_buffer));
     println!("vao created");
     let (ferris_image, ferris_dims) = {
         use std::fs::File;
-        let decoder = png::Decoder::new(File::open("ferris.png").unwrap());
+        let decoder = png::Decoder::new(File::open("./examples/ferris.png").unwrap());
         let (info, mut reader) = decoder.read_info().unwrap();
         let mut buf = vec![0; info.buffer_size()];
         reader.next_frame(&mut buf).unwrap();

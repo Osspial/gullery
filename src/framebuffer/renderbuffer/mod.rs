@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use {ContextState, GLObject};
+use {Handle, ContextState, GLObject};
 mod raw;
 use self::raw::{RawRenderbuffer, RawRenderbufferTarget};
 use color::ImageFormat;
@@ -66,7 +66,7 @@ impl<I: ImageFormat> Renderbuffer<I> {
 
 impl<I: ImageFormat> GLObject for Renderbuffer<I> {
     #[inline(always)]
-    fn handle(&self) -> GLuint {
+    fn handle(&self) -> Handle {
         self.raw.handle()
     }
 }

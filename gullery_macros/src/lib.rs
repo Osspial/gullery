@@ -219,7 +219,7 @@ fn impl_attachments(derive_input: &DeriveInput) -> Tokens {
 
                     #[automatically_derived]
                     impl #impl_generics _gullery::framebuffer::attachments::Attachments for #ident #ty_generics #where_clause {
-                        type AHC = [u32; #num_members];
+                        type AHC = [Option<_gullery::Handle>; #num_members];
                         type Static = #ident #static_ty_generics;
                         #[inline]
                         fn members<M>(mut reg: M)

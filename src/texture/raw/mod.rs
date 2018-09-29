@@ -14,6 +14,7 @@
 
 pub mod targets;
 
+use Handle;
 use gl::{self, Gl};
 use gl::types::*;
 
@@ -31,7 +32,7 @@ use cgmath_geometry::{GeoBox, DimsBox};
 pub struct RawTexture<T>
     where T: TextureType
 {
-    handle: GLuint,
+    handle: Handle,
     dims: T::Dims,
     num_mips: T::MipSelector,
     _sendsync_optout: PhantomData<*const ()>
@@ -49,7 +50,7 @@ pub struct RawTexture<T>
 pub struct RawSamplerUnits {
     /// The number of sampler units is never going to change, so storing this as `Box<[]>` means we
     /// don't have to deal with storing the capacity.
-    sampler_units: Box<[Cell<GLuint>]>,
+    sampler_units: Box<[Cell<Option<Handle>>]>,
     active_unit: Cell<u32>
 }
 
@@ -169,7 +170,7 @@ impl<T> RawTexture<T>
         unsafe {
             let mut handle = 0;
             gl.GenTextures(1, &mut handle);
-            assert_ne!(0, handle);
+            let handle = Handle::new(handle).expect("Invalid handle returned from OpenGL");
 
             RawTexture{
                 handle,
@@ -197,13 +198,13 @@ impl<T> RawTexture<T>
     }
 
     #[inline(always)]
-    pub fn handle(&self) -> GLuint {
+    pub fn handle(&self) -> Handle {
         self.handle
     }
 
     pub fn delete(self, state: &ContextState) {
         unsafe {
-            state.gl.DeleteTextures(1, &self.handle);
+            state.gl.DeleteTextures(1, &self.handle.get());
             state.sampler_units.0.unbind(self.handle, T::BIND_TARGET, &state.gl);
         }
     }
@@ -220,7 +221,7 @@ impl RawSamplerUnits {
         assert!(0 <= max_tex_units);
 
         RawSamplerUnits {
-            sampler_units: vec![Cell::new(0); max_tex_units as usize].into_boxed_slice(),
+            sampler_units: vec![Cell::new(None); max_tex_units as usize].into_boxed_slice(),
             active_unit: Cell::new(0)
         }
     }
@@ -260,9 +261,9 @@ impl RawSamplerUnits {
         }
 
         let bound_texture = &self.sampler_units[unit as usize];
-        if bound_texture.get() != tex.handle {
-            bound_texture.set(tex.handle);
-            gl.BindTexture(T::BIND_TARGET, tex.handle);
+        if bound_texture.get() != Some(tex.handle) {
+            bound_texture.set(Some(tex.handle));
+            gl.BindTexture(T::BIND_TARGET, tex.handle.get());
         }
 
         RawBoundTexture{ tex, gl }
@@ -276,12 +277,12 @@ impl RawSamplerUnits {
         RawBoundTextureMut{ tex, gl }
     }
 
-    unsafe fn unbind(&self, handle: GLuint, target: GLuint, gl: &Gl) {
+    unsafe fn unbind(&self, handle: Handle, target: GLuint, gl: &Gl) {
         for (unit_index, unit) in self.sampler_units.iter().enumerate() {
-            if unit.get() == handle {
+            if unit.get() == Some(handle) {
                 gl.ActiveTexture(gl::TEXTURE0 + unit_index as GLuint);
                 gl.BindTexture(target, 0);
-                unit.set(0);
+                unit.set(None);
                 self.active_unit.set(unit_index as GLuint);
             }
         }
