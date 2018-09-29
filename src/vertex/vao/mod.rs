@@ -16,7 +16,7 @@ mod raw;
 use self::raw::*;
 
 use vertex::Vertex;
-use buffer::{Index, Buffer, BufferUsage};
+use buffer::{Index, Buffer};
 
 use std::{mem, ptr};
 
@@ -123,6 +123,7 @@ impl<V: Vertex, I: Index> Drop for VertexArrayObject<V, I> {
 mod tests {
     use super::*;
     use test_helper::{CONTEXT_STATE, TestVertex};
+    use buffer::BufferUsage;
 
     quickcheck!{
         fn make_vao_noindex(buffer_data: Vec<TestVertex>) -> () {

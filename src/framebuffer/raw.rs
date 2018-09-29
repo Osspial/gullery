@@ -20,7 +20,6 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use {Handle, ContextState, GLObject};
-use glsl::Scalar;
 use vertex::Vertex;
 use buffer::Index;
 use vertex::vao::BoundVAO;

@@ -3,7 +3,6 @@ use color::ImageFormat;
 use framebuffer::Renderbuffer;
 use std::marker::PhantomData;
 use {Handle, GLObject};
-use gl::types::*;
 
 pub trait Attachment: GLObject {
     const TARGET_TYPE: AttachmentTargetType;

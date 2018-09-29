@@ -18,7 +18,6 @@ mod raw;
 use self::raw::{RawShader, RawProgram, RawProgramTarget, RawBoundProgram};
 use self::error::{ShaderError, LinkError, ProgramWarning};
 
-use gl::types::*;
 
 use {Handle, ContextState, GLObject};
 use vertex::Vertex;
@@ -121,7 +120,7 @@ impl<'a, V, U, A> BoundProgram<'a, V, U, A>
     pub fn upload_uniforms<N>(&self, uniform: N)
         where N: Uniforms<ULC=U::ULC, Static=U>
     {
-        self.raw.upload_uniforms(uniform, self.program.uniform_locs.as_ref(), &self.program.state.sampler_units, &self.program.state.gl)
+        self.raw.upload_uniforms(uniform, self.program.uniform_locs.as_ref(), &self.program.state.image_units, &self.program.state.gl)
     }
 }
 
@@ -170,6 +169,7 @@ mod tests {
     use test_helper::{TestVertex, CONTEXT_STATE};
     use cgmath::Vector3;
     use uniform::{Uniforms, UniformsMemberRegistry};
+    use gl::types::*;
 
     const VERTEX_SHADER: &str = r#"
         #version 330

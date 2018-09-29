@@ -40,7 +40,6 @@ pub mod uniform;
 pub mod vertex;
 
 use gl::Gl;
-use gl::types::*;
 
 use std::rc::Rc;
 use std::cell::Cell;
@@ -73,7 +72,7 @@ pub struct ContextState {
     vao_target: vertex::vao::VAOTarget,
     framebuffer_targets: framebuffer::FramebufferTargets,
     render_state: Cell<framebuffer::render_state::RenderState>,
-    sampler_units: texture::SamplerUnits,
+    image_units: texture::ImageUnits,
     renderbuffer_target: framebuffer::renderbuffer::RenderbufferTarget,
     gl: Gl
 }
@@ -108,7 +107,7 @@ impl ContextState {
             vao_target: vertex::vao::VAOTarget::new(),
             framebuffer_targets: framebuffer::FramebufferTargets::new(),
             render_state: Cell::new(framebuffer::render_state::RenderState::default()),
-            sampler_units: texture::SamplerUnits::new(&gl),
+            image_units: texture::ImageUnits::new(&gl),
             renderbuffer_target: framebuffer::renderbuffer::RenderbufferTarget::new(),
             gl
         })

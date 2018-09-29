@@ -17,10 +17,10 @@ use gl::{self, Gl, types::*};
 use std::marker::PhantomData;
 use cgmath::{Vector1, Vector2, Vector3, Vector4, Point1, Point2, Point3, Matrix2, Matrix3, Matrix4};
 use glsl::{TypeTag, TransparentType};
-use texture::{SamplerUnits, Texture, TextureType};
+use texture::{ImageUnits, Texture, TextureType};
 
 pub struct TextureUniformBinder<'a> {
-    pub(crate) sampler_units: &'a SamplerUnits,
+    pub(crate) sampler_units: &'a ImageUnits,
     pub(crate) unit: &'a mut u32
 }
 

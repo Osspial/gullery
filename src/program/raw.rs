@@ -22,7 +22,7 @@ use glsl::{TypeTag, TypeBasicTag, TransparentType};
 use vertex::{Vertex, VertexMemberRegistry};
 use uniform::{UniformType, Uniforms, UniformLocContainer, UniformsMemberRegistry, TextureUniformBinder};
 use super::error::ProgramWarning;
-use texture::SamplerUnits;
+use texture::ImageUnits;
 
 use std::{ptr, mem};
 use std::cell::Cell;
@@ -269,12 +269,12 @@ impl<'a, 'b> RawProgramShaderAttacher<'a, 'b> {
 }
 
 impl<'a> RawBoundProgram<'a> {
-    pub(crate) fn upload_uniforms<U: Uniforms>(&self, uniform: U, locs: &[GLint], sampler_units: &SamplerUnits, gl: &Gl) {
+    pub(crate) fn upload_uniforms<U: Uniforms>(&self, uniform: U, locs: &[GLint], sampler_units: &ImageUnits, gl: &Gl) {
         struct UniformsUploader<'a, U: Uniforms> {
             locs: &'a [GLint],
             loc_index: usize,
             unit: u32,
-            sampler_units: &'a SamplerUnits,
+            sampler_units: &'a ImageUnits,
             gl: &'a Gl,
             uniform: U
         }

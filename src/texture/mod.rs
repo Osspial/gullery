@@ -58,7 +58,7 @@ impl<T> GLObject for Texture<T>
     }
 }
 
-pub(crate) struct SamplerUnits(RawSamplerUnits);
+pub(crate) struct ImageUnits(RawImageUnits);
 pub(crate) struct BoundTexture<'a, T>(RawBoundTexture<'a, T>)
     where T: TextureType;
 
@@ -87,8 +87,8 @@ impl<T> Texture<T>
             //
             // (If you're reading this source code because your program is accidentally using a texture because
             // it's using the last texture, congratulations! You have waaay to many texture. Scale it back yo)
-            let last_unit = state.sampler_units.0.num_units() - 1;
-            let mut bind = unsafe{ state.sampler_units.0.bind_mut(last_unit, &mut raw, &state.gl) };
+            let last_unit = state.image_units.0.num_units() - 1;
+            let mut bind = unsafe{ state.image_units.0.bind_mut(last_unit, &mut raw, &state.gl) };
 
             for (level, image) in images.into_iter().enumerate() {
                 bind.alloc_image(level as u8, Some(image));
@@ -120,8 +120,8 @@ impl<T> Texture<T>
 
         let mut raw = RawTexture::new(dims, &state.gl);
         {
-            let last_unit = state.sampler_units.0.num_units() - 1;
-            let mut bind = unsafe{ state.sampler_units.0.bind_mut(last_unit, &mut raw, &state.gl) };
+            let last_unit = state.image_units.0.num_units() - 1;
+            let mut bind = unsafe{ state.image_units.0.bind_mut(last_unit, &mut raw, &state.gl) };
             for level in mips.iter_less() {
                 bind.alloc_image::<!>(level, None);
             }
@@ -143,29 +143,29 @@ impl<T> Texture<T>
     pub fn sub_image<'a, I>(&mut self, level: T::MipSelector, offset: <T::Dims as Dims>::Offset, sub_dims: T::Dims, image: I)
         where I: Image<'a, T>
     {
-        let last_unit = self.state.sampler_units.0.num_units() - 1;
-        let mut bind = unsafe{ self.state.sampler_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
+        let last_unit = self.state.image_units.0.num_units() - 1;
+        let mut bind = unsafe{ self.state.image_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
         bind.sub_image(level, offset, sub_dims, image);
     }
 
     #[inline]
     pub fn swizzle_mask(&mut self, r: Swizzle, g: Swizzle, b: Swizzle, a: Swizzle) {
-        let last_unit = self.state.sampler_units.0.num_units() - 1;
-        let mut bind = unsafe{ self.state.sampler_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
+        let last_unit = self.state.image_units.0.num_units() - 1;
+        let mut bind = unsafe{ self.state.image_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
         bind.swizzle_mask(r, g, b, a);
     }
 
     #[inline]
     pub fn filtering(&mut self, minify: Filter, magnify: Filter) {
-        let last_unit = self.state.sampler_units.0.num_units() - 1;
-        let mut bind = unsafe{ self.state.sampler_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
+        let last_unit = self.state.image_units.0.num_units() - 1;
+        let mut bind = unsafe{ self.state.image_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
         bind.filtering(minify, magnify);
     }
 
     #[inline]
     pub fn max_anisotropy(&mut self, max_anisotropy: f32) {
-        let last_unit = self.state.sampler_units.0.num_units() - 1;
-        let mut bind = unsafe{ self.state.sampler_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
+        let last_unit = self.state.image_units.0.num_units() - 1;
+        let mut bind = unsafe{ self.state.image_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
         bind.max_anisotropy(max_anisotropy);
     }
 
@@ -173,8 +173,8 @@ impl<T> Texture<T>
     pub fn texture_wrap_s(&mut self, texture_wrap: TextureWrap)
         where T::Dims: Dims1D
     {
-        let last_unit = self.state.sampler_units.0.num_units() - 1;
-        let mut bind = unsafe{ self.state.sampler_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
+        let last_unit = self.state.image_units.0.num_units() - 1;
+        let mut bind = unsafe{ self.state.image_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
         bind.texture_wrap_s(texture_wrap);
     }
 
@@ -182,8 +182,8 @@ impl<T> Texture<T>
     pub fn texture_wrap_t(&mut self, texture_wrap: TextureWrap)
         where T::Dims: Dims2D
     {
-        let last_unit = self.state.sampler_units.0.num_units() - 1;
-        let mut bind = unsafe{ self.state.sampler_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
+        let last_unit = self.state.image_units.0.num_units() - 1;
+        let mut bind = unsafe{ self.state.image_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
         bind.texture_wrap_t(texture_wrap);
     }
 
@@ -191,16 +191,16 @@ impl<T> Texture<T>
     pub fn texture_wrap_r(&mut self, texture_wrap: TextureWrap)
         where T::Dims: Dims3D
     {
-        let last_unit = self.state.sampler_units.0.num_units() - 1;
-        let mut bind = unsafe{ self.state.sampler_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
+        let last_unit = self.state.image_units.0.num_units() - 1;
+        let mut bind = unsafe{ self.state.image_units.0.bind_mut(last_unit, &mut self.raw, &self.state.gl) };
         bind.texture_wrap_r(texture_wrap);
     }
 }
 
-impl SamplerUnits {
+impl ImageUnits {
     #[inline]
-    pub fn new(gl: &Gl) -> SamplerUnits {
-        SamplerUnits(RawSamplerUnits::new(gl))
+    pub fn new(gl: &Gl) -> ImageUnits {
+        ImageUnits(RawImageUnits::new(gl))
     }
 
     #[inline]
