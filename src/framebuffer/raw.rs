@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use texture::sample_parameters::IntoSampleParameters;
 use texture::{Texture, TextureType, DimsTag, MipSelector};
 use cgmath_geometry::cgmath::Point2;
 use cgmath_geometry::{OffsetBox, GeoBox};
@@ -353,8 +354,9 @@ pub unsafe trait RawBoundFramebuffer {
                     }
                 }
             }
-            fn add_texture<T>(&mut self, _: &str, get_member: impl FnOnce(&Self::Attachments) -> &Texture<T>, texture_level: T::MipSelector)
-                where T: TextureType
+            fn add_texture<T, P>(&mut self, _: &str, get_member: impl FnOnce(&Self::Attachments) -> &Texture<T, P>, texture_level: T::MipSelector)
+                where T: TextureType,
+                      P: IntoSampleParameters
             {
                 let texture = get_member(self.attachments);
                 let handle = self.handles.next().expect("Mismatched attachment handle container length");
@@ -362,7 +364,7 @@ pub unsafe trait RawBoundFramebuffer {
                     *handle = Some(texture.handle());
                     let handle = texture.handle();
                     let attachment: GLenum;
-                    match <Texture<T> as Attachment>::Format::FORMAT_TYPE {
+                    match <Texture<T, P> as Attachment>::Format::FORMAT_TYPE {
                         ImageFormatType::Color => {
                             attachment = gl::COLOR_ATTACHMENT0 + self.color_index;
                             self.color_index += 1;

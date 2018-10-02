@@ -1,4 +1,5 @@
 use texture::{Texture, TextureType, MipSelector};
+use texture::sample_parameters::IntoSampleParameters;
 use color::ImageFormat;
 use framebuffer::Renderbuffer;
 use std::marker::PhantomData;
@@ -72,12 +73,12 @@ pub trait AttachmentsMemberRegistry {
         name: &str,
         get_member: impl FnOnce(&Self::Attachments) -> &Renderbuffer<I>
     );
-    fn add_texture<T>(
+    fn add_texture<T, P>(
         &mut self,
         name: &str,
-        get_member: impl FnOnce(&Self::Attachments) -> &Texture<T>,
+        get_member: impl FnOnce(&Self::Attachments) -> &Texture<T, P>,
         texture_level: T::MipSelector
-    ) where T: TextureType;
+    ) where T: TextureType, P: IntoSampleParameters;
 }
 
 pub(crate) trait AttachmentsMemberRegistryNoSpecifics {
@@ -100,8 +101,9 @@ impl<R> AttachmentsMemberRegistry for AMRNSImpl<R>
         self.0.add_member(name, get_member);
     }
     #[inline]
-    fn add_texture<T>(&mut self, name: &str, get_member: impl FnOnce(&Self::Attachments) -> &Texture<T>, _: T::MipSelector)
-        where T: TextureType
+    fn add_texture<T, P>(&mut self, name: &str, get_member: impl FnOnce(&Self::Attachments) -> &Texture<T, P>, _: T::MipSelector)
+        where T: TextureType,
+              P: IntoSampleParameters
     {
         self.0.add_member(name, get_member);
     }
@@ -144,7 +146,10 @@ impl<I: ImageFormat> Attachment for Renderbuffer<I> {
     }
 }
 
-impl<T: TextureType> Attachment for Texture<T> {
+impl<T, P> Attachment for Texture<T, P>
+    where T: TextureType,
+          P: IntoSampleParameters
+{
     const TARGET_TYPE: AttachmentTargetType = AttachmentTargetType::Texture;
     type Format = T::Format;
     type MipSelector = T::MipSelector;

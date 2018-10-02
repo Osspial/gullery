@@ -11,7 +11,7 @@ extern crate num_traits;
 
 use gullery::ContextState;
 use gullery::buffer::*;
-use gullery::texture::{*, targets::*};
+use gullery::texture::{*, targets::*, sample_parameters::Swizzle};
 use gullery::framebuffer::{*, render_state::*};
 use gullery::program::*;
 use gullery::color::*;
@@ -145,7 +145,7 @@ fn main() {
             ..RenderState::default()
         };
 
-        depth_texture.swizzle_mask(Swizzle::Red, Swizzle::Red, Swizzle::Red, Swizzle::One);
+        depth_texture.swizzle_mask(Rgba::new(Swizzle::Red, Swizzle::Red, Swizzle::Red, Swizzle::One));
 
         let mut default_framebuffer = DefaultFramebuffer::new(state.clone());
         events_loop.run_forever(|event| {

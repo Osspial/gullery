@@ -17,19 +17,27 @@ use gl::{self, Gl, types::*};
 use std::marker::PhantomData;
 use cgmath::{Vector1, Vector2, Vector3, Vector4, Point1, Point2, Point3, Matrix2, Matrix3, Matrix4};
 use glsl::{TypeTag, TransparentType};
-use texture::{ImageUnits, Texture, TextureType};
+use texture::{ImageUnits, Texture, Sampler, TextureType};
+use texture::sample_parameters::IntoSampleParameters;
 
 pub struct TextureUniformBinder<'a> {
-    pub(crate) sampler_units: &'a ImageUnits,
+    pub(crate) image_units: &'a ImageUnits,
     pub(crate) unit: &'a mut u32
 }
 
 impl<'a> TextureUniformBinder<'a> {
-    pub unsafe fn bind<T>(&mut self, tex: &Texture<T>, gl: &Gl) -> u32
-        where T: TextureType
+    pub unsafe fn bind<T, P>(&mut self, tex: &Texture<T, P>, sampler: Option<&Sampler>, gl: &Gl) -> u32
+        where T: TextureType,
+              P: IntoSampleParameters
     {
+        if let Some(sampler) = sampler {
+            sampler.upload_parameters();
+        } else {
+            tex.upload_parameters();
+        }
+
         let ret = *self.unit;
-        self.sampler_units.bind(*self.unit, tex, gl);
+        self.image_units.bind(*self.unit, tex, sampler, gl);
         *self.unit += 1;
         ret
     }

@@ -269,12 +269,12 @@ impl<'a, 'b> RawProgramShaderAttacher<'a, 'b> {
 }
 
 impl<'a> RawBoundProgram<'a> {
-    pub(crate) fn upload_uniforms<U: Uniforms>(&self, uniform: U, locs: &[GLint], sampler_units: &ImageUnits, gl: &Gl) {
+    pub(crate) fn upload_uniforms<U: Uniforms>(&self, uniform: U, locs: &[GLint], image_units: &ImageUnits, gl: &Gl) {
         struct UniformsUploader<'a, U: Uniforms> {
             locs: &'a [GLint],
             loc_index: usize,
             unit: u32,
-            sampler_units: &'a ImageUnits,
+            image_units: &'a ImageUnits,
             gl: &'a Gl,
             uniform: U
         }
@@ -284,7 +284,7 @@ impl<'a> RawBoundProgram<'a> {
                 let loc = self.locs[self.loc_index];
                 if loc != -1 {
                     let mut binder = TextureUniformBinder {
-                        sampler_units: &self.sampler_units,
+                        image_units: &self.image_units,
                         unit: &mut self.unit
                     };
                     unsafe{ get_member(self.uniform).upload(loc, &mut binder, self.gl); }
@@ -299,7 +299,7 @@ impl<'a> RawBoundProgram<'a> {
             locs,
             loc_index: 0,
             unit: 0,
-            sampler_units,
+            image_units,
             gl,
             uniform
         })

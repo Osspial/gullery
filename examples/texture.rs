@@ -31,7 +31,7 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: &'a Texture<SimpleTex<SRgba, DimsBox<Point2<u32>>>>
+    tex: &'a Texture<SimpleTex<SRgba, DimsBox<Point2<u32>>>, ()>
 }
 
 fn main() {
@@ -75,18 +75,19 @@ fn main() {
     println!("vao created");
     let (ferris_image, ferris_dims) = {
         use std::fs::File;
-        let decoder = png::Decoder::new(File::open("./examples/ferris.png").unwrap());
+        let decoder = png::Decoder::new(File::open("./examples/textures/ferris.png").unwrap());
         let (info, mut reader) = decoder.read_info().unwrap();
         let mut buf = vec![0; info.buffer_size()];
         reader.next_frame(&mut buf).unwrap();
         (buf, DimsBox::new2(info.width, info.height))
     };
+    println!("texture loaded");
     let ferris_texture = Texture::with_images(
         ferris_dims,
         Some(SRgba::slice_from_raw(&ferris_image)),
         state.clone()
     ).unwrap();
-    println!("texture loaded");
+    println!("texture uploaded");
 
 
     let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();

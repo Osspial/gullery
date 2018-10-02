@@ -78,7 +78,7 @@ unsafe impl ImageFormat for Depth32F {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Rgba<S: ScalarNum> {
+pub struct Rgba<S> {
     pub r: S,
     pub g: S,
     pub b: S,
@@ -87,7 +87,7 @@ pub struct Rgba<S: ScalarNum> {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Rgb<S: ScalarNum> {
+pub struct Rgb<S> {
     pub r: S,
     pub g: S,
     pub b: S
@@ -95,14 +95,14 @@ pub struct Rgb<S: ScalarNum> {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Rg<S: ScalarNum> {
+pub struct Rg<S> {
     pub r: S,
     pub g: S
 }
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Red<S: ScalarNum> {
+pub struct Red<S> {
     pub r: S
 }
 
@@ -125,7 +125,7 @@ pub struct SRgb {
 
 macro_rules! impl_color {
     ($(impl $name:ident<S>($len:expr, color: $($channel:ident),+);)*) => {$(
-        impl<S: ScalarNum> $name<S> {
+        impl<S> $name<S> {
             impl_color!{impl body $name<S>($len, color: $($channel),+)}
         }
     )*};

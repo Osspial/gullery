@@ -28,6 +28,7 @@ use std::marker::PhantomData;
 
 use cgmath::{Vector1, Vector2, Vector3, Point1, Point2, Point3};
 use cgmath_geometry::{GeoBox, DimsBox};
+use super::sample_parameters::*;
 
 pub struct RawTexture<T>
     where T: TextureType
@@ -35,6 +36,11 @@ pub struct RawTexture<T>
     handle: Handle,
     dims: T::Dims,
     num_mips: T::MipSelector,
+    _sendsync_optout: PhantomData<*const ()>
+}
+
+pub struct RawSampler {
+    handle: Handle,
     _sendsync_optout: PhantomData<*const ()>
 }
 
@@ -47,10 +53,16 @@ pub struct RawTexture<T>
 //     size: usize
 // }
 
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+struct ImageUnit {
+    texture: Cell<Option<Handle>>,
+    sampler: Cell<Option<Handle>>
+}
+
 pub struct RawImageUnits {
-    /// The number of sampler units is never going to change, so storing this as `Box<[]>` means we
+    /// The number of image units is never going to change, so storing this as `Box<[]>` means we
     /// don't have to deal with storing the capacity.
-    image_units: Box<[Cell<Option<Handle>>]>,
+    image_units: Box<[ImageUnit]>,
     active_unit: Cell<u32>
 }
 
@@ -80,37 +92,6 @@ pub struct CubeImage<'a, C: ColorFormat> {
     pub neg_z: &'a [C]
 }
 
-#[repr(u16)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Swizzle {
-    Red = gl::RED as u16,
-    Green = gl::GREEN as u16,
-    Blue = gl::BLUE as u16,
-    Alpha = gl::ALPHA as u16,
-    Zero = gl::ZERO as u16,
-    One = gl::ONE as u16
-}
-
-#[repr(u16)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Filter {
-    Nearest = gl::NEAREST as u16,
-    Linear = gl::LINEAR as u16,
-    NearestMipNearest = gl::NEAREST_MIPMAP_NEAREST as u16,
-    LinearMipNearest = gl::LINEAR_MIPMAP_NEAREST as u16,
-    NearestMipLinear = gl::NEAREST_MIPMAP_LINEAR as u16,
-    LinearMipLinear = gl::LINEAR_MIPMAP_LINEAR as u16
-}
-
-#[repr(u16)]
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TextureWrap {
-    Repeat = gl::REPEAT as u16,
-    RepeatMirrored = gl::MIRRORED_REPEAT as u16,
-    ClampToEdge = gl::CLAMP_TO_EDGE as u16,
-    // ClampToBorder = gl::CLAMP_TO_BORDER as u16,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DimsTag {
     One(DimsBox<Point1<u32>>),
@@ -125,6 +106,9 @@ pub struct DimsSquare {
 
 pub trait Dims: 'static + Into<DimsTag> + Copy {
     type Offset: Index<usize, Output=u32>;
+    fn width(self) -> u32;
+    fn height(self) -> u32;
+    fn depth(self) -> u32;
     fn num_pixels(self) -> u32;
     fn max_size(state: &ContextState) -> Self;
 }
@@ -205,7 +189,34 @@ impl<T> RawTexture<T>
     pub fn delete(self, state: &ContextState) {
         unsafe {
             state.gl.DeleteTextures(1, &self.handle.get());
-            state.image_units.0.unbind(self.handle, T::BIND_TARGET, &state.gl);
+            state.image_units.0.unbind_texture(self.handle, T::BIND_TARGET, &state.gl);
+        }
+    }
+}
+
+impl RawSampler {
+    pub fn new(gl: &Gl) -> RawSampler {
+        unsafe {
+            let mut handle = 0;
+            gl.GenSamplers(1, &mut handle);
+            let handle = Handle::new(handle).expect("Invalid handle returned from OpenGL");
+
+            RawSampler {
+                handle,
+                _sendsync_optout: PhantomData
+            }
+        }
+    }
+
+    #[inline(always)]
+    pub fn handle(&self) -> Handle {
+        self.handle
+    }
+
+    pub fn delete(self, state: &ContextState) {
+        unsafe {
+            state.gl.DeleteSamplers(1, &self.handle.get());
+            state.image_units.0.unbind_sampler_from_all(self.handle, &state.gl);
         }
     }
 }
@@ -221,7 +232,7 @@ impl RawImageUnits {
         assert!(0 <= max_tex_units);
 
         RawImageUnits {
-            image_units: vec![Cell::new(None); max_tex_units as usize].into_boxed_slice(),
+            image_units: vec![ImageUnit::default(); max_tex_units as usize].into_boxed_slice(),
             active_unit: Cell::new(0)
         }
     }
@@ -237,11 +248,12 @@ impl RawImageUnits {
     }
 
     #[inline]
-    pub unsafe fn bind<'a, T>(&'a self, unit: u32, tex: &'a RawTexture<T>, gl: &'a Gl) -> RawBoundTexture<'a, T>
+    pub unsafe fn bind_texture<'a, T>(&'a self, unit: u32, tex: &'a RawTexture<T>, gl: &'a Gl) -> RawBoundTexture<'a, T>
         where T: 'a + TextureType
     {
-        #[inline(never)]
-        fn panic_bad_bind(unit: u32, max_unit: u32) -> ! {
+        let max_unit = self.image_units.len() as u32 - 1;
+
+        if max_unit < unit {
             panic!(
                 "attempted to bind to unavailable sampler unit {}; highest unit is {}",
                 unit,
@@ -249,20 +261,14 @@ impl RawImageUnits {
             );
         }
 
-        let max_unit = self.image_units.len() as u32 - 1;
-
-        if max_unit < unit {
-            panic_bad_bind(unit, max_unit);
-        }
-
         if unit != self.active_unit.get() {
             self.active_unit.set(unit);
             gl.ActiveTexture(gl::TEXTURE0 + unit);
         }
 
-        let bound_texture = &self.image_units[unit as usize];
-        if bound_texture.get() != Some(tex.handle) {
-            bound_texture.set(Some(tex.handle));
+        let active_image_unit = &self.image_units[unit as usize];
+        if active_image_unit.texture.get() != Some(tex.handle) {
+            active_image_unit.texture.set(Some(tex.handle));
             gl.BindTexture(T::BIND_TARGET, tex.handle.get());
         }
 
@@ -270,22 +276,55 @@ impl RawImageUnits {
     }
 
     #[inline]
-    pub unsafe fn bind_mut<'a, T>(&'a self, unit: u32, tex: &'a mut RawTexture<T>, gl: &'a Gl) -> RawBoundTextureMut<'a, T>
+    pub unsafe fn bind_texture_mut<'a, T>(&'a self, unit: u32, tex: &'a mut RawTexture<T>, gl: &'a Gl) -> RawBoundTextureMut<'a, T>
         where T: 'a + TextureType
     {
-        self.bind(unit, tex, gl);
+        self.bind_texture(unit, tex, gl);
         RawBoundTextureMut{ tex, gl }
     }
 
-    unsafe fn unbind(&self, handle: Handle, target: GLuint, gl: &Gl) {
+    #[inline]
+    pub unsafe fn bind_sampler(&self, unit: u32, sampler: &RawSampler, gl: &Gl) {
+        let max_unit = self.image_units.len() as u32 - 1;
+
+        if max_unit < unit {
+            panic!(
+                "attempted to bind to unavailable sampler unit {}; highest unit is {}",
+                unit,
+                max_unit
+            );
+        }
+
+        let active_image_unit = &self.image_units[unit as usize];
+        if active_image_unit.sampler.get() != Some(sampler.handle) {
+            gl.BindSampler(unit, sampler.handle.get());
+        }
+    }
+
+    unsafe fn unbind_texture(&self, handle: Handle, target: GLuint, gl: &Gl) {
         for (unit_index, unit) in self.image_units.iter().enumerate() {
-            if unit.get() == Some(handle) {
+            if unit.texture.get() == Some(handle) {
                 gl.ActiveTexture(gl::TEXTURE0 + unit_index as GLuint);
                 gl.BindTexture(target, 0);
-                unit.set(None);
+                unit.texture.set(None);
                 self.active_unit.set(unit_index as GLuint);
             }
         }
+    }
+
+    unsafe fn unbind_sampler_from_all(&self, handle: Handle, gl: &Gl) {
+        for (unit_index, unit) in self.image_units.iter().enumerate() {
+            if unit.sampler.get() == Some(handle) {
+                gl.BindSampler(unit_index as GLuint, 0);
+                unit.sampler.set(None);
+            }
+        }
+    }
+
+    pub unsafe fn unbind_sampler_from_unit(&self, unit_index: GLuint, gl: &Gl) {
+        let unit = &self.image_units[unit_index as usize];
+        gl.BindSampler(unit_index, 0);
+        unit.sampler.set(None);
     }
 }
 
@@ -295,6 +334,51 @@ impl<'a, T> RawBoundTexture<'a, T>
 {
     pub fn raw_tex(&self) -> &RawTexture<T> {
         &self.tex
+    }
+}
+
+pub trait ParameterUploader {
+    fn gl(&self) -> &Gl;
+    fn float(&self, pname: GLenum, param: f32);
+    fn int(&self, pname: GLenum, param: i32);
+
+    #[inline]
+    fn upload_parameters(&self, parameters: SampleParameters, old_parameters_cell: &Cell<SampleParameters>) {
+        let old_parameters = old_parameters_cell.get();
+
+        macro_rules! upload {
+            ($($param:ident => $expr:expr;)+) => {
+                let SampleParameters {
+                    $($param),+
+                } = parameters;
+
+                $(
+                    if $param != old_parameters.$param {
+                        $expr;
+                    }
+                )+
+            };
+        }
+
+        upload!{
+            filter_min => self.int(gl::TEXTURE_MIN_FILTER, GLenum::from(filter_min) as i32);
+            filter_mag => self.int(gl::TEXTURE_MAG_FILTER, GLenum::from(filter_mag) as i32);
+            anisotropy_max => {
+                let mut max_ma = 256.0; // arbitrarily large number
+                unsafe{ self.gl().GetFloatv(gl::MAX_TEXTURE_MAX_ANISOTROPY_EXT, &mut max_ma) };
+
+                self.float(gl::TEXTURE_MAX_ANISOTROPY_EXT, anisotropy_max.max(1.0).min(max_ma));
+            };
+            texture_wrap => {
+                self.int(gl::TEXTURE_WRAP_S, GLenum::from(texture_wrap.s) as i32);
+                self.int(gl::TEXTURE_WRAP_T, GLenum::from(texture_wrap.t) as i32);
+                self.int(gl::TEXTURE_WRAP_R, GLenum::from(texture_wrap.r) as i32);
+            };
+            lod_min => self.float(gl::TEXTURE_MIN_LOD, lod_min);
+            lod_max => self.float(gl::TEXTURE_MAX_LOD, lod_max);
+            lod_bias => self.float(gl::TEXTURE_LOD_BIAS, lod_bias);
+        }
+        old_parameters_cell.set(parameters);
     }
 }
 
@@ -438,55 +522,36 @@ impl<'a, T> RawBoundTextureMut<'a, T>
         ];
         unsafe{ self.gl.TexParameteriv(T::BIND_TARGET, gl::TEXTURE_SWIZZLE_RGBA, mask.as_ptr()) };
     }
-
-    #[inline]
-    pub fn filtering(&mut self, minify: Filter, magnify: Filter) {
-        unsafe {
-            self.gl.TexParameteri(T::BIND_TARGET, gl::TEXTURE_MIN_FILTER, GLenum::from(minify) as GLint);
-            self.gl.TexParameteri(T::BIND_TARGET, gl::TEXTURE_MAG_FILTER, GLenum::from(magnify) as GLint);
-        }
-    }
-
-    #[inline]
-    pub fn max_anisotropy(&mut self, max_anisotropy: f32) {
-        unsafe {
-            // The maximum value that can be stored in max_anisotropy
-            let mut max_ma = 0.0;
-            self.gl.GetFloatv(gl::MAX_TEXTURE_MAX_ANISOTROPY_EXT, &mut max_ma);
-
-            self.gl.TexParameterf(T::BIND_TARGET, gl::TEXTURE_MAX_ANISOTROPY_EXT, max_anisotropy.max(1.0).min(max_ma));
-        }
-    }
-
-    #[inline]
-    pub fn texture_wrap_s(&mut self, wrap: TextureWrap) {
-        unsafe {
-            self.gl.TexParameteri(T::BIND_TARGET, gl::TEXTURE_WRAP_S, mem::transmute::<_, u16>(wrap) as GLint);
-        }
-    }
-
-    #[inline]
-    pub fn texture_wrap_t(&mut self, wrap: TextureWrap) {
-        unsafe {
-            self.gl.TexParameteri(T::BIND_TARGET, gl::TEXTURE_WRAP_T, mem::transmute::<_, u16>(wrap) as GLint);
-        }
-    }
-
-    #[inline]
-    pub fn texture_wrap_r(&mut self, wrap: TextureWrap) {
-        unsafe {
-            self.gl.TexParameteri(T::BIND_TARGET, gl::TEXTURE_WRAP_R, mem::transmute::<_, u16>(wrap) as GLint);
-        }
-    }
-
-    // #[inline]
-    // pub fn border_color(&mut self, color: C) {
-    //     unsafe {
-    //         self.gl.TexParameterfv(T::BIND_TARGET, gl::TEXTURE_BORDER_COLOR, &color.r);
-    //     }
-    // }
 }
 
+// TODO: IMPLEMENT PARAMETERUPLOADER FOR Sampler AND MOVE CALLS TO IT
+impl<'a, T> ParameterUploader for RawBoundTexture<'a, T>
+    where T: TextureType
+{
+    #[inline]
+    fn gl(&self) -> &Gl { self.gl }
+    #[inline]
+    fn float(&self, pname: GLenum, param: f32) {
+        unsafe{ self.gl.TexParameterf(T::BIND_TARGET, pname, param) };
+    }
+    #[inline]
+    fn int(&self, pname: GLenum, param: i32) {
+        unsafe{ self.gl.TexParameteri(T::BIND_TARGET, pname, param) };
+    }
+}
+
+impl<'a> ParameterUploader for (&'a Gl, &'a RawSampler) {
+    #[inline]
+    fn gl(&self) -> &Gl { self.0 }
+    #[inline]
+    fn float(&self, pname: GLenum, param: f32) {
+        unsafe{ self.0.SamplerParameterf(self.1.handle.get(), pname, param) };
+    }
+    #[inline]
+    fn int(&self, pname: GLenum, param: i32) {
+        unsafe{ self.0.SamplerParameteri(self.1.handle.get(), pname, param) };
+    }
+}
 
 impl<'a, T> Deref for RawBoundTextureMut<'a, T>
     where T: TextureType
@@ -551,6 +616,10 @@ impl DimsTag {
 impl Dims1D for DimsBox<Point1<u32>> {}
 impl Dims for DimsBox<Point1<u32>> {
     type Offset = Vector1<u32>;
+
+    #[inline] fn width(self) -> u32 {GeoBox::width(&self)}
+    #[inline] fn height(self) -> u32 {GeoBox::height(&self)}
+    #[inline] fn depth(self) -> u32 {GeoBox::depth(&self)}
     #[inline]
     fn num_pixels(self) -> u32 {
         self.width()
@@ -568,6 +637,9 @@ impl Dims1D for DimsBox<Point2<u32>> {}
 impl Dims2D for DimsBox<Point2<u32>> {}
 impl Dims for DimsBox<Point2<u32>> {
     type Offset = Vector2<u32>;
+    #[inline] fn width(self) -> u32 {GeoBox::width(&self)}
+    #[inline] fn height(self) -> u32 {GeoBox::height(&self)}
+    #[inline] fn depth(self) -> u32 {GeoBox::depth(&self)}
     #[inline]
     fn num_pixels(self) -> u32 {
         self.width() * self.height()
@@ -585,6 +657,9 @@ impl Dims1D for DimsSquare {}
 impl Dims2D for DimsSquare {}
 impl Dims for DimsSquare {
     type Offset = Vector2<u32>;
+    #[inline] fn width(self) -> u32 {self.side}
+    #[inline] fn height(self) -> u32 {self.side}
+    #[inline] fn depth(self) -> u32 {1}
     #[inline]
     fn num_pixels(self) -> u32 {
         self.side * self.side
@@ -603,6 +678,9 @@ impl Dims2D for DimsBox<Point3<u32>> {}
 impl Dims3D for DimsBox<Point3<u32>> {}
 impl Dims for DimsBox<Point3<u32>> {
     type Offset = Vector3<u32>;
+    #[inline] fn width(self) -> u32 {GeoBox::width(&self)}
+    #[inline] fn height(self) -> u32 {GeoBox::height(&self)}
+    #[inline] fn depth(self) -> u32 {GeoBox::depth(&self)}
     #[inline]
     fn num_pixels(self) -> u32 {
         self.width() * self.height() * self.depth()
@@ -638,22 +716,6 @@ impl From<DimsBox<Point3<u32>>> for DimsTag {
     #[inline]
     fn from(dims: DimsBox<Point3<u32>>) -> DimsTag {
         DimsTag::Three(dims)
-    }
-}
-
-impl From<Swizzle> for GLenum {
-    #[inline]
-    fn from(swizzle: Swizzle) -> GLenum {
-        let swiz_u16: u16 = unsafe{ mem::transmute(swizzle) };
-        swiz_u16 as u32
-    }
-}
-
-impl From<Filter> for GLenum {
-    #[inline]
-    fn from(filter: Filter) -> GLenum {
-        let filter_u16: u16 = unsafe{ mem::transmute(filter) };
-        filter_u16 as u32
     }
 }
 
