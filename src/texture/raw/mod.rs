@@ -19,7 +19,7 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use ContextState;
-use color::{ColorFormat, ImageFormat};
+use color::ImageFormat;
 
 use std::{mem, ptr, iter};
 use std::cell::Cell;
@@ -83,13 +83,13 @@ pub struct RawBoundTextureMut<'a, T>
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CubeImage<'a, C: ColorFormat> {
-    pub pos_x: &'a [C],
-    pub neg_x: &'a [C],
-    pub pos_y: &'a [C],
-    pub neg_y: &'a [C],
-    pub pos_z: &'a [C],
-    pub neg_z: &'a [C]
+pub struct CubeImage<'a, I: ImageFormat> {
+    pub pos_x: &'a [I],
+    pub neg_x: &'a [I],
+    pub pos_y: &'a [I],
+    pub neg_y: &'a [I],
+    pub pos_z: &'a [I],
+    pub neg_z: &'a [I]
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -719,8 +719,8 @@ impl From<DimsBox<Point3<u32>>> for DimsTag {
     }
 }
 
-impl<'a, C: ColorFormat> Image<'a, targets::CubemapTex<C>> for CubeImage<'a, C> {
-    fn variants<F: FnMut(GLenum, &'a [C])>(self, mut for_each: F) {
+impl<'a, I: ImageFormat> Image<'a, targets::CubemapTex<I>> for CubeImage<'a, I> {
+    fn variants<F: FnMut(GLenum, &'a [I])>(self, mut for_each: F) {
         for_each(gl::TEXTURE_CUBE_MAP_POSITIVE_X, self.pos_x);
         for_each(gl::TEXTURE_CUBE_MAP_NEGATIVE_X, self.neg_x);
         for_each(gl::TEXTURE_CUBE_MAP_POSITIVE_Y, self.pos_y);

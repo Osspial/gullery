@@ -31,7 +31,7 @@ use buffer::Index;
 use vertex::VertexArrayObject;
 use uniform::Uniforms;
 use program::Program;
-use color::{ColorFormat, Rgba, ImageFormat, ImageFormatType};
+use color::{Rgba, ImageFormat, ImageFormatType};
 use self::render_state::RenderState;
 use cgmath_geometry::OffsetBox;
 use cgmath_geometry::cgmath::Point2;
@@ -126,7 +126,7 @@ pub trait Framebuffer {
 
     #[inline]
     fn read_pixels<C>(&mut self, read_rect: OffsetBox<Point2<u32>>, data: &mut [C])
-        where C: ColorFormat,
+        where C: ImageFormat,
               Self::Attachments: DefaultFramebufferAttachments
     {
         let (raw, arm, state) = self.raw_mut();
@@ -144,7 +144,7 @@ pub trait Framebuffer {
         data: &mut [C],
         get_attachment: impl FnOnce(&Self::Attachments) -> &A
     )
-        where C: ColorFormat,
+        where C: ImageFormat,
               Self::Attachments: FBOAttachments,
               A: Attachment<Format=C>
     {
