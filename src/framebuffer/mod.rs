@@ -31,7 +31,7 @@ use buffer::Index;
 use vertex::VertexArrayObject;
 use uniform::Uniforms;
 use program::Program;
-use color::{Rgba, ImageFormat, ImageFormatType};
+use image_format::{Rgba, ImageFormat, ImageFormatType};
 use self::render_state::RenderState;
 use cgmath_geometry::OffsetBox;
 use cgmath_geometry::cgmath::Point2;

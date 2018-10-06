@@ -11,7 +11,7 @@ use gullery::ContextState;
 use gullery::buffer::*;
 use gullery::framebuffer::{*, render_state::*};
 use gullery::program::*;
-use gullery::color::*;
+use gullery::image_format::*;
 use gullery::texture::*;
 use gullery::texture::targets::SimpleTex;
 use gullery::vertex::VertexArrayObject;

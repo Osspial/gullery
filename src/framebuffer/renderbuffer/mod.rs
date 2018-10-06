@@ -15,7 +15,7 @@
 use {Handle, ContextState, GLObject};
 mod raw;
 use self::raw::{RawRenderbuffer, RawRenderbufferTarget};
-use color::ImageFormat;
+use image_format::ImageFormat;
 
 use cgmath::Point2;
 use cgmath_geometry::DimsBox;

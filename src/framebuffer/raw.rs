@@ -16,7 +16,7 @@ use texture::sample_parameters::IntoSampleParameters;
 use texture::{Texture, TextureType, DimsTag, MipSelector};
 use cgmath_geometry::cgmath::Point2;
 use cgmath_geometry::{OffsetBox, GeoBox};
-use color::{ImageFormat, ImageFormatType};
+use image_format::{ImageFormat, ImageFormatType};
 use gl::{self, Gl};
 use gl::types::*;
 
@@ -26,7 +26,7 @@ use buffer::Index;
 use vertex::vao::BoundVAO;
 use uniform::Uniforms;
 use program::BoundProgram;
-use color::Rgba;
+use image_format::Rgba;
 use super::Renderbuffer;
 use super::attachments::*;
 

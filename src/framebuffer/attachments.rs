@@ -1,6 +1,6 @@
 use texture::{Texture, TextureType, MipSelector};
 use texture::sample_parameters::IntoSampleParameters;
-use color::ImageFormat;
+use image_format::ImageFormat;
 use framebuffer::Renderbuffer;
 use std::marker::PhantomData;
 use {Handle, GLObject};

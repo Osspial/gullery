@@ -22,7 +22,7 @@ use gl::types::*;
 use {ContextState, GLObject, Handle};
 use self::raw::*;
 use self::sample_parameters::*;
-use color::{ImageFormat, Rgba};
+use image_format::{ImageFormat, Rgba};
 
 use glsl::{TypeTag, TypeBasicTag, Scalar};
 use uniform::{UniformType, TextureUniformBinder};

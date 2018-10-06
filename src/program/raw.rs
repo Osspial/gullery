@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use framebuffer::attachments::{Attachment, Attachments, AttachmentsMemberRegistryNoSpecifics, AMRNSImpl};
-use color::{ImageFormat, ImageFormatType};
+use image_format::{ImageFormat, ImageFormatType};
 use gl::{self, Gl};
 use gl::types::*;
 

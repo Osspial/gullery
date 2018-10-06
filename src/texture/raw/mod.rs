@@ -19,7 +19,7 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use ContextState;
-use color::ImageFormat;
+use image_format::ImageFormat;
 
 use std::{mem, ptr, iter};
 use std::cell::Cell;
