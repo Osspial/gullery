@@ -15,7 +15,7 @@
 use {Handle, ContextState, GLObject};
 mod raw;
 use self::raw::{RawRenderbuffer, RawRenderbufferTarget};
-use image_format::ImageFormat;
+use image_format::{UncompressedFormat, GLFormat};
 
 use cgmath::Point2;
 use cgmath_geometry::DimsBox;
@@ -24,7 +24,7 @@ use std::rc::Rc;
 use std::marker::PhantomData;
 
 pub(crate) struct RenderbufferTarget(RawRenderbufferTarget);
-pub struct Renderbuffer<I: ImageFormat> {
+pub struct Renderbuffer<I: UncompressedFormat> {
     raw: RawRenderbuffer,
     samples: u32,
     dims: DimsBox<Point2<u32>>,
@@ -38,12 +38,19 @@ impl RenderbufferTarget {
     }
 }
 
-impl<I: ImageFormat> Renderbuffer<I> {
+impl<I: UncompressedFormat> Renderbuffer<I> {
     pub fn new(dims: DimsBox<Point2<u32>>, samples: u32, state: Rc<ContextState>) -> Renderbuffer<I> {
         let mut raw = RawRenderbuffer::new(&state.gl);
+        let internal_format = match I::ATTRIBUTES.format {
+            GLFormat::Uncompressed{internal_format, ..} => internal_format,
+            GLFormat::Compressed{..} => panic!("compressed format information passed with uncompressed texture;\
+                                                check the image format's ATTRIBUTES.format field. It should have a\
+                                                GLFormat::Uncompressed value")
+        };
+
         unsafe {
             let mut bind = state.renderbuffer_target.0.bind_mut(&mut raw, &state.gl);
-            bind.alloc_storage(I::INTERNAL_FORMAT, dims, samples);
+            bind.alloc_storage(internal_format, dims, samples);
         }
 
         Renderbuffer {
@@ -63,14 +70,14 @@ impl<I: ImageFormat> Renderbuffer<I> {
     }
 }
 
-impl<I: ImageFormat> GLObject for Renderbuffer<I> {
+impl<I: UncompressedFormat> GLObject for Renderbuffer<I> {
     #[inline(always)]
     fn handle(&self) -> Handle {
         self.raw.handle()
     }
 }
 
-impl<I: ImageFormat> Drop for Renderbuffer<I> {
+impl<I: UncompressedFormat> Drop for Renderbuffer<I> {
     fn drop(&mut self) {
         let mut buffer = unsafe{ mem::uninitialized() };
         mem::swap(&mut buffer, &mut self.raw);

@@ -24,7 +24,7 @@ use self::raw::*;
 use self::sample_parameters::*;
 use image_format::{ImageFormat, Rgba};
 
-use glsl::{TypeTag, TypeBasicTag, Scalar};
+use glsl::{TypeTag, TypeBasicTag, Scalar, GLSLScalarType};
 use uniform::{UniformType, TextureUniformBinder};
 
 use std::{mem, io, fmt};
@@ -38,8 +38,9 @@ use cgmath::{Point1, Point2, Point3};
 use cgmath_geometry::DimsBox;
 
 
-pub struct Texture<T, P: IntoSampleParameters = SampleParameters>
-    where T: TextureType
+pub struct Texture<T, P = SampleParameters>
+    where T: TextureType,
+          P: IntoSampleParameters
 {
     pub sample_parameters: P,
     old_sample_parameters: Cell<P>,
@@ -301,10 +302,11 @@ macro_rules! texture_type_uniform {
         {
             #[inline]
             fn uniform_tag() -> TypeTag {
-                TypeTag::Single(match (C::Scalar::GLSL_INTEGER, C::Scalar::SIGNED) {
-                    (false, _) => TypeBasicTag::$tag_ident,
-                    (true, true) => TypeBasicTag::$i_tag_ident,
-                    (true, false) => TypeBasicTag::$u_tag_ident
+                TypeTag::Single(match (C::ATTRIBUTES.scalar_type, C::ATTRIBUTES.scalar_signed) {
+                    (GLSLScalarType::Float, _) => TypeBasicTag::$tag_ident,
+                    (GLSLScalarType::Int, true) => TypeBasicTag::$i_tag_ident,
+                    (GLSLScalarType::Bool, _) |
+                    (GLSLScalarType::Int, false) => TypeBasicTag::$u_tag_ident
                 })
             }
             #[inline]

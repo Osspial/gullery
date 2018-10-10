@@ -31,7 +31,7 @@ extern crate quickcheck;
 extern crate glutin;
 
 pub mod buffer;
-pub mod color;
+pub mod image_format;
 pub mod glsl;
 pub mod framebuffer;
 pub mod program;

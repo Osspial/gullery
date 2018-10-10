@@ -34,8 +34,16 @@ pub unsafe trait TransparentType: 'static + Copy {
 pub unsafe trait Scalar: TransparentType {
     const GL_ENUM: GLenum;
     const NORMALIZED: bool;
-    const GLSL_INTEGER: bool;
+    const GLSL_SCALAR_TYPE: GLSLScalarType;
     const SIGNED: bool;
+}
+
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GLSLScalarType {
+    Float,
+    Int,
+    Bool,
 }
 
 pub unsafe trait ScalarNum: Scalar + Num {}
@@ -182,8 +190,7 @@ macro_rules! impl_gl_scalar_nonorm {
         unsafe impl Scalar for $scalar {
             const GL_ENUM: GLenum = $gl_enum;
             const NORMALIZED: bool = $normalized;
-            // We treat raw integers as normalized, so we shouldn't tell OpenGL that they're integers.
-            const GLSL_INTEGER: bool = false;
+            const GLSL_SCALAR_TYPE: GLSLScalarType = GLSLScalarType::Float;
             const SIGNED: bool = $signed;
         }
 
@@ -210,7 +217,7 @@ impl_gl_scalar_nonorm!{
 unsafe impl Scalar for bool {
     const GL_ENUM: GLenum = gl::BOOL;
     const NORMALIZED: bool = false;
-    const GLSL_INTEGER: bool = true;
+    const GLSL_SCALAR_TYPE: GLSLScalarType = GLSLScalarType::Bool;
     const SIGNED: bool = false;
 }
 
@@ -681,7 +688,7 @@ unsafe impl<I> Scalar for GLSLInt<I>
 {
     const GL_ENUM: GLenum = I::GL_ENUM;
     const NORMALIZED: bool = false;
-    const GLSL_INTEGER: bool = true;
+    const GLSL_SCALAR_TYPE: GLSLScalarType = GLSLScalarType::Int;
     const SIGNED: bool = I::SIGNED;
 }
 

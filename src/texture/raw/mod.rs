@@ -19,7 +19,7 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use ContextState;
-use image_format::ImageFormat;
+use image_format::{ImageFormat, GLFormat};
 
 use std::{mem, ptr, iter};
 use std::cell::Cell;
@@ -397,7 +397,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
             }
 
 
-            let for_each_variant = |func: fn(&Gl, GLenum, GLint, GLsizei, GLsizei, GLsizei, *const GLvoid)| {
+            let for_each_variant = |func: fn(&Gl, GLenum, GLint, GLsizei, GLsizei, GLsizei, &[u8])| {
                 let (width, height, depth) = self.tex.dims.into().to_tuple();
 
                 let dims_exponent = level_int as u32 + 1;
@@ -410,7 +410,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
                 match image {
                     Some(image_data) => image_data.variants(|image_bind, data| {
                         if data.len() == num_pixels_expected {
-                            func(self.gl, image_bind, level_int, width_gl, height_gl, depth_gl, data.as_ptr() as *const GLvoid);
+                            func(self.gl, image_bind, level_int, width_gl, height_gl, depth_gl, data);
                         } else {
                             panic!("Mismatched image size; expected {} pixels, found {} pixels", num_pixels_expected, data.len());
                         }
@@ -419,28 +419,57 @@ impl<'a, T> RawBoundTextureMut<'a, T>
                 }
             };
 
-            match self.tex.dims.into() {
-                DimsTag::One(_) => for_each_variant(|gl, image_bind, mip_level, width, _, _, data|
-                    gl.TexImage1D(
-                        image_bind, mip_level, T::Format::INTERNAL_FORMAT as GLint,
-                        width,
-                        0, T::Format::PIXEL_FORMAT, T::Format::PIXEL_TYPE, data
-                    )),
-                DimsTag::Two(_) => for_each_variant(|gl, image_bind, mip_level, width, height, _, data|
-                    gl.TexImage2D(
-                        image_bind, mip_level, T::Format::INTERNAL_FORMAT as GLint,
-                        width,
-                        height,
-                        0, T::Format::PIXEL_FORMAT, T::Format::PIXEL_TYPE, data
-                    )),
-                DimsTag::Three(_) => for_each_variant(|gl, image_bind, mip_level, width, height, depth, data|
-                    gl.TexImage3D(
-                        image_bind, mip_level, T::Format::INTERNAL_FORMAT as GLint,
-                        width,
-                        height,
-                        depth,
-                        0, T::Format::PIXEL_FORMAT, T::Format::PIXEL_TYPE, data
-                    )),
+            match T::Format::ATTRIBUTES.format {
+                GLFormat::Uncompressed{internal_format, pixel_format} => {
+                    match self.tex.dims.into() {
+                        DimsTag::One(_) => for_each_variant(|gl, image_bind, mip_level, width, _, _, data|
+                            gl.TexImage1D(
+                                image_bind, mip_level, internal_format as GLint,
+                                width,
+                                0, pixel_format, T::Format::ATTRIBUTES.pixel_type, data.as_ptr() as *const GLvoid
+                            )),
+                        DimsTag::Two(_) => for_each_variant(|gl, image_bind, mip_level, width, height, _, data|
+                            gl.TexImage2D(
+                                image_bind, mip_level, internal_format as GLint,
+                                width,
+                                height,
+                                0, pixel_format, T::Format::ATTRIBUTES.pixel_type, data.as_ptr() as *const GLvoid
+                            )),
+                        DimsTag::Three(_) => for_each_variant(|gl, image_bind, mip_level, width, height, depth, data|
+                            gl.TexImage3D(
+                                image_bind, mip_level, internal_format as GLint,
+                                width,
+                                height,
+                                depth,
+                                0, pixel_format, T::Format::ATTRIBUTES.pixel_type, data.as_ptr() as *const GLvoid
+                            )),
+                    }
+                },
+                GLFormat::Compressed{internal_format} => {
+                    match self.tex.dims.into() {
+                        DimsTag::One(_) => for_each_variant(|gl, image_bind, mip_level, width, _, _, data|
+                            gl.CompressedTexImage1D(
+                                image_bind, mip_level, internal_format as GLint,
+                                width,
+                                0, data.len() as GLsizei, data.as_ptr() as *const GLvoid
+                            )),
+                        DimsTag::Two(_) => for_each_variant(|gl, image_bind, mip_level, width, height, _, data|
+                            gl.TexImage2D(
+                                image_bind, mip_level, internal_format as GLint,
+                                width,
+                                height,
+                                0, data.len() as GLsizei, data.as_ptr() as *const GLvoid
+                            )),
+                        DimsTag::Three(_) => for_each_variant(|gl, image_bind, mip_level, width, height, depth, data|
+                            gl.TexImage3D(
+                                image_bind, mip_level, internal_format as GLint,
+                                width,
+                                height,
+                                depth,
+                                0, data.len() as GLsizei, data.as_ptr() as *const GLvoid
+                            )),
+                    }
+                }
             }
 
             assert_eq!(0, self.gl.GetError());
@@ -488,7 +517,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
                     image_bind, level.to_glint(),
                     offset[0] as GLint,
                     dims.width() as GLsizei,
-                    T::Format::PIXEL_FORMAT, T::Format::PIXEL_TYPE, data.as_ptr() as *const GLvoid
+                    T::Format::ATTRIBUTES.pixel_format, T::Format::ATTRIBUTES.pixel_type, data.as_ptr() as *const GLvoid
                 )),
                 Two(dims) => image.variants(|image_bind, data| self.gl.TexSubImage2D(
                     image_bind, level.to_glint(),
@@ -496,7 +525,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
                     offset[1] as GLint,
                     dims.width() as GLsizei,
                     dims.height() as GLsizei,
-                    T::Format::PIXEL_FORMAT, T::Format::PIXEL_TYPE, data.as_ptr() as *const GLvoid
+                    T::Format::ATTRIBUTES.pixel_format, T::Format::ATTRIBUTES.pixel_type, data.as_ptr() as *const GLvoid
                 )),
                 Three(dims) => image.variants(|image_bind, data| self.gl.TexSubImage3D(
                     image_bind, level.to_glint(),
@@ -506,7 +535,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
                     dims.width() as GLsizei,
                     dims.height() as GLsizei,
                     dims.depth() as GLsizei,
-                    T::Format::PIXEL_FORMAT, T::Format::PIXEL_TYPE, data.as_ptr() as *const GLvoid
+                    T::Format::ATTRIBUTES.pixel_format, T::Format::ATTRIBUTES.pixel_type, data.as_ptr() as *const GLvoid
                 ))
             }
         }
