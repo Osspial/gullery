@@ -1,37 +1,63 @@
 use gl;
-use image_format::{ImageFormatType, ImageFormat, ColorFormat, CompressedFormat, GLFormat, ImageFormatAttributes};
+use image_format::{
+    ImageFormatType, ImageFormat, ColorFormat, UncompressedFormat, CompressedFormat, GLFormat,
+    ImageFormatAttributes, Rgb, Rgba, SRgb, SRgba, Red, Rg
+};
 use glsl::GLSLScalarType;
 
-pub type BC4<S> = RGTC_Red<S>;
-pub type BC5<S> = RGTC_RG<S>;
+pub type BC1<S> = DXT1<S>;
+pub type BC2<S> = DXT3<S>;
+pub type BC3<S> = DXT5<S>;
+pub type BC4<S> = RGTC<Red<S>>;
+pub type BC5<S> = RGTC<Rg<S>>;
 
-#[repr(C)]
+#[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct RGTC_Red<S: Copy> {
-    pub red: [S; 8]
+pub struct RGTC<S: UncompressedFormat> {
+    pub block: [S; 8]
 }
 
-#[repr(C)]
+#[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct RGTC_RG<S: Copy> {
-    pub red: [S; 8],
-    pub green: [S; 8]
+pub struct DXT1<S: UncompressedFormat> {
+    pub block: [S::Scalar; 8]
 }
 
-impl<S: Copy> RGTC_Red<S> {
-    impl_slice_conversions!(S);
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct DXT3<S: UncompressedFormat> {
+    pub block: [S::Scalar; 16]
 }
 
-impl<S: Copy> RGTC_RG<S> {
-    impl_slice_conversions!(S);
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct DXT5<S: UncompressedFormat> {
+    pub block: [S::Scalar; 16]
 }
 
-unsafe impl<S: Copy> CompressedFormat for RGTC_Red<S>
-    where RGTC_Red<S>: ImageFormat {}
-unsafe impl<S: Copy> ColorFormat for RGTC_Red<S>
-    where RGTC_Red<S>: ImageFormat {}
+impl<S: UncompressedFormat> RGTC<S> {
+    impl_slice_conversions!(S::Scalar);
+}
 
-unsafe impl ImageFormat for RGTC_Red<i8> {
+impl<S: UncompressedFormat> DXT1<S> {
+    impl_slice_conversions!(S::Scalar);
+}
+
+impl<S: UncompressedFormat> DXT3<S> {
+    impl_slice_conversions!(S::Scalar);
+}
+
+impl<S: UncompressedFormat> DXT5<S> {
+    impl_slice_conversions!(S::Scalar);
+}
+
+
+unsafe impl<S: UncompressedFormat> CompressedFormat for RGTC<S>
+    where RGTC<S>: ImageFormat, {}
+unsafe impl<S: UncompressedFormat> ColorFormat for RGTC<S>
+    where RGTC<S>: ImageFormat {}
+
+unsafe impl ImageFormat for RGTC<Red<i8>> {
     const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
         format: GLFormat::Compressed {
             internal_format: gl::COMPRESSED_SIGNED_RED_RGTC1,
@@ -42,7 +68,7 @@ unsafe impl ImageFormat for RGTC_Red<i8> {
         scalar_signed: true,
     };
 }
-unsafe impl ImageFormat for RGTC_Red<u8> {
+unsafe impl ImageFormat for RGTC<Red<u8>> {
     const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
         format: GLFormat::Compressed {
             internal_format: gl::COMPRESSED_RED_RGTC1,
@@ -53,14 +79,7 @@ unsafe impl ImageFormat for RGTC_Red<u8> {
         scalar_signed: false,
     };
 }
-
-
-unsafe impl<S: Copy> CompressedFormat for RGTC_RG<S>
-    where RGTC_RG<S>: ImageFormat {}
-unsafe impl<S: Copy> ColorFormat for RGTC_RG<S>
-    where RGTC_RG<S>: ImageFormat {}
-
-unsafe impl ImageFormat for RGTC_RG<i8> {
+unsafe impl ImageFormat for RGTC<Rg<i8>> {
     const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
         format: GLFormat::Compressed {
             internal_format: gl::COMPRESSED_SIGNED_RG_RGTC2,
@@ -71,10 +90,113 @@ unsafe impl ImageFormat for RGTC_RG<i8> {
         scalar_signed: true,
     };
 }
-unsafe impl ImageFormat for RGTC_RG<u8> {
+unsafe impl ImageFormat for RGTC<Rg<u8>> {
     const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
         format: GLFormat::Compressed {
             internal_format: gl::COMPRESSED_RG_RGTC2,
+            pixels_per_block: 4 * 4,
+        },
+        format_type: ImageFormatType::Color,
+        scalar_type: GLSLScalarType::Float,
+        scalar_signed: false,
+    };
+}
+
+unsafe impl<S: UncompressedFormat> CompressedFormat for DXT1<S>
+    where DXT1<S>: ImageFormat {}
+unsafe impl<S: UncompressedFormat> ColorFormat for DXT1<S>
+    where DXT1<S>: ImageFormat {}
+unsafe impl ImageFormat for DXT1<Rgb> {
+    const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
+        format: GLFormat::Compressed {
+            internal_format: gl::COMPRESSED_RGB_S3TC_DXT1_EXT,
+            pixels_per_block: 4 * 4,
+        },
+        format_type: ImageFormatType::Color,
+        scalar_type: GLSLScalarType::Float,
+        scalar_signed: false,
+    };
+}
+unsafe impl ImageFormat for DXT1<Rgba> {
+    const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
+        format: GLFormat::Compressed {
+            internal_format: gl::COMPRESSED_RGBA_S3TC_DXT1_EXT,
+            pixels_per_block: 4 * 4,
+        },
+        format_type: ImageFormatType::Color,
+        scalar_type: GLSLScalarType::Float,
+        scalar_signed: false,
+    };
+}
+unsafe impl ImageFormat for DXT1<SRgb> {
+    const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
+        format: GLFormat::Compressed {
+            internal_format: gl::COMPRESSED_SRGB_S3TC_DXT1_EXT,
+            pixels_per_block: 4 * 4,
+        },
+        format_type: ImageFormatType::Color,
+        scalar_type: GLSLScalarType::Float,
+        scalar_signed: false,
+    };
+}
+unsafe impl ImageFormat for DXT1<SRgba> {
+    const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
+        format: GLFormat::Compressed {
+            internal_format: gl::COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT,
+            pixels_per_block: 4 * 4,
+        },
+        format_type: ImageFormatType::Color,
+        scalar_type: GLSLScalarType::Float,
+        scalar_signed: false,
+    };
+}
+
+unsafe impl<S: UncompressedFormat> CompressedFormat for DXT3<S>
+    where DXT3<S>: ImageFormat {}
+unsafe impl<S: UncompressedFormat> ColorFormat for DXT3<S>
+    where DXT3<S>: ImageFormat {}
+unsafe impl ImageFormat for DXT3<Rgba> {
+    const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
+        format: GLFormat::Compressed {
+            internal_format: gl::COMPRESSED_RGBA_S3TC_DXT3_EXT,
+            pixels_per_block: 4 * 4,
+        },
+        format_type: ImageFormatType::Color,
+        scalar_type: GLSLScalarType::Float,
+        scalar_signed: false,
+    };
+}
+unsafe impl ImageFormat for DXT3<SRgba> {
+    const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
+        format: GLFormat::Compressed {
+            internal_format: gl::COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT,
+            pixels_per_block: 4 * 4,
+        },
+        format_type: ImageFormatType::Color,
+        scalar_type: GLSLScalarType::Float,
+        scalar_signed: false,
+    };
+}
+
+unsafe impl<S: UncompressedFormat> CompressedFormat for DXT5<S>
+    where DXT5<S>: ImageFormat {}
+unsafe impl<S: UncompressedFormat> ColorFormat for DXT5<S>
+    where DXT5<S>: ImageFormat {}
+unsafe impl ImageFormat for DXT5<Rgba> {
+    const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
+        format: GLFormat::Compressed {
+            internal_format: gl::COMPRESSED_RGBA_S3TC_DXT5_EXT,
+            pixels_per_block: 4 * 4,
+        },
+        format_type: ImageFormatType::Color,
+        scalar_type: GLSLScalarType::Float,
+        scalar_signed: false,
+    };
+}
+unsafe impl ImageFormat for DXT5<SRgba> {
+    const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
+        format: GLFormat::Compressed {
+            internal_format: gl::COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT,
             pixels_per_block: 4 * 4,
         },
         format_type: ImageFormatType::Color,

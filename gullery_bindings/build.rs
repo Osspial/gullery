@@ -22,7 +22,13 @@ fn main() {
     let dest = env::var("OUT_DIR").unwrap();
     let mut file = File::create(&Path::new(&dest).join("gl_bindings.rs")).unwrap();
 
-    Registry::new(Api::Gl, (3, 3), Profile::Core, Fallbacks::All, ["GL_EXT_texture_filter_anisotropic", "GL_KHR_debug"])
+    let extensions = [
+        "GL_EXT_texture_filter_anisotropic",
+        "GL_EXT_texture_sRGB",
+        "GL_EXT_texture_compression_s3tc",
+        "GL_KHR_debug",
+    ];
+    Registry::new(Api::Gl, (3, 3), Profile::Core, Fallbacks::All, extensions)
         .write_bindings(StructGenerator, &mut file)
         .unwrap();
 }

@@ -12,7 +12,7 @@ use gullery::buffer::*;
 use gullery::framebuffer::{*, render_state::*};
 use gullery::program::*;
 use gullery::image_format::*;
-use gullery::image_format::compressed::RGTC_RG;
+use gullery::image_format::compressed::RGTC;
 use gullery::texture::*;
 use gullery::texture::targets::SimpleTex;
 use gullery::vertex::VertexArrayObject;
@@ -32,7 +32,7 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: &'a Texture<SimpleTex<RGTC_RG<u8>, DimsBox<Point2<u32>>>, ()>
+    tex: &'a Texture<SimpleTex<RGTC<Rg>, DimsBox<Point2<u32>>>, ()>
 }
 
 fn main() {
@@ -90,7 +90,7 @@ fn main() {
     println!("texture loaded");
     let texture = Texture::with_images(
         dims,
-        Some(RGTC_RG::slice_from_raw(&image)),
+        Some(RGTC::slice_from_raw(&image)),
         state.clone()
     ).unwrap();
     println!("texture uploaded");

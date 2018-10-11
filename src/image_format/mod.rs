@@ -93,7 +93,9 @@ pub unsafe trait ImageFormat: 'static + Copy {
     const ATTRIBUTES: ImageFormatAttributes;
 }
 
-pub unsafe trait UncompressedFormat: ImageFormat {}
+pub unsafe trait UncompressedFormat: ImageFormat {
+    type Scalar: Scalar;
+}
 pub unsafe trait CompressedFormat: ImageFormat {}
 pub unsafe trait ColorFormat: ImageFormat {}
 pub unsafe trait DepthFormat: ImageFormat {}
@@ -113,7 +115,9 @@ pub struct Depth32F(pub f32);
 // pub struct Depth24Stencil8(pub u32);
 
 unsafe impl DepthFormat for Depth16 {}
-unsafe impl UncompressedFormat for Depth16 {}
+unsafe impl UncompressedFormat for Depth16 {
+    type Scalar = u16;
+}
 unsafe impl ImageFormat for Depth16 {
     const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
         format: GLFormat::Uncompressed {
@@ -128,7 +132,9 @@ unsafe impl ImageFormat for Depth16 {
 }
 
 unsafe impl DepthFormat for Depth32F {}
-unsafe impl UncompressedFormat for Depth32F {}
+unsafe impl UncompressedFormat for Depth32F {
+    type Scalar = f32;
+}
 unsafe impl ImageFormat for Depth32F {
     const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
         format: GLFormat::Uncompressed {
@@ -144,7 +150,7 @@ unsafe impl ImageFormat for Depth32F {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Rgba<S> {
+pub struct Rgba<S=u8> {
     pub r: S,
     pub g: S,
     pub b: S,
@@ -153,7 +159,7 @@ pub struct Rgba<S> {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Rgb<S> {
+pub struct Rgb<S=u8> {
     pub r: S,
     pub g: S,
     pub b: S
@@ -161,14 +167,14 @@ pub struct Rgb<S> {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Rg<S> {
+pub struct Rg<S=u8> {
     pub r: S,
     pub g: S
 }
 
-#[repr(C)]
+#[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Red<S> {
+pub struct Red<S=u8> {
     pub r: S
 }
 
@@ -303,7 +309,9 @@ macro_rules! basic_format {
         $prim:ty = ($rgba_enum:ident, $rgb_enum:ident, $rg_enum:ident, $r_enum:ident);)
     *) => {$(
         unsafe impl ColorFormat for Rgba<$prim> {}
-        unsafe impl UncompressedFormat for Rgba<$prim> {}
+        unsafe impl UncompressedFormat for Rgba<$prim> {
+            type Scalar = $prim;
+        }
         unsafe impl ImageFormat for Rgba<$prim> {
             const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
                 format: GLFormat::Uncompressed {
@@ -317,7 +325,9 @@ macro_rules! basic_format {
             };
         }
         unsafe impl ColorFormat for Rgb<$prim> {}
-        unsafe impl UncompressedFormat for Rgb<$prim> {}
+        unsafe impl UncompressedFormat for Rgb<$prim> {
+            type Scalar = $prim;
+        }
         unsafe impl ImageFormat for Rgb<$prim> {
             const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
                 format: GLFormat::Uncompressed {
@@ -331,7 +341,9 @@ macro_rules! basic_format {
             };
         }
         unsafe impl ColorFormat for Rg<$prim> {}
-        unsafe impl UncompressedFormat for Rg<$prim> {}
+        unsafe impl UncompressedFormat for Rg<$prim> {
+            type Scalar = $prim;
+        }
         unsafe impl ImageFormat for Rg<$prim> {
             const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
                 format: GLFormat::Uncompressed {
@@ -345,7 +357,9 @@ macro_rules! basic_format {
             };
         }
         unsafe impl ColorFormat for Red<$prim> {}
-        unsafe impl UncompressedFormat for Red<$prim> {}
+        unsafe impl UncompressedFormat for Red<$prim> {
+            type Scalar = $prim;
+        }
         unsafe impl ImageFormat for Red<$prim> {
             const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
                 format: GLFormat::Uncompressed {
@@ -379,7 +393,9 @@ basic_format!{
     GLSLInt<i32> = (RGBA32I, RGB32I, RG32I, R32I);
 }
 unsafe impl ColorFormat for SRgba {}
-unsafe impl UncompressedFormat for SRgba {}
+unsafe impl UncompressedFormat for SRgba {
+    type Scalar = u8;
+}
 unsafe impl ImageFormat for SRgba {
     const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
         format: GLFormat::Uncompressed {
@@ -393,7 +409,9 @@ unsafe impl ImageFormat for SRgba {
     };
 }
 unsafe impl ColorFormat for SRgb {}
-unsafe impl UncompressedFormat for SRgb {}
+unsafe impl UncompressedFormat for SRgb {
+    type Scalar = u8;
+}
 unsafe impl ImageFormat for SRgb {
     const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
         format: GLFormat::Uncompressed {
