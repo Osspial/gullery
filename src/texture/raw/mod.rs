@@ -433,7 +433,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
                                 ),
                         }
                     },
-                    GLFormat::Compressed{internal_format} => {
+                    GLFormat::Compressed{internal_format, ..} => {
                         match self.tex.dims.into() {
                             DimsTag::One(_) =>
                                 gl.CompressedTexImage1D(
@@ -461,13 +461,19 @@ impl<'a, T> RawBoundTextureMut<'a, T>
                 }
             };
 
+            let pixels_per_unit = match T::Format::ATTRIBUTES.format {
+                GLFormat::Uncompressed{..} => 1,
+                GLFormat::Compressed{pixels_per_block, ..} => pixels_per_block
+            };
+
             match image {
                 Some(image_data) => image_data.variants(|image_bind, data| {
-                    if data.len() == num_pixels_expected {
+                    let num_pixels = data.len() * pixels_per_unit;
+                    if num_pixels == num_pixels_expected {
                         let data_bytes_len = data.len() * mem::size_of::<T::Format>();
                         upload_data(self.gl, image_bind, data.as_ptr() as *const GLvoid, data_bytes_len as GLsizei);
                     } else {
-                        panic!("Mismatched image size; expected {} pixels, found {} pixels", num_pixels_expected, data.len());
+                        panic!("Mismatched image size; expected {} pixels, found {} pixels", num_pixels_expected, num_pixels);
                     }
                 }),
                 None => I::variants_static(|image_bind| upload_data(self.gl, image_bind, ptr::null(), 0))

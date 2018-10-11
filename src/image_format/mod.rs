@@ -47,10 +47,6 @@ macro_rules! impl_slice_conversions {
             let size = Self::size();
             unsafe{ ::std::slice::from_raw_parts_mut(slice.as_mut_ptr() as *mut $ty, slice.len() * size) }
         }
-
-        pub fn slice_from_bytes(slice: &[u8]) -> &[Self] {
-
-        }
     };
 }
 
@@ -80,7 +76,8 @@ pub enum GLFormat {
         pixel_type: GLenum
     },
     Compressed {
-        internal_format: GLenum
+        internal_format: GLenum,
+        pixels_per_block: usize
     }
 }
 

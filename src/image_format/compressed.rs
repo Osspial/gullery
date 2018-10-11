@@ -35,20 +35,22 @@ unsafe impl ImageFormat for RGTC_Red<i8> {
     const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
         format: GLFormat::Compressed {
             internal_format: gl::COMPRESSED_SIGNED_RED_RGTC1,
+            pixels_per_block: 4 * 4,
         },
         format_type: ImageFormatType::Color,
         scalar_type: GLSLScalarType::Float,
-        scalar_signed: true
+        scalar_signed: true,
     };
 }
 unsafe impl ImageFormat for RGTC_Red<u8> {
     const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
         format: GLFormat::Compressed {
             internal_format: gl::COMPRESSED_RED_RGTC1,
+            pixels_per_block: 4 * 4,
         },
         format_type: ImageFormatType::Color,
         scalar_type: GLSLScalarType::Float,
-        scalar_signed: false
+        scalar_signed: false,
     };
 }
 
@@ -62,19 +64,21 @@ unsafe impl ImageFormat for RGTC_RG<i8> {
     const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
         format: GLFormat::Compressed {
             internal_format: gl::COMPRESSED_SIGNED_RG_RGTC2,
+            pixels_per_block: 4 * 4,
         },
         format_type: ImageFormatType::Color,
         scalar_type: GLSLScalarType::Float,
-        scalar_signed: true
+        scalar_signed: true,
     };
 }
 unsafe impl ImageFormat for RGTC_RG<u8> {
     const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
         format: GLFormat::Compressed {
             internal_format: gl::COMPRESSED_RG_RGTC2,
+            pixels_per_block: 4 * 4,
         },
         format_type: ImageFormatType::Color,
         scalar_type: GLSLScalarType::Float,
-        scalar_signed: false
+        scalar_signed: false,
     };
 }

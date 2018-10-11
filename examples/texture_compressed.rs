@@ -3,7 +3,6 @@ extern crate gullery;
 extern crate gullery_macros;
 extern crate cgmath_geometry;
 extern crate glutin;
-extern crate png;
 extern crate dds;
 
 extern crate num_traits;
@@ -13,7 +12,7 @@ use gullery::buffer::*;
 use gullery::framebuffer::{*, render_state::*};
 use gullery::program::*;
 use gullery::image_format::*;
-use gullery::image_format::compressed::RGTC_Red;
+use gullery::image_format::compressed::RGTC_RG;
 use gullery::texture::*;
 use gullery::texture::targets::SimpleTex;
 use gullery::vertex::VertexArrayObject;
@@ -33,7 +32,7 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: &'a Texture<SimpleTex<RGTC_Red, DimsBox<Point2<u32>>>, ()>
+    tex: &'a Texture<SimpleTex<RGTC_RG<u8>, DimsBox<Point2<u32>>>, ()>
 }
 
 fn main() {
@@ -75,17 +74,23 @@ fn main() {
     ], state.clone());
     let vao = VertexArrayObject::new(vertex_buffer, Some(index_buffer));
     println!("vao created");
-    let (ferris_image, ferris_dims) = {
+    let (image, dims) = {
         use std::fs::File;
-        let decoder = dds::DDS::parse_header_raw(File::open("./examples/textures/rg.dds").unwrap());
-        let mut buf = vec![0; info.buffer_size()];
-        reader.next_frame(&mut buf).unwrap();
-        (buf, DimsBox::new2(info.width, info.height))
+        use std::io::{Read, BufReader};
+
+        let mut file = BufReader::new(File::open("./examples/textures/rg.dds").unwrap());
+        let dds_header = dds::DDS::parse_header(&mut file).unwrap();
+        assert_eq!(b"ATI2", &dds_header.fourcc);
+        println!("{:#?}", dds_header);
+
+        let mut buf = vec![0; (dds_header.width * dds_header.height) as usize];
+        file.read_exact(&mut buf).unwrap();
+        (buf, DimsBox::new2(dds_header.width, dds_header.height))
     };
     println!("texture loaded");
-    let ferris_texture = Texture::with_images(
-        ferris_dims,
-        Some(SRgba::slice_from_raw(&ferris_image)),
+    let texture = Texture::with_images(
+        dims,
+        Some(RGTC_RG::slice_from_raw(&image)),
         state.clone()
     ).unwrap();
     println!("texture uploaded");
@@ -111,7 +116,7 @@ fn main() {
                 WindowEvent::Resized(size_x, size_y) => {
                     window.context().resize(size_x, size_y);
                     let uniform = Uniforms {
-                        tex: &ferris_texture
+                        tex: &texture
                     };
                     render_state.viewport = OffsetBox::new2(0, 0, size_x, size_y);
                     default_framebuffer.clear_depth(1.0);
