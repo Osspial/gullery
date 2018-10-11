@@ -19,7 +19,7 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use ContextState;
-use image_format::{ImageFormat, GLFormat};
+use image_format::{UncompressedFormat, ImageFormat, GLFormat};
 
 use std::{mem, ptr, iter};
 use std::cell::Cell;
@@ -389,88 +389,90 @@ impl<'a, T> RawBoundTextureMut<'a, T>
         where I: Image<'b, T>
     {
         unsafe {
-            let level_int = level.to_glint();
+            let mip_level = level.to_glint();
 
-            if level_int >= self.tex.num_mips() as GLint {
+            if mip_level >= self.tex.num_mips() as GLint {
                 self.tex.num_mips = level.try_increment();
-                self.gl.TexParameteri(T::BIND_TARGET, gl::TEXTURE_MAX_LEVEL, level_int);
+                self.gl.TexParameteri(T::BIND_TARGET, gl::TEXTURE_MAX_LEVEL, mip_level);
             }
 
 
-            let for_each_variant = |func: fn(&Gl, GLenum, GLint, GLsizei, GLsizei, GLsizei, &[u8])| {
-                let (width, height, depth) = self.tex.dims.into().to_tuple();
+            let (width, height, depth) = self.tex.dims.into().to_tuple();
 
-                let dims_exponent = level_int as u32 + 1;
-                let width_gl = width.pow(dims_exponent) as GLsizei;
-                let height_gl = height.pow(dims_exponent) as GLsizei;
-                let depth_gl = depth.pow(dims_exponent) as GLsizei;
+            let dims_exponent = mip_level as u32 + 1;
+            let width = width.pow(dims_exponent) as GLsizei;
+            let height = height.pow(dims_exponent) as GLsizei;
+            let depth = depth.pow(dims_exponent) as GLsizei;
 
-                let num_pixels_expected = (width * height * depth) as usize;
+            let num_pixels_expected = (width * height * depth) as usize;
 
-                match image {
-                    Some(image_data) => image_data.variants(|image_bind, data| {
-                        if data.len() == num_pixels_expected {
-                            func(self.gl, image_bind, level_int, width_gl, height_gl, depth_gl, data);
-                        } else {
-                            panic!("Mismatched image size; expected {} pixels, found {} pixels", num_pixels_expected, data.len());
+            let upload_data = |gl: &Gl, image_bind, data, data_len| {
+                match T::Format::ATTRIBUTES.format {
+                    GLFormat::Uncompressed{internal_format, pixel_format, pixel_type} => {
+                        match self.tex.dims.into() {
+                            DimsTag::One(_) =>
+                                gl.TexImage1D(
+                                    image_bind, mip_level, internal_format as GLint,
+                                    width,
+                                    0, pixel_format, pixel_type, data as *const GLvoid
+                                ),
+                            DimsTag::Two(_) =>
+                                gl.TexImage2D(
+                                    image_bind, mip_level, internal_format as GLint,
+                                    width,
+                                    height,
+                                    0, pixel_format, pixel_type, data as *const GLvoid
+                                ),
+                            DimsTag::Three(_) =>
+                                gl.TexImage3D(
+                                    image_bind, mip_level, internal_format as GLint,
+                                    width,
+                                    height,
+                                    depth,
+                                    0, pixel_format, pixel_type, data as *const GLvoid
+                                ),
                         }
-                    }),
-                    None => I::variants_static(|image_bind| func(self.gl, image_bind, level_int, width_gl, height_gl, depth_gl, ptr::null()))
+                    },
+                    GLFormat::Compressed{internal_format} => {
+                        match self.tex.dims.into() {
+                            DimsTag::One(_) =>
+                                gl.CompressedTexImage1D(
+                                    image_bind, mip_level, internal_format,
+                                    width,
+                                    0, data_len, data as *const GLvoid
+                                ),
+                            DimsTag::Two(_) =>
+                                gl.CompressedTexImage2D(
+                                    image_bind, mip_level, internal_format,
+                                    width,
+                                    height,
+                                    0, data_len, data as *const GLvoid
+                                ),
+                            DimsTag::Three(_) =>
+                                gl.CompressedTexImage3D(
+                                    image_bind, mip_level, internal_format,
+                                    width,
+                                    height,
+                                    depth,
+                                    0, data_len, data as *const GLvoid
+                                ),
+                        }
+                    }
                 }
             };
 
-            match T::Format::ATTRIBUTES.format {
-                GLFormat::Uncompressed{internal_format, pixel_format} => {
-                    match self.tex.dims.into() {
-                        DimsTag::One(_) => for_each_variant(|gl, image_bind, mip_level, width, _, _, data|
-                            gl.TexImage1D(
-                                image_bind, mip_level, internal_format as GLint,
-                                width,
-                                0, pixel_format, T::Format::ATTRIBUTES.pixel_type, data.as_ptr() as *const GLvoid
-                            )),
-                        DimsTag::Two(_) => for_each_variant(|gl, image_bind, mip_level, width, height, _, data|
-                            gl.TexImage2D(
-                                image_bind, mip_level, internal_format as GLint,
-                                width,
-                                height,
-                                0, pixel_format, T::Format::ATTRIBUTES.pixel_type, data.as_ptr() as *const GLvoid
-                            )),
-                        DimsTag::Three(_) => for_each_variant(|gl, image_bind, mip_level, width, height, depth, data|
-                            gl.TexImage3D(
-                                image_bind, mip_level, internal_format as GLint,
-                                width,
-                                height,
-                                depth,
-                                0, pixel_format, T::Format::ATTRIBUTES.pixel_type, data.as_ptr() as *const GLvoid
-                            )),
+            match image {
+                Some(image_data) => image_data.variants(|image_bind, data| {
+                    if data.len() == num_pixels_expected {
+                        let data_bytes_len = data.len() * mem::size_of::<T::Format>();
+                        upload_data(self.gl, image_bind, data.as_ptr() as *const GLvoid, data_bytes_len as GLsizei);
+                    } else {
+                        panic!("Mismatched image size; expected {} pixels, found {} pixels", num_pixels_expected, data.len());
                     }
-                },
-                GLFormat::Compressed{internal_format} => {
-                    match self.tex.dims.into() {
-                        DimsTag::One(_) => for_each_variant(|gl, image_bind, mip_level, width, _, _, data|
-                            gl.CompressedTexImage1D(
-                                image_bind, mip_level, internal_format as GLint,
-                                width,
-                                0, data.len() as GLsizei, data.as_ptr() as *const GLvoid
-                            )),
-                        DimsTag::Two(_) => for_each_variant(|gl, image_bind, mip_level, width, height, _, data|
-                            gl.TexImage2D(
-                                image_bind, mip_level, internal_format as GLint,
-                                width,
-                                height,
-                                0, data.len() as GLsizei, data.as_ptr() as *const GLvoid
-                            )),
-                        DimsTag::Three(_) => for_each_variant(|gl, image_bind, mip_level, width, height, depth, data|
-                            gl.TexImage3D(
-                                image_bind, mip_level, internal_format as GLint,
-                                width,
-                                height,
-                                depth,
-                                0, data.len() as GLsizei, data.as_ptr() as *const GLvoid
-                            )),
-                    }
-                }
+                }),
+                None => I::variants_static(|image_bind| upload_data(self.gl, image_bind, ptr::null(), 0))
             }
+
 
             assert_eq!(0, self.gl.GetError());
         }
@@ -483,7 +485,8 @@ impl<'a, T> RawBoundTextureMut<'a, T>
         sub_dims: T::Dims,
         image: I,
     )
-        where I: Image<'b, T>
+        where I: Image<'b, T>,
+              T::Format: UncompressedFormat
     {
         use self::DimsTag::*;
 
@@ -512,31 +515,34 @@ impl<'a, T> RawBoundTextureMut<'a, T>
         }
 
         unsafe {
-            match sub_dims.into() {
-                One(dims) => image.variants(|image_bind, data| self.gl.TexSubImage1D(
-                    image_bind, level.to_glint(),
-                    offset[0] as GLint,
-                    dims.width() as GLsizei,
-                    T::Format::ATTRIBUTES.pixel_format, T::Format::ATTRIBUTES.pixel_type, data.as_ptr() as *const GLvoid
-                )),
-                Two(dims) => image.variants(|image_bind, data| self.gl.TexSubImage2D(
-                    image_bind, level.to_glint(),
-                    offset[0] as GLint,
-                    offset[1] as GLint,
-                    dims.width() as GLsizei,
-                    dims.height() as GLsizei,
-                    T::Format::ATTRIBUTES.pixel_format, T::Format::ATTRIBUTES.pixel_type, data.as_ptr() as *const GLvoid
-                )),
-                Three(dims) => image.variants(|image_bind, data| self.gl.TexSubImage3D(
-                    image_bind, level.to_glint(),
-                    offset[0] as GLint,
-                    offset[1] as GLint,
-                    offset[2] as GLint,
-                    dims.width() as GLsizei,
-                    dims.height() as GLsizei,
-                    dims.depth() as GLsizei,
-                    T::Format::ATTRIBUTES.pixel_format, T::Format::ATTRIBUTES.pixel_type, data.as_ptr() as *const GLvoid
-                ))
+            match T::Format::ATTRIBUTES.format {
+                GLFormat::Uncompressed{pixel_format, pixel_type, ..} => match sub_dims.into() {
+                    One(dims) => image.variants(|image_bind, data| self.gl.TexSubImage1D(
+                        image_bind, level.to_glint(),
+                        offset[0] as GLint,
+                        dims.width() as GLsizei,
+                        pixel_format, pixel_type, data.as_ptr() as *const GLvoid
+                    )),
+                    Two(dims) => image.variants(|image_bind, data| self.gl.TexSubImage2D(
+                        image_bind, level.to_glint(),
+                        offset[0] as GLint,
+                        offset[1] as GLint,
+                        dims.width() as GLsizei,
+                        dims.height() as GLsizei,
+                        pixel_format, pixel_type, data.as_ptr() as *const GLvoid
+                    )),
+                    Three(dims) => image.variants(|image_bind, data| self.gl.TexSubImage3D(
+                        image_bind, level.to_glint(),
+                        offset[0] as GLint,
+                        offset[1] as GLint,
+                        offset[2] as GLint,
+                        dims.width() as GLsizei,
+                        dims.height() as GLsizei,
+                        dims.depth() as GLsizei,
+                        pixel_format, pixel_type, data.as_ptr() as *const GLvoid
+                    ))
+                },
+                GLFormat::Compressed{..} => unimplemented!()
             }
         }
     }

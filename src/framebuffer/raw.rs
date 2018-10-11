@@ -208,8 +208,8 @@ impl<'a, F> RawBoundFramebufferRead<'a, F>
         assert!(read_rect.width() as i32 >= 0);
         assert!(read_rect.height() as i32 >= 0);
 
-        let pixel_format = match C::ATTRIBUTES.format {
-            GLFormat::Uncompressed{pixel_format, ..} => pixel_format,
+        let (pixel_format, pixel_type) = match C::ATTRIBUTES.format {
+            GLFormat::Uncompressed{pixel_format, pixel_type, ..} => (pixel_format, pixel_type),
             GLFormat::Compressed{..} => panic!("compressed format information passed with uncompressed texture;\
                                                 check the image format's ATTRIBUTES.format field. It should have a\
                                                 GLFormat::Uncompressed value")
@@ -221,7 +221,7 @@ impl<'a, F> RawBoundFramebufferRead<'a, F>
                 read_rect.width() as GLsizei,
                 read_rect.height() as GLsizei,
                 pixel_format,
-                C::ATTRIBUTES.pixel_type,
+                pixel_type,
                 data.as_mut_ptr() as *mut GLvoid
             );
             assert_eq!(0, self.gl.GetError());

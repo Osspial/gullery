@@ -12,6 +12,48 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+macro_rules! impl_slice_conversions {
+    ($ty:ty) => {
+        #[inline(always)]
+        fn size() -> usize {
+            use std::mem;
+            let size = mem::size_of::<Self>() / mem::size_of::<$ty>();
+            assert_eq!(0, mem::size_of::<Self>() % mem::size_of::<$ty>());
+            size
+        }
+
+        #[inline(always)]
+        pub fn slice_from_raw(raw: &[$ty]) -> &[Self] {
+            let size = Self::size();
+            assert_eq!(0, raw.len() % size);
+            unsafe{ ::std::slice::from_raw_parts(raw.as_ptr() as *const Self, raw.len() / size) }
+        }
+
+        #[inline(always)]
+        pub fn slice_from_raw_mut(raw: &mut [$ty]) -> &mut [Self] {
+            let size = Self::size();
+            assert_eq!(0, raw.len() % size);
+            unsafe{ ::std::slice::from_raw_parts_mut(raw.as_mut_ptr() as *mut Self, raw.len() / size) }
+        }
+
+        #[inline(always)]
+        pub fn to_raw_slice(slice: &[Self]) -> &[$ty] {
+            let size = Self::size();
+            unsafe{ ::std::slice::from_raw_parts(slice.as_ptr() as *const $ty, slice.len() * size) }
+        }
+
+        #[inline(always)]
+        pub fn to_raw_slice_mut(slice: &mut [Self]) -> &mut [$ty] {
+            let size = Self::size();
+            unsafe{ ::std::slice::from_raw_parts_mut(slice.as_mut_ptr() as *mut $ty, slice.len() * size) }
+        }
+
+        pub fn slice_from_bytes(slice: &[u8]) -> &[Self] {
+
+        }
+    };
+}
+
 pub mod compressed;
 
 use gl;
@@ -20,8 +62,6 @@ use gl::types::*;
 use glsl::*;
 
 use cgmath::{Vector1, Vector2, Vector3, Vector4};
-
-use std::slice;
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -36,7 +76,8 @@ pub enum ImageFormatType {
 pub enum GLFormat {
     Uncompressed {
         internal_format: GLenum,
-        pixel_format: GLenum
+        pixel_format: GLenum,
+        pixel_type: GLenum
     },
     Compressed {
         internal_format: GLenum
@@ -46,9 +87,7 @@ pub enum GLFormat {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ImageFormatAttributes {
     pub format: GLFormat,
-    pub pixel_type: GLenum,
     pub format_type: ImageFormatType,
-    pub compressed: bool,
     pub scalar_type: GLSLScalarType,
     pub scalar_signed: bool
 }
@@ -83,10 +122,9 @@ unsafe impl ImageFormat for Depth16 {
         format: GLFormat::Uncompressed {
             internal_format: gl::DEPTH_COMPONENT16,
             pixel_format: gl::DEPTH_COMPONENT,
+            pixel_type: <u16 as Scalar>::GL_ENUM,
         },
-        pixel_type: <u16 as Scalar>::GL_ENUM,
         format_type: ImageFormatType::Depth,
-        compressed: false,
         scalar_type: u16::GLSL_SCALAR_TYPE,
         scalar_signed: u16::SIGNED
     };
@@ -99,10 +137,9 @@ unsafe impl ImageFormat for Depth32F {
         format: GLFormat::Uncompressed {
             internal_format: gl::DEPTH_COMPONENT32F,
             pixel_format: gl::DEPTH_COMPONENT,
+            pixel_type: <f32 as Scalar>::GL_ENUM,
         },
-        pixel_type: <f32 as Scalar>::GL_ENUM,
         format_type: ImageFormatType::Depth,
-        compressed: false,
         scalar_type: f32::GLSL_SCALAR_TYPE,
         scalar_signed: f32::SIGNED
     };
@@ -167,27 +204,7 @@ macro_rules! impl_color {
             $name{ $($channel),* }
         }
 
-        #[inline(always)]
-        pub fn slice_from_raw(raw: &[$ty]) -> &[Self] {
-            assert_eq!(0, raw.len() % $len);
-            unsafe{ slice::from_raw_parts(raw.as_ptr() as *const Self, raw.len() / $len) }
-        }
-
-        #[inline(always)]
-        pub fn slice_from_raw_mut(raw: &mut [$ty]) -> &mut [Self] {
-            assert_eq!(0, raw.len() % $len);
-            unsafe{ slice::from_raw_parts_mut(raw.as_mut_ptr() as *mut Self, raw.len() / $len) }
-        }
-
-        #[inline(always)]
-        pub fn to_raw_slice(slice: &[Self]) -> &[$ty] {
-            unsafe{ slice::from_raw_parts(slice.as_ptr() as *const $ty, slice.len() * $len) }
-        }
-
-        #[inline(always)]
-        pub fn to_raw_slice_mut(slice: &mut [Self]) -> &mut [$ty] {
-            unsafe{ slice::from_raw_parts_mut(slice.as_mut_ptr() as *mut $ty, slice.len() * $len) }
-        }
+        impl_slice_conversions!($ty);
     };
 }
 
@@ -295,10 +312,9 @@ macro_rules! basic_format {
                 format: GLFormat::Uncompressed {
                     internal_format: gl::$rgba_enum,
                     pixel_format: if_integer!(if <$prim as Scalar>::GLSL_SCALAR_TYPE => (gl::RGBA_INTEGER) else (gl::RGBA)),
+                    pixel_type: <$prim as Scalar>::GL_ENUM,
                 },
-                pixel_type: <$prim as Scalar>::GL_ENUM,
                 format_type: ImageFormatType::Color,
-                compressed: false,
                 scalar_type: <$prim as Scalar>::GLSL_SCALAR_TYPE,
                 scalar_signed: <$prim as Scalar>::SIGNED
             };
@@ -310,10 +326,9 @@ macro_rules! basic_format {
                 format: GLFormat::Uncompressed {
                     internal_format: gl::$rgb_enum,
                     pixel_format: if_integer!(if <$prim as Scalar>::GLSL_SCALAR_TYPE => (gl::RGB_INTEGER) else (gl::RGB)),
+                    pixel_type: <$prim as Scalar>::GL_ENUM,
                 },
-                pixel_type: <$prim as Scalar>::GL_ENUM,
                 format_type: ImageFormatType::Color,
-                compressed: false,
                 scalar_type: <$prim as Scalar>::GLSL_SCALAR_TYPE,
                 scalar_signed: <$prim as Scalar>::SIGNED
             };
@@ -325,10 +340,9 @@ macro_rules! basic_format {
                 format: GLFormat::Uncompressed {
                     internal_format: gl::$rg_enum,
                     pixel_format: if_integer!(if <$prim as Scalar>::GLSL_SCALAR_TYPE => (gl::RG_INTEGER) else (gl::RG)),
+                    pixel_type: <$prim as Scalar>::GL_ENUM,
                 },
-                pixel_type: <$prim as Scalar>::GL_ENUM,
                 format_type: ImageFormatType::Color,
-                compressed: false,
                 scalar_type: <$prim as Scalar>::GLSL_SCALAR_TYPE,
                 scalar_signed: <$prim as Scalar>::SIGNED
             };
@@ -340,10 +354,9 @@ macro_rules! basic_format {
                 format: GLFormat::Uncompressed {
                     internal_format: gl::$r_enum,
                     pixel_format: if_integer!(if <$prim as Scalar>::GLSL_SCALAR_TYPE => (gl::RED_INTEGER) else (gl::RED)),
+                    pixel_type: <$prim as Scalar>::GL_ENUM,
                 },
-                pixel_type: <$prim as Scalar>::GL_ENUM,
                 format_type: ImageFormatType::Color,
-                compressed: false,
                 scalar_type: <$prim as Scalar>::GLSL_SCALAR_TYPE,
                 scalar_signed: <$prim as Scalar>::SIGNED
             };
@@ -375,10 +388,9 @@ unsafe impl ImageFormat for SRgba {
         format: GLFormat::Uncompressed {
             internal_format: gl::SRGB8_ALPHA8,
             pixel_format: gl::RGBA,
+            pixel_type: <u8 as Scalar>::GL_ENUM,
         },
-        pixel_type: <u8 as Scalar>::GL_ENUM,
         format_type: ImageFormatType::Color,
-        compressed: false,
         scalar_type: u8::GLSL_SCALAR_TYPE,
         scalar_signed: u8::SIGNED
     };
@@ -390,10 +402,9 @@ unsafe impl ImageFormat for SRgb {
         format: GLFormat::Uncompressed {
             internal_format: gl::SRGB8,
             pixel_format: gl::RGB,
+            pixel_type: <u8 as Scalar>::GL_ENUM,
         },
-        pixel_type: <u8 as Scalar>::GL_ENUM,
         format_type: ImageFormatType::Color,
-        compressed: false,
         scalar_type: u8::GLSL_SCALAR_TYPE,
         scalar_signed: u8::SIGNED
     };

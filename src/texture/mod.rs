@@ -22,9 +22,9 @@ use gl::types::*;
 use {ContextState, GLObject, Handle};
 use self::raw::*;
 use self::sample_parameters::*;
-use image_format::{ImageFormat, Rgba};
+use image_format::{UncompressedFormat, ImageFormat, Rgba};
 
-use glsl::{TypeTag, TypeBasicTag, Scalar, GLSLScalarType};
+use glsl::{TypeTag, TypeBasicTag, GLSLScalarType};
 use uniform::{UniformType, TextureUniformBinder};
 
 use std::{mem, io, fmt};
@@ -190,7 +190,8 @@ impl<T, P> Texture<T, P>
 
     #[inline]
     pub fn sub_image<'a, I>(&mut self, level: T::MipSelector, offset: <T::Dims as Dims>::Offset, sub_dims: T::Dims, image: I)
-        where I: Image<'a, T>
+        where I: Image<'a, T>,
+              T::Format: UncompressedFormat
     {
         let last_unit = self.state.image_units.0.num_units() - 1;
         let mut bind = unsafe{ self.state.image_units.0.bind_texture_mut(last_unit, &mut self.raw, &self.state.gl) };
