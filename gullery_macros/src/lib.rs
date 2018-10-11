@@ -204,14 +204,14 @@ fn impl_attachments(derive_input: &DeriveInput) -> Tokens {
                         #[allow(dead_code)]
                         fn assert_depth_attachment_number() {
                             union Transmute {
-                                from: _gullery::color::ImageFormatType,
+                                from: _gullery::image_format::ImageFormatType,
                                 to: u8
                             }
                             const NUM_DEPTH_ATTACHMENTS: usize = 0
                                 #(+ unsafe {
-                                    Transmute{ from: <<#types as _gullery::framebuffer::attachments::Attachment>::Format as _gullery::color::ImageFormat>::FORMAT_TYPE }.to
+                                    Transmute{ from: <<#types as _gullery::framebuffer::attachments::Attachment>::Format as _gullery::image_format::ImageFormat>::ATTRIBUTES.format_type }.to
                                     ==
-                                    Transmute{ from: _gullery::color::ImageFormatType::Depth}.to
+                                    Transmute{ from: _gullery::image_format::ImageFormatType::Depth}.to
                                  } as usize)*;
                             let _has_at_least_one_color_attachment = [(); 0 - (NUM_DEPTH_ATTACHMENTS > 1) as usize];
                         }

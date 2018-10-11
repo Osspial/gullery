@@ -16,7 +16,6 @@ use texture::sample_parameters::IntoSampleParameters;
 use texture::{Texture, TextureType, DimsTag, MipSelector};
 use cgmath_geometry::cgmath::Point2;
 use cgmath_geometry::{OffsetBox, GeoBox};
-use color::{ColorFormat, ImageFormat, ImageFormatType};
 use gl::{self, Gl};
 use gl::types::*;
 
@@ -26,7 +25,7 @@ use buffer::Index;
 use vertex::vao::BoundVAO;
 use uniform::Uniforms;
 use program::BoundProgram;
-use color::Rgba;
+use image_format::{ImageFormat, UncompressedFormat, ImageFormatType, Rgba, GLFormat};
 use super::Renderbuffer;
 use super::attachments::*;
 
@@ -200,7 +199,7 @@ impl<'a, F> RawBoundFramebufferRead<'a, F>
         }
     }
     #[inline]
-    pub(crate) fn read_pixels<C: ColorFormat>(&self, read_rect: OffsetBox<Point2<u32>>, data: &mut [C]) {
+    pub(crate) fn read_pixels<C: UncompressedFormat>(&self, read_rect: OffsetBox<Point2<u32>>, data: &mut [C]) {
         // TODO: STENCIL AND DEPTH SUPPORT
         // TODO: GL_PIXEL_PACK_BUFFER SUPPORT
         assert_eq!((read_rect.width() * read_rect.height()) as usize, data.len());
@@ -209,14 +208,20 @@ impl<'a, F> RawBoundFramebufferRead<'a, F>
         assert!(read_rect.width() as i32 >= 0);
         assert!(read_rect.height() as i32 >= 0);
 
+        let (pixel_format, pixel_type) = match C::ATTRIBUTES.format {
+            GLFormat::Uncompressed{pixel_format, pixel_type, ..} => (pixel_format, pixel_type),
+            GLFormat::Compressed{..} => panic!("compressed format information passed with uncompressed texture;\
+                                                check the image format's ATTRIBUTES.format field. It should have a\
+                                                GLFormat::Uncompressed value")
+        };
         unsafe {
             self.gl.ReadPixels(
                 read_rect.origin.x as GLint,
                 read_rect.origin.y as GLint,
                 read_rect.width() as GLsizei,
                 read_rect.height() as GLsizei,
-                C::PIXEL_FORMAT,
-                C::PIXEL_TYPE,
+                pixel_format,
+                pixel_type,
                 data.as_mut_ptr() as *mut GLvoid
             );
             assert_eq!(0, self.gl.GetError());
@@ -321,7 +326,7 @@ pub unsafe trait RawBoundFramebuffer {
         impl<'a, A: Attachments, I: Iterator<Item=&'a mut Option<Handle>>> AttachmentsMemberRegistry for Attacher<'a, A, I> {
             type Attachments = A;
             fn add_renderbuffer<Im>(&mut self, _: &str, get_member: impl FnOnce(&A) -> &Renderbuffer<Im>)
-                where Im: ImageFormat
+                where Im: UncompressedFormat
             {
                 let member = get_member(self.attachments);
                 let handle = self.handles.next().expect("Mismatched attachment handle container length");
@@ -329,7 +334,7 @@ pub unsafe trait RawBoundFramebuffer {
                     *handle = Some(member.handle());
                     let handle = member.handle();
                     let attachment: GLenum;
-                    match <Renderbuffer<Im> as Attachment>::Format::FORMAT_TYPE {
+                    match <Renderbuffer<Im> as Attachment>::Format::ATTRIBUTES.format_type {
                         ImageFormatType::Color => {
                             attachment = gl::COLOR_ATTACHMENT0 + self.color_index;
                             self.color_index += 1;
@@ -356,7 +361,8 @@ pub unsafe trait RawBoundFramebuffer {
             }
             fn add_texture<T, P>(&mut self, _: &str, get_member: impl FnOnce(&Self::Attachments) -> &Texture<T, P>, texture_level: T::MipSelector)
                 where T: TextureType,
-                      P: IntoSampleParameters
+                      P: IntoSampleParameters,
+                      T::Format: UncompressedFormat
             {
                 let texture = get_member(self.attachments);
                 let handle = self.handles.next().expect("Mismatched attachment handle container length");
@@ -364,7 +370,7 @@ pub unsafe trait RawBoundFramebuffer {
                     *handle = Some(texture.handle());
                     let handle = texture.handle();
                     let attachment: GLenum;
-                    match <Texture<T, P> as Attachment>::Format::FORMAT_TYPE {
+                    match <Texture<T, P> as Attachment>::Format::ATTRIBUTES.format_type {
                         ImageFormatType::Color => {
                             attachment = gl::COLOR_ATTACHMENT0 + self.color_index;
                             self.color_index += 1;

@@ -1,5 +1,5 @@
 use gl::{self, types::*};
-use color::Rgba;
+use image_format::Rgba;
 use std::cell::Cell;
 
 #[repr(u8)]

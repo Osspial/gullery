@@ -16,7 +16,7 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use {Handle, ContextState, GLObject};
-use glsl::{TransparentType, Scalar};
+use glsl::{TransparentType, Scalar, GLSLScalarType};
 use vertex::{Vertex, VertexMemberRegistry};
 use buffer::{Buffer, Index};
 
@@ -159,7 +159,12 @@ impl<'a, V: Vertex> VertexMemberRegistry for VertexAttribBuilder<'a, V> {
                     gl.EnableVertexAttribArray(self.attrib_loc + slot);
                     let slot_offset = slot as usize * attrib_size;
 
-                    if T::Scalar::GLSL_INTEGER {
+                    let is_integer = match T::Scalar::GLSL_SCALAR_TYPE {
+                        GLSLScalarType::Int |
+                        GLSLScalarType::Bool => true,
+                        GLSLScalarType::Float => false
+                    };
+                    if is_integer {
                         gl.VertexAttribIPointer(
                             self.attrib_loc + slot,
                             attrib_len as GLint,
