@@ -15,8 +15,8 @@
 use gl::{self, Gl};
 use gl::types::*;
 
-use cgmath::Point2;
-use cgmath_geometry::{DimsBox, GeoBox};
+use cgmath_geometry::D2;
+use cgmath_geometry::rect::{DimsBox, GeoBox};
 
 use {ContextState, Handle};
 
@@ -96,7 +96,7 @@ impl RawRenderbufferTarget {
 }
 
 impl<'a> RawBoundRenderbufferMut<'a> {
-    pub fn alloc_storage(&mut self, internal_format: GLenum, dims: DimsBox<Point2<u32>>, samples: u32) {
+    pub fn alloc_storage(&mut self, internal_format: GLenum, dims: DimsBox<u32, D2>, samples: u32) {
         let width = dims.width() as i32;
         let height = dims.height() as i32;
         unsafe {

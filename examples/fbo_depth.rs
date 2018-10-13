@@ -17,8 +17,8 @@ use gullery::program::*;
 use gullery::image_format::*;
 use gullery::vertex::VertexArrayObject;
 
-use cgmath_geometry::cgmath;
-use cgmath_geometry::{DimsBox, OffsetBox};
+use cgmath_geometry::{cgmath, D2};
+use cgmath_geometry::rect::{DimsBox, OffsetBox};
 
 use cgmath::*;
 
@@ -38,13 +38,13 @@ struct TextureVertex {
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
     offset: Vector2<f32>,
-    tex: &'a Texture<SimpleTex<Depth16, DimsBox<Point2<u32>>>>
+    tex: &'a Texture<SimpleTex<Depth16, D2>>
 }
 
 #[derive(Attachments)]
 struct Attachments<'a> {
-    color: &'a mut Texture<SimpleTex<SRgb, DimsBox<Point2<u32>>>>,
-    depth: &'a mut Texture<SimpleTex<Depth16, DimsBox<Point2<u32>>>>
+    color: &'a mut Texture<SimpleTex<SRgb, D2>>,
+    depth: &'a mut Texture<SimpleTex<Depth16, D2>>
 }
 
 fn main() {

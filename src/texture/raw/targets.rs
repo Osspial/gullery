@@ -13,8 +13,9 @@
 // limitations under the License.
 
 use super::*;
+use cgmath_geometry::Dimensionality;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SimpleTex<C: ImageFormat, D: Dims>(PhantomData<(C, D)>);
+pub struct SimpleTex<C: ImageFormat, D: Dimensionality<u32>>(PhantomData<(C, D)>);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CubemapTex<C: ImageFormat>(PhantomData<C>);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,41 +28,41 @@ pub struct MultisampleTex<C: ImageFormat>(PhantomData<C>);
 
 unsafe impl<C, D> TextureTypeSingleImage for SimpleTex<C, D>
     where C: ImageFormat,
-          D: Dims,
+          D: Dimensionality<u32>,
           SimpleTex<C, D>: TextureType {}
-unsafe impl<C> TextureType for SimpleTex<C, DimsBox<Point1<u32>>>
+unsafe impl<C> TextureType for SimpleTex<C, D1>
     where C: ImageFormat
 {
     type MipSelector = u8;
     type Format = C;
-    type Dims = DimsBox<Point1<u32>>;
+    type Dims = DimsBox<u32, D1>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_1D;
 }
-unsafe impl<C> TextureType for SimpleTex<C, DimsBox<Point2<u32>>>
+unsafe impl<C> TextureType for SimpleTex<C, D2>
     where C: ImageFormat
 {
     type MipSelector = u8;
     type Format = C;
-    type Dims = DimsBox<Point2<u32>>;
+    type Dims = DimsBox<u32, D2>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_2D;
 }
-unsafe impl<C> TextureType for SimpleTex<C, DimsBox<Point3<u32>>>
+unsafe impl<C> TextureType for SimpleTex<C, D3>
     where C: ImageFormat
 {
     type MipSelector = u8;
     type Format = C;
-    type Dims = DimsBox<Point3<u32>>;
+    type Dims = DimsBox<u32, D3>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_3D;
 }
-unsafe impl<C> ArrayTextureType for SimpleTex<C, DimsBox<Point1<u32>>>
+unsafe impl<C> ArrayTextureType for SimpleTex<C, D1>
     where C: ImageFormat
 {
     const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_1D_ARRAY;
 }
-unsafe impl<C> ArrayTextureType for SimpleTex<C, DimsBox<Point2<u32>>>
+unsafe impl<C> ArrayTextureType for SimpleTex<C, D2>
     where C: ImageFormat
 {
     const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_2D_ARRAY;
@@ -89,7 +90,7 @@ unsafe impl<C> TextureType for RectTex<C>
 {
     type MipSelector = ();
     type Format = C;
-    type Dims = DimsBox<Point2<u32>>;
+    type Dims = DimsBox<u32, D2>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_RECTANGLE;
 }
@@ -114,7 +115,7 @@ unsafe impl<C> TextureType for MultisampleTex<C>
 {
     type MipSelector = ();
     type Format = C;
-    type Dims = DimsBox<Point2<u32>>;
+    type Dims = DimsBox<u32, D2>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_2D_MULTISAMPLE;
 }

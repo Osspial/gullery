@@ -17,7 +17,7 @@ use gullery::image_format::*;
 use gullery::vertex::VertexArrayObject;
 
 use cgmath_geometry::cgmath;
-use cgmath_geometry::OffsetBox;
+use cgmath_geometry::rect::OffsetBox;
 
 use cgmath::*;
 

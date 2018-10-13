@@ -14,8 +14,8 @@
 
 use texture::sample_parameters::IntoSampleParameters;
 use texture::{Texture, TextureType, DimsTag, MipSelector};
-use cgmath_geometry::cgmath::Point2;
-use cgmath_geometry::{OffsetBox, GeoBox};
+use cgmath_geometry::D2;
+use cgmath_geometry::rect::{OffsetBox, GeoBox};
 use gl::{self, Gl};
 use gl::types::*;
 
@@ -199,7 +199,7 @@ impl<'a, F> RawBoundFramebufferRead<'a, F>
         }
     }
     #[inline]
-    pub(crate) fn read_pixels<C: UncompressedFormat>(&self, read_rect: OffsetBox<Point2<u32>>, data: &mut [C]) {
+    pub(crate) fn read_pixels<C: UncompressedFormat>(&self, read_rect: OffsetBox<u32, D2>, data: &mut [C]) {
         // TODO: STENCIL AND DEPTH SUPPORT
         // TODO: GL_PIXEL_PACK_BUFFER SUPPORT
         assert_eq!((read_rect.width() * read_rect.height()) as usize, data.len());

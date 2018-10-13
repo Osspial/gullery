@@ -17,8 +17,8 @@ mod raw;
 use self::raw::{RawRenderbuffer, RawRenderbufferTarget};
 use image_format::{UncompressedFormat, GLFormat};
 
-use cgmath::Point2;
-use cgmath_geometry::DimsBox;
+use cgmath_geometry::D2;
+use cgmath_geometry::rect::DimsBox;
 use std::mem;
 use std::rc::Rc;
 use std::marker::PhantomData;
@@ -27,7 +27,7 @@ pub(crate) struct RenderbufferTarget(RawRenderbufferTarget);
 pub struct Renderbuffer<I: UncompressedFormat> {
     raw: RawRenderbuffer,
     samples: u32,
-    dims: DimsBox<Point2<u32>>,
+    dims: DimsBox<u32, D2>,
     state: Rc<ContextState>,
     _format: PhantomData<I>
 }
@@ -39,7 +39,7 @@ impl RenderbufferTarget {
 }
 
 impl<I: UncompressedFormat> Renderbuffer<I> {
-    pub fn new(dims: DimsBox<Point2<u32>>, samples: u32, state: Rc<ContextState>) -> Renderbuffer<I> {
+    pub fn new(dims: DimsBox<u32, D2>, samples: u32, state: Rc<ContextState>) -> Renderbuffer<I> {
         let mut raw = RawRenderbuffer::new(&state.gl);
         let internal_format = match I::ATTRIBUTES.format {
             GLFormat::Uncompressed{internal_format, ..} => internal_format,
@@ -60,7 +60,7 @@ impl<I: UncompressedFormat> Renderbuffer<I> {
     }
 
     #[inline(always)]
-    pub fn dims(&self) -> DimsBox<Point2<u32>> {
+    pub fn dims(&self) -> DimsBox<u32, D2> {
         self.dims
     }
 

@@ -26,8 +26,9 @@ use std::cell::Cell;
 use std::ops::{Deref, Index, Range};
 use std::marker::PhantomData;
 
-use cgmath::{Vector1, Vector2, Vector3, Point1, Point2, Point3};
-use cgmath_geometry::{GeoBox, DimsBox};
+use cgmath::{Vector1, Vector2, Vector3};
+use cgmath_geometry::{D1, D2, D3};
+use cgmath_geometry::rect::{GeoBox, DimsBox};
 use super::sample_parameters::*;
 
 pub struct RawTexture<T>
@@ -94,9 +95,9 @@ pub struct CubeImage<'a, I: ImageFormat> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DimsTag {
-    One(DimsBox<Point1<u32>>),
-    Two(DimsBox<Point2<u32>>),
-    Three(DimsBox<Point3<u32>>)
+    One(DimsBox<u32, D1>),
+    Two(DimsBox<u32, D2>),
+    Three(DimsBox<u32, D3>)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -112,10 +113,6 @@ pub trait Dims: 'static + Into<DimsTag> + Copy {
     fn num_pixels(self) -> u32;
     fn max_size(state: &ContextState) -> Self;
 }
-
-pub trait Dims1D: Dims {}
-pub trait Dims2D: Dims {}
-pub trait Dims3D: Dims {}
 
 pub unsafe trait TextureType: 'static {
     type MipSelector: MipSelector;
@@ -654,8 +651,7 @@ impl DimsTag {
     }
 }
 
-impl Dims1D for DimsBox<Point1<u32>> {}
-impl Dims for DimsBox<Point1<u32>> {
+impl Dims for DimsBox<u32, D1> {
     type Offset = Vector1<u32>;
 
     #[inline] fn width(self) -> u32 {GeoBox::width(&self)}
@@ -666,7 +662,7 @@ impl Dims for DimsBox<Point1<u32>> {
         self.width()
     }
     #[inline]
-    fn max_size(state: &ContextState) -> DimsBox<Point1<u32>> {
+    fn max_size(state: &ContextState) -> DimsBox<u32, D1> {
         unsafe {
             let mut size = 0;
             state.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
@@ -674,9 +670,7 @@ impl Dims for DimsBox<Point1<u32>> {
         }
     }
 }
-impl Dims1D for DimsBox<Point2<u32>> {}
-impl Dims2D for DimsBox<Point2<u32>> {}
-impl Dims for DimsBox<Point2<u32>> {
+impl Dims for DimsBox<u32, D2> {
     type Offset = Vector2<u32>;
     #[inline] fn width(self) -> u32 {GeoBox::width(&self)}
     #[inline] fn height(self) -> u32 {GeoBox::height(&self)}
@@ -686,7 +680,7 @@ impl Dims for DimsBox<Point2<u32>> {
         self.width() * self.height()
     }
     #[inline]
-    fn max_size(state: &ContextState) -> DimsBox<Point2<u32>> {
+    fn max_size(state: &ContextState) -> DimsBox<u32, D2> {
         unsafe {
             let mut size = 0;
             state.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
@@ -694,8 +688,6 @@ impl Dims for DimsBox<Point2<u32>> {
         }
     }
 }
-impl Dims1D for DimsSquare {}
-impl Dims2D for DimsSquare {}
 impl Dims for DimsSquare {
     type Offset = Vector2<u32>;
     #[inline] fn width(self) -> u32 {self.side}
@@ -714,10 +706,7 @@ impl Dims for DimsSquare {
         }
     }
 }
-impl Dims1D for DimsBox<Point3<u32>> {}
-impl Dims2D for DimsBox<Point3<u32>> {}
-impl Dims3D for DimsBox<Point3<u32>> {}
-impl Dims for DimsBox<Point3<u32>> {
+impl Dims for DimsBox<u32, D3> {
     type Offset = Vector3<u32>;
     #[inline] fn width(self) -> u32 {GeoBox::width(&self)}
     #[inline] fn height(self) -> u32 {GeoBox::height(&self)}
@@ -727,7 +716,7 @@ impl Dims for DimsBox<Point3<u32>> {
         self.width() * self.height() * self.depth()
     }
     #[inline]
-    fn max_size(state: &ContextState) -> DimsBox<Point3<u32>> {
+    fn max_size(state: &ContextState) -> DimsBox<u32, D3> {
         unsafe {
             let mut size = 0;
             state.gl.GetIntegerv(gl::MAX_3D_TEXTURE_SIZE, &mut size);
@@ -735,15 +724,15 @@ impl Dims for DimsBox<Point3<u32>> {
         }
     }
 }
-impl From<DimsBox<Point1<u32>>> for DimsTag {
+impl From<DimsBox<u32, D1>> for DimsTag {
     #[inline]
-    fn from(dims: DimsBox<Point1<u32>>) -> DimsTag {
+    fn from(dims: DimsBox<u32, D1>) -> DimsTag {
         DimsTag::One(dims)
     }
 }
-impl From<DimsBox<Point2<u32>>> for DimsTag {
+impl From<DimsBox<u32, D2>> for DimsTag {
     #[inline]
-    fn from(dims: DimsBox<Point2<u32>>) -> DimsTag {
+    fn from(dims: DimsBox<u32, D2>) -> DimsTag {
         DimsTag::Two(dims)
     }
 }
@@ -753,9 +742,9 @@ impl From<DimsSquare> for DimsTag {
         DimsTag::Two(DimsBox::new2(dims.side, dims.side))
     }
 }
-impl From<DimsBox<Point3<u32>>> for DimsTag {
+impl From<DimsBox<u32, D3>> for DimsTag {
     #[inline]
-    fn from(dims: DimsBox<Point3<u32>>) -> DimsTag {
+    fn from(dims: DimsBox<u32, D3>) -> DimsTag {
         DimsTag::Three(dims)
     }
 }

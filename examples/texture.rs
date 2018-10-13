@@ -16,8 +16,8 @@ use gullery::texture::*;
 use gullery::texture::targets::SimpleTex;
 use gullery::vertex::VertexArrayObject;
 
-use cgmath_geometry::cgmath;
-use cgmath_geometry::{OffsetBox, DimsBox};
+use cgmath_geometry::{cgmath, D2};
+use cgmath_geometry::rect::{DimsBox, OffsetBox};
 
 use cgmath::*;
 
@@ -31,7 +31,7 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: &'a Texture<SimpleTex<SRgba, DimsBox<Point2<u32>>>, ()>
+    tex: &'a Texture<SimpleTex<SRgba, D2>, ()>
 }
 
 fn main() {

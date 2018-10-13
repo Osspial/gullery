@@ -16,8 +16,8 @@ mod raw;
 
 use ContextState;
 use self::raw::Capability;
-use cgmath::Point2;
-use cgmath_geometry::OffsetBox;
+use cgmath_geometry::D2;
+use cgmath_geometry::rect::OffsetBox;
 pub use self::raw::{BlendFuncs, BlendFunc, CullFace, FrontFace, DepthStencilFunc, StencilTest, StencilOp, ColorMask, PolygonOffset};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -35,7 +35,7 @@ pub struct RenderState {
     pub texture_cubemap_seamless: bool,
     pub program_point_size: bool,
     pub polygon_offset: Option<PolygonOffset>,
-    pub viewport: OffsetBox<Point2<u32>>,
+    pub viewport: OffsetBox<u32, D2>,
     pub color_mask: ColorMask,
     pub depth_mask: bool,
 }

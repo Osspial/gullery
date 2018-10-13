@@ -33,8 +33,8 @@ use uniform::Uniforms;
 use program::Program;
 use image_format::{Rgba, ImageFormat, UncompressedFormat, ImageFormatType};
 use self::render_state::RenderState;
-use cgmath_geometry::OffsetBox;
-use cgmath_geometry::cgmath::Point2;
+use cgmath_geometry::D2;
+use cgmath_geometry::rect::OffsetBox;
 
 use std::mem;
 use std::rc::Rc;
@@ -125,7 +125,7 @@ pub trait Framebuffer {
     }
 
     #[inline]
-    fn read_pixels<C>(&mut self, read_rect: OffsetBox<Point2<u32>>, data: &mut [C])
+    fn read_pixels<C>(&mut self, read_rect: OffsetBox<u32, D2>, data: &mut [C])
         where C: UncompressedFormat,
               Self::Attachments: DefaultFramebufferAttachments
     {
@@ -140,7 +140,7 @@ pub trait Framebuffer {
     #[inline]
     fn read_pixels_fbo<C, A>(
         &mut self,
-        read_rect: OffsetBox<Point2<u32>>,
+        read_rect: OffsetBox<u32, D2>,
         data: &mut [C],
         get_attachment: impl FnOnce(&Self::Attachments) -> &A
     )

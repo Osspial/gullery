@@ -16,8 +16,8 @@ use gullery::texture::{*, sample_parameters::*};
 use gullery::texture::targets::SimpleTex;
 use gullery::vertex::VertexArrayObject;
 
-use cgmath_geometry::cgmath;
-use cgmath_geometry::{OffsetBox, DimsBox};
+use cgmath_geometry::{cgmath, D2};
+use cgmath_geometry::rect::{DimsBox, OffsetBox};
 
 use cgmath::*;
 
@@ -34,12 +34,12 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: SampledTexture<'a, SimpleTex<SRgba, DimsBox<Point2<u32>>>, ()>,
+    tex: SampledTexture<'a, SimpleTex<SRgba, D2>, ()>,
     offset: Vector2<f32>,
     scale: Vector2<f32>
 }
 
-fn load_texture_from_file(path: &str, state: &Rc<ContextState>) -> Result<Texture<SimpleTex<SRgba, DimsBox<Point2<u32>>>, ()>, io::Error> {
+fn load_texture_from_file(path: &str, state: &Rc<ContextState>) -> Result<Texture<SimpleTex<SRgba, D2>, ()>, io::Error> {
     let (image, dims) = {
         let decoder = png::Decoder::new(File::open(path)?);
         let (info, mut reader) = decoder.read_info()?;
