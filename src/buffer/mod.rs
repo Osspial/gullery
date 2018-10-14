@@ -23,7 +23,7 @@ use {Handle, ContextState, GLObject};
 
 use std::mem;
 use std::rc::Rc;
-use RangeArgument;
+use std::ops::RangeBounds;
 
 pub unsafe trait Index: 'static + Copy {
     const INDEX_GL_ENUM: Option<GLenum>;
@@ -140,7 +140,7 @@ impl<T: 'static + Copy> Buffer<T> {
     }
 
     #[inline]
-    pub fn copy_to<R: RangeArgument<usize>>(&self, dest_buf: &mut Buffer<T>, self_range: R, write_offset: usize) {
+    pub fn copy_to<R: RangeBounds<usize>>(&self, dest_buf: &mut Buffer<T>, self_range: R, write_offset: usize) {
         let ContextState {
             ref buffer_binds,
             ref gl,

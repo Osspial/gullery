@@ -38,7 +38,7 @@ use cgmath_geometry::rect::OffsetBox;
 
 use std::mem;
 use std::rc::Rc;
-use RangeArgument;
+use std::ops::RangeBounds;
 
 pub(crate) struct FramebufferTargets {
     read: RawFramebufferTargetRead,
@@ -207,7 +207,7 @@ pub trait Framebuffer {
         uniform: U,
         render_state: RenderState
     )
-        where R: RangeArgument<usize>,
+        where R: RangeBounds<usize>,
               V: Vertex,
               I: Index,
               U: Uniforms

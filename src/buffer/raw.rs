@@ -18,8 +18,7 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use std::{ptr, mem};
-use std::ops::Deref;
-use RangeArgument;
+use std::ops::{Deref, RangeBounds};
 use std::cell::Cell;
 use std::marker::PhantomData;
 
@@ -220,11 +219,11 @@ impl<'a, T, B> RawBoundBuffer<'a, T, B>
     #[inline]
     pub(crate) fn copy_to<C, R>(&self, dest_bind: &mut RawBoundBufferMut<T, C>, self_range: R, write_offset: usize)
         where C: RawBindTarget,
-              R: RangeArgument<usize>
+              R: RangeBounds<usize>
     {
         if mem::size_of::<T>() != 0 {
-            let read_offset = ::bound_to_num_start(self_range.start(), 0);
-            let read_end = ::bound_to_num_end(self_range.end(), self.buffer.size);
+            let read_offset = ::bound_to_num_start(self_range.start_bound(), 0);
+            let read_end = ::bound_to_num_end(self_range.end_bound(), self.buffer.size);
             assert!(read_end <= isize::max_value() as usize);
 
             let size = read_offset.checked_sub(read_end)

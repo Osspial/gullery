@@ -44,7 +44,6 @@ use gl::Gl;
 use std::rc::Rc;
 use std::cell::Cell;
 use std::collections::Bound;
-use std::ops::{Range, RangeFrom, RangeTo, RangeFull};
 use std::num::NonZeroU32;
 
 pub type Handle = NonZeroU32;
@@ -176,47 +175,5 @@ fn bound_to_num_end(bound: Bound<&usize>, unbounded: usize) -> usize {
         Bound::Included(t) => *t + 1,
         Bound::Excluded(t) => *t,
         Bound::Unbounded   => unbounded
-    }
-}
-
-/// Stop-gap replacement for Rust's RangeArgument trait, while it's unstable.
-pub trait RangeArgument<T: ?Sized> {
-    fn start(&self) -> Bound<&T>;
-    fn end(&self) -> Bound<&T>;
-}
-
-impl<T: ?Sized> RangeArgument<T> for RangeFull {
-    fn start(&self) -> Bound<&T> {
-        Bound::Unbounded
-    }
-    fn end(&self) -> Bound<&T> {
-        Bound::Unbounded
-    }
-}
-
-impl<T> RangeArgument<T> for RangeFrom<T> {
-    fn start(&self) -> Bound<&T> {
-        Bound::Included(&self.start)
-    }
-    fn end(&self) -> Bound<&T> {
-        Bound::Unbounded
-    }
-}
-
-impl<T> RangeArgument<T> for RangeTo<T> {
-    fn start(&self) -> Bound<&T> {
-        Bound::Unbounded
-    }
-    fn end(&self) -> Bound<&T> {
-        Bound::Excluded(&self.end)
-    }
-}
-
-impl<T> RangeArgument<T> for Range<T> {
-    fn start(&self) -> Bound<&T> {
-        Bound::Included(&self.start)
-    }
-    fn end(&self) -> Bound<&T> {
-        Bound::Excluded(&self.end)
     }
 }

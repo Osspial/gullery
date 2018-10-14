@@ -32,7 +32,7 @@ use super::attachments::*;
 use std::mem;
 use std::cell::Cell;
 use std::marker::PhantomData;
-use RangeArgument;
+use std::ops::RangeBounds;
 
 pub unsafe trait RawFramebuffer {
     fn handle(&self) -> Option<Handle>;
@@ -257,17 +257,17 @@ impl<'a, F> RawBoundFramebufferDraw<'a, F>
 
     #[inline]
     pub(crate) fn draw<R, V, I, U, A>(&mut self, mode: DrawMode, range: R, bound_vao: &BoundVAO<V, I>, _bound_program: &BoundProgram<V, U, A>)
-        where R: RangeArgument<usize>,
+        where R: RangeBounds<usize>,
               V: Vertex,
               I: Index,
               U: Uniforms,
               A: Attachments
     {
         let index_type_option = I::INDEX_GL_ENUM;
-        let read_offset = ::bound_to_num_start(range.start(), 0);
+        let read_offset = ::bound_to_num_start(range.start_bound(), 0);
 
         if let (Some(index_type), Some(index_buffer)) = (index_type_option, bound_vao.vao().index_buffer()) {
-            let read_end = ::bound_to_num_end(range.end(), index_buffer.size());
+            let read_end = ::bound_to_num_end(range.end_bound(), index_buffer.size());
             assert!(read_offset <= read_end);
             assert!((read_end - read_offset) <= GLsizei::max_value() as usize);
 
@@ -280,7 +280,7 @@ impl<'a, F> RawBoundFramebufferDraw<'a, F>
                 );
             }
         } else {
-            let read_end = ::bound_to_num_end(range.end(), bound_vao.vao().vertex_buffer().size());
+            let read_end = ::bound_to_num_end(range.end_bound(), bound_vao.vao().vertex_buffer().size());
             assert!(read_offset <= GLint::max_value() as usize);
             assert!(read_offset <= read_end);
             assert!((read_end - read_offset) <= isize::max_value() as usize);
