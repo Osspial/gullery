@@ -32,18 +32,43 @@ pub unsafe trait TransparentType: 'static + Copy {
 }
 
 pub unsafe trait Scalar: TransparentType {
+    type ScalarType: ScalarType;
     const GL_ENUM: GLenum;
     const NORMALIZED: bool;
-    const GLSL_SCALAR_TYPE: GLSLScalarType;
     const SIGNED: bool;
 }
 
-#[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum GLSLScalarType {
-    Float,
-    Int,
-    Bool,
+pub unsafe trait ScalarType {
+    const PRIM_TAG: TypeBasicTag;
+    const IS_INTEGER: bool;
+}
+
+pub enum GLSLBool {}
+pub enum GLSLFloat {}
+pub enum GLSLIntSigned {}
+pub enum GLSLIntUnsigned {}
+
+unsafe impl ScalarType for GLSLFloat {
+    const PRIM_TAG: TypeBasicTag = TypeBasicTag::Float;
+    const IS_INTEGER: bool = false;
+}
+unsafe impl ScalarType for GLSLBool {
+    const PRIM_TAG: TypeBasicTag = TypeBasicTag::Bool;
+    const IS_INTEGER: bool = true;
+}
+unsafe impl ScalarType for GLSLIntSigned {
+    const PRIM_TAG: TypeBasicTag = TypeBasicTag::Int;
+    const IS_INTEGER: bool = true;
+}
+unsafe impl ScalarType for GLSLIntUnsigned {
+    const PRIM_TAG: TypeBasicTag = TypeBasicTag::UInt;
+    const IS_INTEGER: bool = true;
+}
+
+unsafe impl<S: Scalar> TransparentType for S {
+    type Scalar = S;
+    #[inline(always)]
+    fn prim_tag() -> TypeBasicTag {S::ScalarType::PRIM_TAG}
 }
 
 pub unsafe trait ScalarNum: Scalar + Num {}
@@ -188,17 +213,11 @@ impl_glsl_matrix!{
 macro_rules! impl_gl_scalar_nonorm {
     ($(impl $scalar:ty = ($gl_enum:expr, $normalized:expr, $signed:expr);)*) => {$(
         unsafe impl Scalar for $scalar {
+            // We treat raw integers as normalized, so every base scalar is technically a float.
+            type ScalarType = GLSLFloat;
             const GL_ENUM: GLenum = $gl_enum;
             const NORMALIZED: bool = $normalized;
-            const GLSL_SCALAR_TYPE: GLSLScalarType = GLSLScalarType::Float;
             const SIGNED: bool = $signed;
-        }
-
-        unsafe impl TransparentType for $scalar {
-            type Scalar = $scalar;
-            // We treat raw integers as normalized, so every base scalar is technically a float.
-            #[inline]
-            fn prim_tag() -> TypeBasicTag {TypeBasicTag::Float}
         }
     )*};
 }
@@ -215,16 +234,10 @@ impl_gl_scalar_nonorm!{
 }
 
 unsafe impl Scalar for bool {
+    type ScalarType = GLSLBool;
     const GL_ENUM: GLenum = gl::BOOL;
     const NORMALIZED: bool = false;
-    const GLSL_SCALAR_TYPE: GLSLScalarType = GLSLScalarType::Bool;
     const SIGNED: bool = false;
-}
-
-unsafe impl TransparentType for bool {
-    type Scalar = bool;
-    #[inline]
-    fn prim_tag() -> TypeBasicTag {TypeBasicTag::Bool}
 }
 
 impl From<TypeBasicTag> for GLenum {
@@ -643,8 +656,7 @@ pub enum ParseNormalizedIntError {
 #[repr(transparent)]
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, From)]
 pub struct GLSLInt<I>(pub I)
-    where GLSLInt<I>: TransparentType,
-          I: Num;
+    where I: Num;
 impl<I> Zero for GLSLInt<I>
     where GLSLInt<I>: TransparentType,
           I: Num
@@ -682,34 +694,26 @@ impl<I> Num for GLSLInt<I>
     }
 }
 
-unsafe impl<I> Scalar for GLSLInt<I>
-    where GLSLInt<I>: TransparentType,
-          I: Num + Scalar
-{
-    const GL_ENUM: GLenum = I::GL_ENUM;
-    const NORMALIZED: bool = false;
-    const GLSL_SCALAR_TYPE: GLSLScalarType = GLSLScalarType::Int;
-    const SIGNED: bool = I::SIGNED;
-}
 
 
 macro_rules! impl_glslint {
     ($(impl $scalar:ty = $prim_tag:ident;)*) => {$(
-        unsafe impl TransparentType for GLSLInt<$scalar> {
-            type Scalar = $scalar;
-            #[inline]
-            fn prim_tag() -> TypeBasicTag {TypeBasicTag::$prim_tag}
+        unsafe impl Scalar for GLSLInt<$scalar> {
+            type ScalarType = $prim_tag;
+            const GL_ENUM: GLenum = <$scalar as Scalar>::GL_ENUM;
+            const NORMALIZED: bool = false;
+            const SIGNED: bool = <$scalar as Scalar>::SIGNED;
         }
     )*}
 }
 
 impl_glslint!{
-    impl u8 = UInt;
-    impl u16 = UInt;
-    impl u32 = UInt;
-    impl i8 = Int;
-    impl i16 = Int;
-    impl i32 = Int;
+    impl u8 = GLSLIntUnsigned;
+    impl u16 = GLSLIntUnsigned;
+    impl u32 = GLSLIntUnsigned;
+    impl i8 = GLSLIntSigned;
+    impl i16 = GLSLIntSigned;
+    impl i32 = GLSLIntSigned;
 }
 impl<I> Add for GLSLInt<I>
     where GLSLInt<I>: TransparentType,

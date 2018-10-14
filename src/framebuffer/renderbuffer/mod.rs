@@ -15,7 +15,7 @@
 use {Handle, ContextState, GLObject};
 mod raw;
 use self::raw::{RawRenderbuffer, RawRenderbufferTarget};
-use image_format::{UncompressedFormat, GLFormat};
+use image_format::{UncompressedFormat, ConcreteImageFormat, GLFormat};
 
 use cgmath_geometry::D2;
 use cgmath_geometry::rect::DimsBox;
@@ -39,12 +39,14 @@ impl RenderbufferTarget {
 }
 
 impl<I: UncompressedFormat> Renderbuffer<I> {
-    pub fn new(dims: DimsBox<u32, D2>, samples: u32, state: Rc<ContextState>) -> Renderbuffer<I> {
+    pub fn new(dims: DimsBox<u32, D2>, samples: u32, state: Rc<ContextState>) -> Renderbuffer<I>
+        where I: ConcreteImageFormat
+    {
         let mut raw = RawRenderbuffer::new(&state.gl);
-        let internal_format = match I::ATTRIBUTES.format {
+        let internal_format = match I::FORMAT {
             GLFormat::Uncompressed{internal_format, ..} => internal_format,
             GLFormat::Compressed{..} => panic!("compressed format information passed with uncompressed texture;\
-                                                check the image format's ATTRIBUTES.format field. It should have a\
+                                                check the image format's FORMAT field. It should have a\
                                                 GLFormat::Uncompressed value")
         };
 

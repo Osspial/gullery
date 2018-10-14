@@ -25,7 +25,7 @@ use buffer::Index;
 use vertex::vao::BoundVAO;
 use uniform::Uniforms;
 use program::BoundProgram;
-use image_format::{ImageFormat, UncompressedFormat, ImageFormatType, Rgba, GLFormat};
+use image_format::{ImageFormat, FormatType, UncompressedFormat, ConcreteImageFormat, ImageFormatType, Rgba, GLFormat};
 use super::Renderbuffer;
 use super::attachments::*;
 
@@ -199,7 +199,7 @@ impl<'a, F> RawBoundFramebufferRead<'a, F>
         }
     }
     #[inline]
-    pub(crate) fn read_pixels<C: UncompressedFormat>(&self, read_rect: OffsetBox<u32, D2>, data: &mut [C]) {
+    pub(crate) fn read_pixels<C: UncompressedFormat + ConcreteImageFormat>(&self, read_rect: OffsetBox<u32, D2>, data: &mut [C]) {
         // TODO: STENCIL AND DEPTH SUPPORT
         // TODO: GL_PIXEL_PACK_BUFFER SUPPORT
         assert_eq!((read_rect.width() * read_rect.height()) as usize, data.len());
@@ -208,7 +208,7 @@ impl<'a, F> RawBoundFramebufferRead<'a, F>
         assert!(read_rect.width() as i32 >= 0);
         assert!(read_rect.height() as i32 >= 0);
 
-        let (pixel_format, pixel_type) = match C::ATTRIBUTES.format {
+        let (pixel_format, pixel_type) = match C::FORMAT {
             GLFormat::Uncompressed{pixel_format, pixel_type, ..} => (pixel_format, pixel_type),
             GLFormat::Compressed{..} => panic!("compressed format information passed with uncompressed texture;\
                                                 check the image format's ATTRIBUTES.format field. It should have a\
@@ -334,7 +334,7 @@ pub unsafe trait RawBoundFramebuffer {
                     *handle = Some(member.handle());
                     let handle = member.handle();
                     let attachment: GLenum;
-                    match <Renderbuffer<Im> as Attachment>::Format::ATTRIBUTES.format_type {
+                    match <<Renderbuffer<Im> as Attachment>::Format as ImageFormat>::FormatType::FORMAT_TYPE {
                         ImageFormatType::Color => {
                             attachment = gl::COLOR_ATTACHMENT0 + self.color_index;
                             self.color_index += 1;
@@ -370,7 +370,7 @@ pub unsafe trait RawBoundFramebuffer {
                     *handle = Some(texture.handle());
                     let handle = texture.handle();
                     let attachment: GLenum;
-                    match <Texture<T, P> as Attachment>::Format::ATTRIBUTES.format_type {
+                    match <<Texture<T, P> as Attachment>::Format as ImageFormat>::FormatType::FORMAT_TYPE {
                         ImageFormatType::Color => {
                             attachment = gl::COLOR_ATTACHMENT0 + self.color_index;
                             self.color_index += 1;

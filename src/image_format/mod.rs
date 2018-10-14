@@ -81,16 +81,24 @@ pub enum GLFormat {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ImageFormatAttributes {
-    pub format: GLFormat,
-    pub format_type: ImageFormatType,
-    pub scalar_type: GLSLScalarType,
-    pub scalar_signed: bool
+pub unsafe trait ImageFormat: 'static + Copy {
+    type ScalarType: ScalarType;
+    type FormatType: FormatType;
+}
+pub unsafe trait ConcreteImageFormat: ImageFormat {
+    const FORMAT: GLFormat;
 }
 
-pub unsafe trait ImageFormat: 'static + Copy {
-    const ATTRIBUTES: ImageFormatAttributes;
+pub trait FormatType {
+    const FORMAT_TYPE: ImageFormatType;
+}
+pub enum ColorFormat {}
+pub enum DepthFormat {}
+impl FormatType for ColorFormat {
+    const FORMAT_TYPE: ImageFormatType = ImageFormatType::Color;
+}
+impl FormatType for DepthFormat {
+    const FORMAT_TYPE: ImageFormatType = ImageFormatType::Depth;
 }
 
 pub unsafe trait UncompressedFormat: ImageFormat {}
@@ -114,29 +122,27 @@ pub struct Depth32F(pub f32);
 
 unsafe impl UncompressedFormat for Depth16 {}
 unsafe impl ImageFormat for Depth16 {
-    const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
-        format: GLFormat::Uncompressed {
-            internal_format: gl::DEPTH_COMPONENT16,
-            pixel_format: gl::DEPTH_COMPONENT,
-            pixel_type: <u16 as Scalar>::GL_ENUM,
-        },
-        format_type: ImageFormatType::Depth,
-        scalar_type: u16::GLSL_SCALAR_TYPE,
-        scalar_signed: u16::SIGNED
+    type ScalarType = GLSLFloat;
+    type FormatType = DepthFormat;
+}
+unsafe impl ConcreteImageFormat for Depth16 {
+    const FORMAT: GLFormat = GLFormat::Uncompressed {
+        internal_format: gl::DEPTH_COMPONENT16,
+        pixel_format: gl::DEPTH_COMPONENT,
+        pixel_type: <u16 as Scalar>::GL_ENUM,
     };
 }
 
 unsafe impl UncompressedFormat for Depth32F {}
 unsafe impl ImageFormat for Depth32F {
-    const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
-        format: GLFormat::Uncompressed {
-            internal_format: gl::DEPTH_COMPONENT32F,
-            pixel_format: gl::DEPTH_COMPONENT,
-            pixel_type: <f32 as Scalar>::GL_ENUM,
-        },
-        format_type: ImageFormatType::Depth,
-        scalar_type: f32::GLSL_SCALAR_TYPE,
-        scalar_signed: f32::SIGNED
+    type ScalarType = GLSLFloat;
+    type FormatType = DepthFormat;
+}
+unsafe impl ConcreteImageFormat for Depth32F {
+    const FORMAT: GLFormat = GLFormat::Uncompressed {
+        internal_format: gl::DEPTH_COMPONENT32F,
+        pixel_format: gl::DEPTH_COMPONENT,
+        pixel_type: <f32 as Scalar>::GL_ENUM,
     };
 }
 
@@ -283,16 +289,8 @@ impl<S: ScalarNum> Into<Vector1<S>> for Red<S> {
 }
 
 macro_rules! if_integer {
-    (if $if:expr => ($t:expr) else ($f:expr)) => {{
-        union Transmute {
-            from: GLSLScalarType,
-            to: u8
-        }
-        const IF: u8 = unsafe{ Transmute{from:$if}.to };
-        const INT: u8 = unsafe{ Transmute{from:$if}.to };
-        const BOOL: u8 = unsafe{ Transmute{from:$if}.to };
-        const IS_INT: bool = IF == INT || IF == BOOL;
-        (IS_INT as GLenum * $t) + ((!IS_INT) as GLenum * $f)
+    (if $prim:ty => ($t:expr) else ($f:expr)) => {{
+        (<$prim as Scalar>::ScalarType::IS_INTEGER as GLenum * $t) + (!<$prim as Scalar>::ScalarType::IS_INTEGER as GLenum * $f)
     }};
 }
 
@@ -305,15 +303,14 @@ macro_rules! basic_format {
             type Scalar = $prim;
         }
         unsafe impl ImageFormat for Rgba<$prim> {
-            const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
-                format: GLFormat::Uncompressed {
-                    internal_format: gl::$rgba_enum,
-                    pixel_format: if_integer!(if <$prim as Scalar>::GLSL_SCALAR_TYPE => (gl::RGBA_INTEGER) else (gl::RGBA)),
-                    pixel_type: <$prim as Scalar>::GL_ENUM,
-                },
-                format_type: ImageFormatType::Color,
-                scalar_type: <$prim as Scalar>::GLSL_SCALAR_TYPE,
-                scalar_signed: <$prim as Scalar>::SIGNED
+            type ScalarType = <$prim as Scalar>::ScalarType;
+            type FormatType = ColorFormat;
+        }
+        unsafe impl ConcreteImageFormat for Rgba<$prim> {
+            const FORMAT: GLFormat = GLFormat::Uncompressed {
+                internal_format: gl::$rgba_enum,
+                pixel_format: if_integer!(if $prim => (gl::RGBA_INTEGER) else (gl::RGBA)),
+                pixel_type: <$prim as Scalar>::GL_ENUM,
             };
         }
         unsafe impl UncompressedFormat for Rgb<$prim> {}
@@ -321,15 +318,14 @@ macro_rules! basic_format {
             type Scalar = $prim;
         }
         unsafe impl ImageFormat for Rgb<$prim> {
-            const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
-                format: GLFormat::Uncompressed {
-                    internal_format: gl::$rgb_enum,
-                    pixel_format: if_integer!(if <$prim as Scalar>::GLSL_SCALAR_TYPE => (gl::RGB_INTEGER) else (gl::RGB)),
-                    pixel_type: <$prim as Scalar>::GL_ENUM,
-                },
-                format_type: ImageFormatType::Color,
-                scalar_type: <$prim as Scalar>::GLSL_SCALAR_TYPE,
-                scalar_signed: <$prim as Scalar>::SIGNED
+            type ScalarType = <$prim as Scalar>::ScalarType;
+            type FormatType = ColorFormat;
+        }
+        unsafe impl ConcreteImageFormat for Rgb<$prim> {
+            const FORMAT: GLFormat = GLFormat::Uncompressed {
+                internal_format: gl::$rgb_enum,
+                pixel_format: if_integer!(if $prim => (gl::RGB_INTEGER) else (gl::RGB)),
+                pixel_type: <$prim as Scalar>::GL_ENUM,
             };
         }
         unsafe impl UncompressedFormat for Rg<$prim> {}
@@ -337,15 +333,14 @@ macro_rules! basic_format {
             type Scalar = $prim;
         }
         unsafe impl ImageFormat for Rg<$prim> {
-            const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
-                format: GLFormat::Uncompressed {
-                    internal_format: gl::$rg_enum,
-                    pixel_format: if_integer!(if <$prim as Scalar>::GLSL_SCALAR_TYPE => (gl::RG_INTEGER) else (gl::RG)),
-                    pixel_type: <$prim as Scalar>::GL_ENUM,
-                },
-                format_type: ImageFormatType::Color,
-                scalar_type: <$prim as Scalar>::GLSL_SCALAR_TYPE,
-                scalar_signed: <$prim as Scalar>::SIGNED
+            type ScalarType = <$prim as Scalar>::ScalarType;
+            type FormatType = ColorFormat;
+        }
+        unsafe impl ConcreteImageFormat for Rg<$prim> {
+            const FORMAT: GLFormat = GLFormat::Uncompressed {
+                internal_format: gl::$rg_enum,
+                pixel_format: if_integer!(if $prim => (gl::RG_INTEGER) else (gl::RG)),
+                pixel_type: <$prim as Scalar>::GL_ENUM,
             };
         }
         unsafe impl UncompressedFormat for Red<$prim> {}
@@ -353,15 +348,14 @@ macro_rules! basic_format {
             type Scalar = $prim;
         }
         unsafe impl ImageFormat for Red<$prim> {
-            const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
-                format: GLFormat::Uncompressed {
-                    internal_format: gl::$r_enum,
-                    pixel_format: if_integer!(if <$prim as Scalar>::GLSL_SCALAR_TYPE => (gl::RED_INTEGER) else (gl::RED)),
-                    pixel_type: <$prim as Scalar>::GL_ENUM,
-                },
-                format_type: ImageFormatType::Color,
-                scalar_type: <$prim as Scalar>::GLSL_SCALAR_TYPE,
-                scalar_signed: <$prim as Scalar>::SIGNED
+            type ScalarType = <$prim as Scalar>::ScalarType;
+            type FormatType = ColorFormat;
+        }
+        unsafe impl ConcreteImageFormat for Red<$prim> {
+            const FORMAT: GLFormat = GLFormat::Uncompressed {
+                internal_format: gl::$r_enum,
+                pixel_format: if_integer!(if $prim => (gl::RED_INTEGER) else (gl::RED)),
+                pixel_type: <$prim as Scalar>::GL_ENUM,
             };
         }
     )*}
@@ -389,15 +383,14 @@ impl ColorComponents for SRgba {
     type Scalar = u8;
 }
 unsafe impl ImageFormat for SRgba {
-    const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
-        format: GLFormat::Uncompressed {
-            internal_format: gl::SRGB8_ALPHA8,
-            pixel_format: gl::RGBA,
-            pixel_type: <u8 as Scalar>::GL_ENUM,
-        },
-        format_type: ImageFormatType::Color,
-        scalar_type: u8::GLSL_SCALAR_TYPE,
-        scalar_signed: u8::SIGNED
+    type ScalarType = GLSLFloat;
+    type FormatType = ColorFormat;
+}
+unsafe impl ConcreteImageFormat for SRgba {
+    const FORMAT: GLFormat = GLFormat::Uncompressed {
+        internal_format: gl::SRGB8_ALPHA8,
+        pixel_format: gl::RGBA,
+        pixel_type: <u8 as Scalar>::GL_ENUM,
     };
 }
 unsafe impl UncompressedFormat for SRgb {}
@@ -405,14 +398,13 @@ impl ColorComponents for SRgb {
     type Scalar = u8;
 }
 unsafe impl ImageFormat for SRgb {
-    const ATTRIBUTES: ImageFormatAttributes = ImageFormatAttributes {
-        format: GLFormat::Uncompressed {
-            internal_format: gl::SRGB8,
-            pixel_format: gl::RGB,
-            pixel_type: <u8 as Scalar>::GL_ENUM,
-        },
-        format_type: ImageFormatType::Color,
-        scalar_type: u8::GLSL_SCALAR_TYPE,
-        scalar_signed: u8::SIGNED
+    type ScalarType = GLSLFloat;
+    type FormatType = ColorFormat;
+}
+unsafe impl ConcreteImageFormat for SRgb {
+    const FORMAT: GLFormat = GLFormat::Uncompressed {
+        internal_format: gl::SRGB8,
+        pixel_format: gl::RGB,
+        pixel_type: <u8 as Scalar>::GL_ENUM,
     };
 }

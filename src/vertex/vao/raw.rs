@@ -16,7 +16,7 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use {Handle, ContextState, GLObject};
-use glsl::{TransparentType, Scalar, GLSLScalarType};
+use glsl::{TransparentType, Scalar, TypeBasicTag};
 use vertex::{Vertex, VertexMemberRegistry};
 use buffer::{Buffer, Index};
 
@@ -159,37 +159,35 @@ impl<'a, V: Vertex> VertexMemberRegistry for VertexAttribBuilder<'a, V> {
                     gl.EnableVertexAttribArray(self.attrib_loc + slot);
                     let slot_offset = slot as usize * attrib_size;
 
-                    let is_integer = match T::Scalar::GLSL_SCALAR_TYPE {
-                        GLSLScalarType::Int |
-                        GLSLScalarType::Bool => true,
-                        GLSLScalarType::Float => false
-                    };
-                    if is_integer {
-                        gl.VertexAttribIPointer(
-                            self.attrib_loc + slot,
-                            attrib_len as GLint,
-                            T::Scalar::GL_ENUM,
-                            mem::size_of::<V>() as GLsizei,
-                            (attrib_offset + slot_offset) as *const GLvoid
-                        );
-                    } else if T::Scalar::GL_ENUM != gl::DOUBLE {
-                        gl.VertexAttribPointer(
+                    match T::Scalar::prim_tag() {
+                        TypeBasicTag::Float => gl.VertexAttribPointer(
                             self.attrib_loc + slot,
                             attrib_len as GLint,
                             T::Scalar::GL_ENUM,
                             T::Scalar::NORMALIZED as GLboolean,
                             mem::size_of::<V>() as GLsizei,
                             (attrib_offset + slot_offset) as *const GLvoid
-                        );
-                    } else {
-                        panic!("Attempting to use OpenGL 4 feature")
-                        // gl.VertexAttribLPointer(
-                        //     self.attrib_loc,
-                        //     T::len() as GLint,
-                        //     T::Scalar::GL_ENUM,
-                        //     mem::size_of::<V>() as GLsizei,
-                        //     attrib_offset as *const GLvoid
-                        // );
+                        ),
+                        TypeBasicTag::Int |
+                        TypeBasicTag::UInt |
+                        TypeBasicTag::Bool => gl.VertexAttribIPointer(
+                            self.attrib_loc + slot,
+                            attrib_len as GLint,
+                            T::Scalar::GL_ENUM,
+                            mem::size_of::<V>() as GLsizei,
+                            (attrib_offset + slot_offset) as *const GLvoid
+                        ),
+                        // TypeBasicTag::Double => {
+                        //     panic!("Attempting to use OpenGL 4 feature")
+                        //     gl.VertexAttribLPointer(
+                        //         self.attrib_loc,
+                        //         T::len() as GLint,
+                        //         T::Scalar::GL_ENUM,
+                        //         mem::size_of::<V>() as GLsizei,
+                        //         attrib_offset as *const GLvoid
+                        //     );
+                        // },
+                        _ => panic!("Invalid scalar type tag")
                     }
                 }
 

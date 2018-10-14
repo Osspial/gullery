@@ -19,7 +19,7 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use ContextState;
-use image_format::{UncompressedFormat, ImageFormat, GLFormat};
+use image_format::{ConcreteImageFormat, UncompressedFormat, ImageFormat, GLFormat};
 
 use std::{mem, ptr, iter};
 use std::cell::Cell;
@@ -383,7 +383,8 @@ impl<'a, T> RawBoundTextureMut<'a, T>
     where T: TextureType
 {
     pub fn alloc_image<'b, I>(&mut self, level: T::MipSelector, image: Option<I>)
-        where I: Image<'b, T>
+        where I: Image<'b, T>,
+              T::Format: ConcreteImageFormat
     {
         unsafe {
             let mip_level = level.to_glint();
@@ -404,7 +405,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
             let num_pixels_expected = (width * height * depth) as usize;
 
             let upload_data = |gl: &Gl, image_bind, data, data_len| {
-                match T::Format::ATTRIBUTES.format {
+                match T::Format::FORMAT {
                     GLFormat::Uncompressed{internal_format, pixel_format, pixel_type} => {
                         match self.tex.dims.into() {
                             DimsTag::One(_) =>
@@ -458,7 +459,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
                 }
             };
 
-            let pixels_per_unit = match T::Format::ATTRIBUTES.format {
+            let pixels_per_unit = match T::Format::FORMAT {
                 GLFormat::Uncompressed{..} => 1,
                 GLFormat::Compressed{pixels_per_block, ..} => pixels_per_block
             };
@@ -489,7 +490,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
         image: I,
     )
         where I: Image<'b, T>,
-              T::Format: UncompressedFormat
+              T::Format: UncompressedFormat + ConcreteImageFormat
     {
         use self::DimsTag::*;
 
@@ -518,7 +519,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
         }
 
         unsafe {
-            match T::Format::ATTRIBUTES.format {
+            match T::Format::FORMAT {
                 GLFormat::Uncompressed{pixel_format, pixel_type, ..} => match sub_dims.into() {
                     One(dims) => image.variants(|image_bind, data| self.gl.TexSubImage1D(
                         image_bind, level.to_glint(),

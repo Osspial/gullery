@@ -22,9 +22,9 @@ use gl::types::*;
 use {ContextState, GLObject, Handle};
 use self::raw::*;
 use self::sample_parameters::*;
-use image_format::{UncompressedFormat, ImageFormat, Rgba};
+use image_format::{UncompressedFormat, ConcreteImageFormat, ImageFormat, Rgba};
 
-use glsl::{TypeTag, TypeBasicTag, GLSLScalarType};
+use glsl::{TypeTag, TypeBasicTag, ScalarType};
 use uniform::{UniformType, TextureUniformBinder};
 
 use std::{mem, io, fmt};
@@ -96,11 +96,43 @@ pub(crate) struct BoundTexture<'a, T>(RawBoundTexture<'a, T>)
     where T: TextureType;
 
 impl<T, P> Texture<T, P>
-    where T: TextureType<MipSelector=u8>,
-          P: IntoSampleParameters
+    where P: IntoSampleParameters,
+          T: TextureType,
+          T::Format: ConcreteImageFormat
 {
+    pub fn new(dims: T::Dims, mips: T::MipSelector, state: Rc<ContextState>) -> Result<Texture<T, P>, TexCreateError<T>> {
+        let max_size = T::Dims::max_size(&state);
+        let (max_width, max_height, max_depth) = max_size.into().to_tuple();
+        let (width, height, depth) = dims.into().to_tuple();
+
+        if max_width < width || max_height < height || max_depth < depth {
+            return Err(TexCreateError::DimsExceedMax{
+                requested: dims,
+                max: max_size
+            });
+        }
+
+        let mut raw = RawTexture::new(dims, &state.gl);
+        {
+            let last_unit = state.image_units.0.num_units() - 1;
+            let mut bind = unsafe{ state.image_units.0.bind_texture_mut(last_unit, &mut raw, &state.gl) };
+            for level in mips.iter_less() {
+                bind.alloc_image::<!>(level, None);
+            }
+        }
+
+        Ok(Texture {
+            raw,
+            state,
+
+            sample_parameters: Default::default(),
+            old_sample_parameters: Cell::new(Default::default())
+        })
+    }
+
     pub fn with_images<'a, I, J>(dims: T::Dims, images: J, state: Rc<ContextState>) -> Result<Texture<T, P>, TexCreateError<T>>
-        where I: Image<'a, T>,
+        where T: TextureType<MipSelector=u8>,
+              I: Image<'a, T>,
               J: IntoIterator<Item=I>
     {
         let max_size = T::Dims::max_size(&state);
@@ -141,51 +173,6 @@ impl<T, P> Texture<T, P>
             old_sample_parameters: Cell::new(Default::default())
         })
     }
-}
-
-impl<T, P> Texture<T, P>
-    where T: TextureType,
-          P: IntoSampleParameters
-{
-    pub fn new(dims: T::Dims, mips: T::MipSelector, state: Rc<ContextState>) -> Result<Texture<T, P>, TexCreateError<T>> {
-        let max_size = T::Dims::max_size(&state);
-        let (max_width, max_height, max_depth) = max_size.into().to_tuple();
-        let (width, height, depth) = dims.into().to_tuple();
-
-        if max_width < width || max_height < height || max_depth < depth {
-            return Err(TexCreateError::DimsExceedMax{
-                requested: dims,
-                max: max_size
-            });
-        }
-
-        let mut raw = RawTexture::new(dims, &state.gl);
-        {
-            let last_unit = state.image_units.0.num_units() - 1;
-            let mut bind = unsafe{ state.image_units.0.bind_texture_mut(last_unit, &mut raw, &state.gl) };
-            for level in mips.iter_less() {
-                bind.alloc_image::<!>(level, None);
-            }
-        }
-
-        Ok(Texture {
-            raw,
-            state,
-
-            sample_parameters: Default::default(),
-            old_sample_parameters: Cell::new(Default::default())
-        })
-    }
-
-    #[inline]
-    pub fn num_mips(&self) -> u8 {
-        self.raw.num_mips()
-    }
-
-    #[inline]
-    pub fn dims(&self) -> T::Dims {
-        self.raw.dims()
-    }
 
     #[inline]
     pub fn sub_image<'a, I>(&mut self, level: T::MipSelector, offset: <T::Dims as Dims>::Offset, sub_dims: T::Dims, image: I)
@@ -195,6 +182,21 @@ impl<T, P> Texture<T, P>
         let last_unit = self.state.image_units.0.num_units() - 1;
         let mut bind = unsafe{ self.state.image_units.0.bind_texture_mut(last_unit, &mut self.raw, &self.state.gl) };
         bind.sub_image(level, offset, sub_dims, image);
+    }
+}
+
+impl<T, P> Texture<T, P>
+    where T: TextureType,
+          P: IntoSampleParameters
+{
+    #[inline]
+    pub fn num_mips(&self) -> u8 {
+        self.raw.num_mips()
+    }
+
+    #[inline]
+    pub fn dims(&self) -> T::Dims {
+        self.raw.dims()
     }
 
     #[inline]
@@ -302,11 +304,12 @@ macro_rules! texture_type_uniform {
         {
             #[inline]
             fn uniform_tag() -> TypeTag {
-                TypeTag::Single(match (C::ATTRIBUTES.scalar_type, C::ATTRIBUTES.scalar_signed) {
-                    (GLSLScalarType::Float, _) => TypeBasicTag::$tag_ident,
-                    (GLSLScalarType::Int, true) => TypeBasicTag::$i_tag_ident,
-                    (GLSLScalarType::Bool, _) |
-                    (GLSLScalarType::Int, false) => TypeBasicTag::$u_tag_ident
+                TypeTag::Single(match C::ScalarType::PRIM_TAG {
+                    TypeBasicTag::Float => TypeBasicTag::$tag_ident,
+                    TypeBasicTag::Int => TypeBasicTag::$i_tag_ident,
+                    TypeBasicTag::Bool |
+                    TypeBasicTag::UInt => TypeBasicTag::$u_tag_ident,
+                    _ => panic!("Bad scalar type tag")
                 })
             }
             #[inline]
