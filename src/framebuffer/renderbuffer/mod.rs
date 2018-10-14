@@ -15,7 +15,7 @@
 use {Handle, ContextState, GLObject};
 mod raw;
 use self::raw::{RawRenderbuffer, RawRenderbufferTarget};
-use image_format::{UncompressedFormat, ConcreteImageFormat, GLFormat};
+use image_format::{ImageFormatRenderable, ConcreteImageFormat, GLFormat};
 
 use cgmath_geometry::D2;
 use cgmath_geometry::rect::DimsBox;
@@ -24,7 +24,7 @@ use std::rc::Rc;
 use std::marker::PhantomData;
 
 pub(crate) struct RenderbufferTarget(RawRenderbufferTarget);
-pub struct Renderbuffer<I: UncompressedFormat> {
+pub struct Renderbuffer<I: ImageFormatRenderable> {
     raw: RawRenderbuffer,
     samples: u32,
     dims: DimsBox<u32, D2>,
@@ -38,7 +38,7 @@ impl RenderbufferTarget {
     }
 }
 
-impl<I: UncompressedFormat> Renderbuffer<I> {
+impl<I: ImageFormatRenderable> Renderbuffer<I> {
     pub fn new(dims: DimsBox<u32, D2>, samples: u32, state: Rc<ContextState>) -> Renderbuffer<I>
         where I: ConcreteImageFormat
     {
@@ -72,14 +72,14 @@ impl<I: UncompressedFormat> Renderbuffer<I> {
     }
 }
 
-impl<I: UncompressedFormat> GLObject for Renderbuffer<I> {
+impl<I: ImageFormatRenderable> GLObject for Renderbuffer<I> {
     #[inline(always)]
     fn handle(&self) -> Handle {
         self.raw.handle()
     }
 }
 
-impl<I: UncompressedFormat> Drop for Renderbuffer<I> {
+impl<I: ImageFormatRenderable> Drop for Renderbuffer<I> {
     fn drop(&mut self) {
         let mut buffer = unsafe{ mem::uninitialized() };
         mem::swap(&mut buffer, &mut self.raw);

@@ -83,6 +83,8 @@ pub enum GLFormat {
 
 pub unsafe trait ImageFormat: 'static + Copy {
     type ScalarType: ScalarType;
+}
+pub unsafe trait ImageFormatRenderable: ImageFormat {
     type FormatType: FormatType;
 }
 pub unsafe trait ConcreteImageFormat: ImageFormat {
@@ -101,8 +103,6 @@ impl FormatType for DepthFormat {
     const FORMAT_TYPE: ImageFormatType = ImageFormatType::Depth;
 }
 
-pub unsafe trait UncompressedFormat: ImageFormat {}
-pub unsafe trait CompressedFormat: ImageFormat {}
 pub trait ColorComponents {
     type Scalar: Scalar;
 }
@@ -120,9 +120,10 @@ pub struct Depth32F(pub f32);
 // #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 // pub struct Depth24Stencil8(pub u32);
 
-unsafe impl UncompressedFormat for Depth16 {}
 unsafe impl ImageFormat for Depth16 {
     type ScalarType = GLSLFloat;
+}
+unsafe impl ImageFormatRenderable for Depth16 {
     type FormatType = DepthFormat;
 }
 unsafe impl ConcreteImageFormat for Depth16 {
@@ -133,9 +134,10 @@ unsafe impl ConcreteImageFormat for Depth16 {
     };
 }
 
-unsafe impl UncompressedFormat for Depth32F {}
 unsafe impl ImageFormat for Depth32F {
     type ScalarType = GLSLFloat;
+}
+unsafe impl ImageFormatRenderable for Depth32F {
     type FormatType = DepthFormat;
 }
 unsafe impl ConcreteImageFormat for Depth32F {
@@ -298,12 +300,13 @@ macro_rules! basic_format {
     ($(
         $prim:ty = ($rgba_enum:ident, $rgb_enum:ident, $rg_enum:ident, $r_enum:ident);)
     *) => {$(
-        unsafe impl UncompressedFormat for Rgba<$prim> {}
         impl ColorComponents for Rgba<$prim> {
             type Scalar = $prim;
         }
         unsafe impl ImageFormat for Rgba<$prim> {
             type ScalarType = <$prim as Scalar>::ScalarType;
+        }
+        unsafe impl ImageFormatRenderable for Rgba<$prim> {
             type FormatType = ColorFormat;
         }
         unsafe impl ConcreteImageFormat for Rgba<$prim> {
@@ -313,12 +316,13 @@ macro_rules! basic_format {
                 pixel_type: <$prim as Scalar>::GL_ENUM,
             };
         }
-        unsafe impl UncompressedFormat for Rgb<$prim> {}
         impl ColorComponents for Rgb<$prim> {
             type Scalar = $prim;
         }
         unsafe impl ImageFormat for Rgb<$prim> {
             type ScalarType = <$prim as Scalar>::ScalarType;
+        }
+        unsafe impl ImageFormatRenderable for Rgb<$prim> {
             type FormatType = ColorFormat;
         }
         unsafe impl ConcreteImageFormat for Rgb<$prim> {
@@ -328,12 +332,13 @@ macro_rules! basic_format {
                 pixel_type: <$prim as Scalar>::GL_ENUM,
             };
         }
-        unsafe impl UncompressedFormat for Rg<$prim> {}
         impl ColorComponents for Rg<$prim> {
             type Scalar = $prim;
         }
         unsafe impl ImageFormat for Rg<$prim> {
             type ScalarType = <$prim as Scalar>::ScalarType;
+        }
+        unsafe impl ImageFormatRenderable for Rg<$prim> {
             type FormatType = ColorFormat;
         }
         unsafe impl ConcreteImageFormat for Rg<$prim> {
@@ -343,12 +348,13 @@ macro_rules! basic_format {
                 pixel_type: <$prim as Scalar>::GL_ENUM,
             };
         }
-        unsafe impl UncompressedFormat for Red<$prim> {}
         impl ColorComponents for Red<$prim> {
             type Scalar = $prim;
         }
         unsafe impl ImageFormat for Red<$prim> {
             type ScalarType = <$prim as Scalar>::ScalarType;
+        }
+        unsafe impl ImageFormatRenderable for Red<$prim> {
             type FormatType = ColorFormat;
         }
         unsafe impl ConcreteImageFormat for Red<$prim> {
@@ -378,12 +384,13 @@ basic_format!{
     GLSLInt<i16> = (RGBA16I, RGB16I, RG16I, R16I);
     GLSLInt<i32> = (RGBA32I, RGB32I, RG32I, R32I);
 }
-unsafe impl UncompressedFormat for SRgba {}
 impl ColorComponents for SRgba {
     type Scalar = u8;
 }
 unsafe impl ImageFormat for SRgba {
     type ScalarType = GLSLFloat;
+}
+unsafe impl ImageFormatRenderable for SRgba {
     type FormatType = ColorFormat;
 }
 unsafe impl ConcreteImageFormat for SRgba {
@@ -393,12 +400,13 @@ unsafe impl ConcreteImageFormat for SRgba {
         pixel_type: <u8 as Scalar>::GL_ENUM,
     };
 }
-unsafe impl UncompressedFormat for SRgb {}
 impl ColorComponents for SRgb {
     type Scalar = u8;
 }
 unsafe impl ImageFormat for SRgb {
     type ScalarType = GLSLFloat;
+}
+unsafe impl ImageFormatRenderable for SRgb {
     type FormatType = ColorFormat;
 }
 unsafe impl ConcreteImageFormat for SRgb {

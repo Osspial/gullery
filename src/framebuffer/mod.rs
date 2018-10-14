@@ -31,7 +31,7 @@ use buffer::Index;
 use vertex::VertexArrayObject;
 use uniform::Uniforms;
 use program::Program;
-use image_format::{Rgba, ImageFormat, FormatType, UncompressedFormat, ConcreteImageFormat, ImageFormatType};
+use image_format::{Rgba, FormatType, ImageFormatRenderable, ConcreteImageFormat, ImageFormatType};
 use self::render_state::RenderState;
 use cgmath_geometry::D2;
 use cgmath_geometry::rect::OffsetBox;
@@ -126,7 +126,7 @@ pub trait Framebuffer {
 
     #[inline]
     fn read_pixels<C>(&mut self, read_rect: OffsetBox<u32, D2>, data: &mut [C])
-        where C: UncompressedFormat + ConcreteImageFormat,
+        where C: ImageFormatRenderable + ConcreteImageFormat,
               Self::Attachments: DefaultFramebufferAttachments
     {
         let (raw, arm, state) = self.raw_mut();
@@ -144,7 +144,7 @@ pub trait Framebuffer {
         data: &mut [C],
         get_attachment: impl FnOnce(&Self::Attachments) -> &A
     )
-        where C: UncompressedFormat + ConcreteImageFormat,
+        where C: ImageFormatRenderable + ConcreteImageFormat,
               Self::Attachments: FBOAttachments,
               A: Attachment<Format=C>
     {
@@ -159,7 +159,7 @@ pub trait Framebuffer {
             type Attachments = A;
             fn add_member<At: Attachment>(&mut self, _: &str, get_member: impl FnOnce(&A) -> &At) {
                 if !*self.valid {
-                    let image_type = <At::Format as ImageFormat>::FormatType::FORMAT_TYPE;
+                    let image_type = <At::Format as ImageFormatRenderable>::FormatType::FORMAT_TYPE;
                     if get_member(self.attachments) as *const _ as *const () == self.ptr {
                         if image_type == ImageFormatType::Color {
                             *self.color_index = Some(self.color_index_wip);

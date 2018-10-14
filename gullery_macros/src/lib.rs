@@ -209,7 +209,7 @@ fn impl_attachments(derive_input: &DeriveInput) -> Tokens {
                             }
                             const NUM_DEPTH_ATTACHMENTS: usize = 0
                                 #(+ unsafe {
-                                    Transmute{ from: <<#types as _gullery::framebuffer::attachments::Attachment>::Format as _gullery::image_format::ImageFormat>::FormatType::FORMAT_TYPE }.to
+                                    Transmute{ from: <<#types as _gullery::framebuffer::attachments::Attachment>::Format as _gullery::image_format::ImageFormatRenderable>::FormatType::FORMAT_TYPE }.to
                                     ==
                                     Transmute{ from: _gullery::image_format::ImageFormatType::Depth}.to
                                  } as usize)*;

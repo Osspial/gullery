@@ -1,7 +1,7 @@
 use gl;
 use image_format::{
-    ImageFormat, ConcreteImageFormat, ColorComponents, CompressedFormat, GLFormat,
-    ColorFormat, Rgb, Rgba, SRgb, SRgba, Red, Rg
+    ImageFormat, ConcreteImageFormat, ColorComponents, GLFormat,
+    Rgb, Rgba, SRgb, SRgba, Red, Rg
 };
 use glsl::GLSLFloat;
 
@@ -52,12 +52,8 @@ impl<S: ColorComponents> DXT5<S> {
 }
 
 
-unsafe impl<S: ColorComponents> CompressedFormat for RGTC<S>
-    where RGTC<S>: ImageFormat, {}
-
 unsafe impl ImageFormat for RGTC<Red<i8>> {
     type ScalarType = GLSLFloat;
-    type FormatType = ColorFormat;
 }
 unsafe impl ConcreteImageFormat for RGTC<Red<i8>> {
     const FORMAT: GLFormat = GLFormat::Compressed {
@@ -67,7 +63,6 @@ unsafe impl ConcreteImageFormat for RGTC<Red<i8>> {
 }
 unsafe impl ImageFormat for RGTC<Red<u8>> {
     type ScalarType = GLSLFloat;
-    type FormatType = ColorFormat;
 }
 unsafe impl ConcreteImageFormat for RGTC<Red<u8>> {
     const FORMAT: GLFormat = GLFormat::Compressed {
@@ -77,7 +72,6 @@ unsafe impl ConcreteImageFormat for RGTC<Red<u8>> {
 }
 unsafe impl ImageFormat for RGTC<Rg<i8>> {
     type ScalarType = GLSLFloat;
-    type FormatType = ColorFormat;
 }
 unsafe impl ConcreteImageFormat for RGTC<Rg<i8>> {
     const FORMAT: GLFormat = GLFormat::Compressed {
@@ -87,7 +81,6 @@ unsafe impl ConcreteImageFormat for RGTC<Rg<i8>> {
 }
 unsafe impl ImageFormat for RGTC<Rg<u8>> {
     type ScalarType = GLSLFloat;
-    type FormatType = ColorFormat;
 }
 unsafe impl ConcreteImageFormat for RGTC<Rg<u8>> {
     const FORMAT: GLFormat = GLFormat::Compressed {
@@ -96,11 +89,8 @@ unsafe impl ConcreteImageFormat for RGTC<Rg<u8>> {
     };
 }
 
-unsafe impl<S: ColorComponents> CompressedFormat for DXT1<S>
-    where DXT1<S>: ImageFormat {}
 unsafe impl ImageFormat for DXT1<Rgb> {
     type ScalarType = GLSLFloat;
-    type FormatType = ColorFormat;
 }
 unsafe impl ConcreteImageFormat for DXT1<Rgb> {
     const FORMAT: GLFormat = GLFormat::Compressed {
@@ -110,7 +100,6 @@ unsafe impl ConcreteImageFormat for DXT1<Rgb> {
 }
 unsafe impl ImageFormat for DXT1<Rgba> {
     type ScalarType = GLSLFloat;
-    type FormatType = ColorFormat;
 }
 unsafe impl ConcreteImageFormat for DXT1<Rgba> {
     const FORMAT: GLFormat = GLFormat::Compressed {
@@ -120,7 +109,6 @@ unsafe impl ConcreteImageFormat for DXT1<Rgba> {
 }
 unsafe impl ImageFormat for DXT1<SRgb> {
     type ScalarType = GLSLFloat;
-    type FormatType = ColorFormat;
 }
 unsafe impl ConcreteImageFormat for DXT1<SRgb> {
     const FORMAT: GLFormat = GLFormat::Compressed {
@@ -130,7 +118,6 @@ unsafe impl ConcreteImageFormat for DXT1<SRgb> {
 }
 unsafe impl ImageFormat for DXT1<SRgba> {
     type ScalarType = GLSLFloat;
-    type FormatType = ColorFormat;
 }
 unsafe impl ConcreteImageFormat for DXT1<SRgba> {
     const FORMAT: GLFormat = GLFormat::Compressed {
@@ -139,11 +126,8 @@ unsafe impl ConcreteImageFormat for DXT1<SRgba> {
     };
 }
 
-unsafe impl<S: ColorComponents> CompressedFormat for DXT3<S>
-    where DXT3<S>: ImageFormat {}
 unsafe impl ImageFormat for DXT3<Rgba> {
     type ScalarType = GLSLFloat;
-    type FormatType = ColorFormat;
 }
 unsafe impl ConcreteImageFormat for DXT3<Rgba> {
     const FORMAT: GLFormat = GLFormat::Compressed {
@@ -153,7 +137,6 @@ unsafe impl ConcreteImageFormat for DXT3<Rgba> {
 }
 unsafe impl ImageFormat for DXT3<SRgba> {
     type ScalarType = GLSLFloat;
-    type FormatType = ColorFormat;
 }
 unsafe impl ConcreteImageFormat for DXT3<SRgba> {
     const FORMAT: GLFormat = GLFormat::Compressed {
@@ -162,11 +145,8 @@ unsafe impl ConcreteImageFormat for DXT3<SRgba> {
     };
 }
 
-unsafe impl<S: ColorComponents> CompressedFormat for DXT5<S>
-    where DXT5<S>: ImageFormat {}
 unsafe impl ImageFormat for DXT5<Rgba> {
     type ScalarType = GLSLFloat;
-    type FormatType = ColorFormat;
 }
 unsafe impl ConcreteImageFormat for DXT5<Rgba> {
     const FORMAT: GLFormat = GLFormat::Compressed {
@@ -176,7 +156,6 @@ unsafe impl ConcreteImageFormat for DXT5<Rgba> {
 }
 unsafe impl ImageFormat for DXT5<SRgba> {
     type ScalarType = GLSLFloat;
-    type FormatType = ColorFormat;
 }
 unsafe impl ConcreteImageFormat for DXT5<SRgba> {
     const FORMAT: GLFormat = GLFormat::Compressed {

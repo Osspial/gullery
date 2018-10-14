@@ -25,7 +25,7 @@ use buffer::Index;
 use vertex::vao::BoundVAO;
 use uniform::Uniforms;
 use program::BoundProgram;
-use image_format::{ImageFormat, FormatType, UncompressedFormat, ConcreteImageFormat, ImageFormatType, Rgba, GLFormat};
+use image_format::{FormatType, ImageFormatRenderable, ConcreteImageFormat, ImageFormatType, Rgba, GLFormat};
 use super::Renderbuffer;
 use super::attachments::*;
 
@@ -199,7 +199,7 @@ impl<'a, F> RawBoundFramebufferRead<'a, F>
         }
     }
     #[inline]
-    pub(crate) fn read_pixels<C: UncompressedFormat + ConcreteImageFormat>(&self, read_rect: OffsetBox<u32, D2>, data: &mut [C]) {
+    pub(crate) fn read_pixels<C: ImageFormatRenderable + ConcreteImageFormat>(&self, read_rect: OffsetBox<u32, D2>, data: &mut [C]) {
         // TODO: STENCIL AND DEPTH SUPPORT
         // TODO: GL_PIXEL_PACK_BUFFER SUPPORT
         assert_eq!((read_rect.width() * read_rect.height()) as usize, data.len());
@@ -326,7 +326,7 @@ pub unsafe trait RawBoundFramebuffer {
         impl<'a, A: Attachments, I: Iterator<Item=&'a mut Option<Handle>>> AttachmentsMemberRegistry for Attacher<'a, A, I> {
             type Attachments = A;
             fn add_renderbuffer<Im>(&mut self, _: &str, get_member: impl FnOnce(&A) -> &Renderbuffer<Im>)
-                where Im: UncompressedFormat
+                where Im: ImageFormatRenderable
             {
                 let member = get_member(self.attachments);
                 let handle = self.handles.next().expect("Mismatched attachment handle container length");
@@ -334,7 +334,7 @@ pub unsafe trait RawBoundFramebuffer {
                     *handle = Some(member.handle());
                     let handle = member.handle();
                     let attachment: GLenum;
-                    match <<Renderbuffer<Im> as Attachment>::Format as ImageFormat>::FormatType::FORMAT_TYPE {
+                    match <<Renderbuffer<Im> as Attachment>::Format as ImageFormatRenderable>::FormatType::FORMAT_TYPE {
                         ImageFormatType::Color => {
                             attachment = gl::COLOR_ATTACHMENT0 + self.color_index;
                             self.color_index += 1;
@@ -362,7 +362,7 @@ pub unsafe trait RawBoundFramebuffer {
             fn add_texture<T, P>(&mut self, _: &str, get_member: impl FnOnce(&Self::Attachments) -> &Texture<T, P>, texture_level: T::MipSelector)
                 where T: TextureType,
                       P: IntoSampleParameters,
-                      T::Format: UncompressedFormat
+                      T::Format: ImageFormatRenderable
             {
                 let texture = get_member(self.attachments);
                 let handle = self.handles.next().expect("Mismatched attachment handle container length");
@@ -370,7 +370,7 @@ pub unsafe trait RawBoundFramebuffer {
                     *handle = Some(texture.handle());
                     let handle = texture.handle();
                     let attachment: GLenum;
-                    match <<Texture<T, P> as Attachment>::Format as ImageFormat>::FormatType::FORMAT_TYPE {
+                    match <<Texture<T, P> as Attachment>::Format as ImageFormatRenderable>::FormatType::FORMAT_TYPE {
                         ImageFormatType::Color => {
                             attachment = gl::COLOR_ATTACHMENT0 + self.color_index;
                             self.color_index += 1;

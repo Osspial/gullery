@@ -19,7 +19,7 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use ContextState;
-use image_format::{ConcreteImageFormat, UncompressedFormat, ImageFormat, GLFormat};
+use image_format::{ConcreteImageFormat, ImageFormat, GLFormat};
 
 use std::{mem, ptr, iter};
 use std::cell::Cell;
@@ -490,7 +490,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
         image: I,
     )
         where I: Image<'b, T>,
-              T::Format: UncompressedFormat + ConcreteImageFormat
+              T::Format: ConcreteImageFormat
     {
         use self::DimsTag::*;
 

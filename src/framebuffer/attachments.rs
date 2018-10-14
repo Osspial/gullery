@@ -1,13 +1,13 @@
 use texture::{Texture, TextureType, MipSelector};
 use texture::sample_parameters::IntoSampleParameters;
-use image_format::UncompressedFormat;
+use image_format::ImageFormatRenderable;
 use framebuffer::Renderbuffer;
 use std::marker::PhantomData;
 use {Handle, GLObject};
 
 pub trait Attachment: GLObject {
     const TARGET_TYPE: AttachmentTargetType;
-    type Format: UncompressedFormat;
+    type Format: ImageFormatRenderable;
     type MipSelector: MipSelector;
 
     fn add_to_registry<R>(
@@ -68,7 +68,7 @@ pub enum AttachmentTargetType {
 
 pub trait AttachmentsMemberRegistry {
     type Attachments: Attachments;
-    fn add_renderbuffer<I: UncompressedFormat>(
+    fn add_renderbuffer<I: ImageFormatRenderable>(
         &mut self,
         name: &str,
         get_member: impl FnOnce(&Self::Attachments) -> &Renderbuffer<I>
@@ -78,7 +78,7 @@ pub trait AttachmentsMemberRegistry {
         name: &str,
         get_member: impl FnOnce(&Self::Attachments) -> &Texture<T, P>,
         texture_level: T::MipSelector
-    ) where T: TextureType, T::Format: UncompressedFormat, P: IntoSampleParameters;
+    ) where T: TextureType, T::Format: ImageFormatRenderable, P: IntoSampleParameters;
 }
 
 pub(crate) trait AttachmentsMemberRegistryNoSpecifics {
@@ -96,7 +96,7 @@ impl<R> AttachmentsMemberRegistry for AMRNSImpl<R>
     type Attachments = <R as AttachmentsMemberRegistryNoSpecifics>::Attachments;
     #[inline]
     fn add_renderbuffer<I>(&mut self, name: &str, get_member: impl FnOnce(&Self::Attachments) -> &Renderbuffer<I>)
-        where I: UncompressedFormat
+        where I: ImageFormatRenderable
     {
         self.0.add_member(name, get_member);
     }
@@ -104,7 +104,7 @@ impl<R> AttachmentsMemberRegistry for AMRNSImpl<R>
     fn add_texture<T, P>(&mut self, name: &str, get_member: impl FnOnce(&Self::Attachments) -> &Texture<T, P>, _: T::MipSelector)
         where T: TextureType,
               P: IntoSampleParameters,
-              T::Format: UncompressedFormat
+              T::Format: ImageFormatRenderable
     {
         self.0.add_member(name, get_member);
     }
@@ -135,7 +135,7 @@ impl Attachments for () {
 }
 unsafe impl DefaultFramebufferAttachments for () {}
 
-impl<I: UncompressedFormat> Attachment for Renderbuffer<I> {
+impl<I: ImageFormatRenderable> Attachment for Renderbuffer<I> {
     const TARGET_TYPE: AttachmentTargetType = AttachmentTargetType::Renderbuffer;
     type Format = I;
     type MipSelector = ();
@@ -150,7 +150,7 @@ impl<I: UncompressedFormat> Attachment for Renderbuffer<I> {
 impl<T, P> Attachment for Texture<T, P>
     where T: TextureType,
           P: IntoSampleParameters,
-          T::Format: UncompressedFormat
+          T::Format: ImageFormatRenderable
 {
     const TARGET_TYPE: AttachmentTargetType = AttachmentTargetType::Texture;
     type Format = T::Format;
