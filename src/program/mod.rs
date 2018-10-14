@@ -16,7 +16,7 @@ pub mod error;
 mod raw;
 
 use self::raw::{RawShader, RawProgram, RawProgramTarget, RawBoundProgram};
-use self::error::{ShaderError, LinkError, ProgramWarning};
+use self::error::{ShaderError, ProgramWarning, ProgramError};
 
 
 use {Handle, ContextState, GLObject};
@@ -59,7 +59,7 @@ impl<S: ShaderStage> Shader<S> {
 }
 
 impl<V: Vertex, U: Uniforms, A: Attachments> Program<V, U, A> {
-    pub fn new(vert: &Shader<VertexStage<V>>, geom: Option<&Shader<GeometryStage>>, frag: &Shader<FragmentStage<A>>) -> Result<(Program<V, U, A>, Vec<ProgramWarning>), LinkError> {
+    pub fn new(vert: &Shader<VertexStage<V>>, geom: Option<&Shader<GeometryStage>>, frag: &Shader<FragmentStage<A>>) -> Result<(Program<V, U, A>, Vec<ProgramWarning>), ProgramError> {
         // Temporary variables storing the pointers to the OpenGL state for each of the shaders.
         let vsp = vert.state.as_ref() as *const _;
         let fsp = frag.state.as_ref() as *const _;
@@ -69,26 +69,21 @@ impl<V: Vertex, U: Uniforms, A: Attachments> Program<V, U, A> {
             panic!("Shaders passed to Program creation are parts of different contexts!");
         }
 
-        let raw = RawProgram::new(|mut rpsa| {
+        let (raw, mut warnings) = RawProgram::new(|mut rpsa| {
             rpsa.attach_shader(&vert.raw);
             if let Some(ref geom) = geom {
                 rpsa.attach_shader(&geom.raw);
             }
             rpsa.attach_shader(&frag.raw);
-        }, &vert.state.gl).map_err(|e| LinkError(e));
+        }, &vert.state.gl)?;
 
-        match raw {
-            Ok((raw, mut warnings)) => {
-                let uniform_locs = raw.get_uniform_locations::<U>(&vert.state.gl, &mut warnings);
-                Ok((Program {
-                    uniform_locs,
-                    raw,
-                    state: vert.state.clone(),
-                    _marker: PhantomData
-                }, warnings))
-            },
-            Err(raw_error) => Err(raw_error)
-        }
+        let uniform_locs = raw.get_uniform_locations::<U>(&vert.state.gl, &mut warnings);
+        Ok((Program {
+            uniform_locs,
+            raw,
+            state: vert.state.clone(),
+            _marker: PhantomData
+        }, warnings))
     }
 }
 

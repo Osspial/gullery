@@ -25,15 +25,27 @@ pub struct ShaderError(pub(super) String);
 pub struct LinkError(pub(super) String);
 
 #[derive(Debug, Clone)]
+pub struct MismatchedTypeError {
+    pub ident: String,
+    pub shader_ty: TypeTag,
+    pub rust_ty: TypeTag
+}
+
+#[derive(Debug, Clone)]
+pub enum ProgramError {
+    LinkError(LinkError),
+    /// A mismatch exists betweeen a Rust type an a GLSL type.
+    ///
+    /// Technically, OpenGL's API allow this to compile successfully. However it's also undefined
+    /// behavior so a well-formed program *should* never do this.
+    MismatchedTypeError(Vec<MismatchedTypeError>)
+}
+
+#[derive(Debug, Clone)]
 pub enum ProgramWarning {
     IdentNotFound(String),
     UnusedAttrib(String),
     UnusedColor(String),
-    MismatchedTypes {
-        ident: String,
-        shader_ty: TypeTag,
-        rust_ty: TypeTag
-    }
 }
 
 impl Display for ShaderError {
@@ -48,6 +60,31 @@ impl Display for LinkError {
     }
 }
 
+impl Display for MismatchedTypeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "Mismatched type in {}; shader has {}, but Rust repr has {}", self.ident, self.shader_ty, self.rust_ty)
+    }
+}
+
+impl Display for ProgramError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        use self::ProgramError::*;
+        match *self {
+            LinkError(ref e) => write!(f, "{}", e),
+            MismatchedTypeError(ref errs) => {
+                let mut errs = errs.iter();
+                if let Some(e) = errs.next() {
+                    write!(f, "{}", e)?;
+                }
+                for e in errs {
+                    write!(f, "\n{}", e)?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
 impl Display for ProgramWarning {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         use self::ProgramWarning::*;
@@ -55,7 +92,6 @@ impl Display for ProgramWarning {
             IdentNotFound(ref ident) => write!(f, "Identifier not found `{}`", ident),
             UnusedAttrib(ref ident) => write!(f, "Unused shader attribute `{}`", ident),
             UnusedColor(ref ident) => write!(f, "Unused color attachment `{}`", ident),
-            MismatchedTypes{ref ident, shader_ty, rust_ty} => write!(f, "Mismatched type in {}; shader has {}, but Rust repr has {}", ident, shader_ty, rust_ty)
         }
     }
 }

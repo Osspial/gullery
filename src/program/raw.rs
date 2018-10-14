@@ -21,7 +21,7 @@ use {Handle, ContextState, GLObject};
 use glsl::{TypeTag, TypeBasicTag, TransparentType};
 use vertex::{Vertex, VertexMemberRegistry};
 use uniform::{UniformType, Uniforms, UniformLocContainer, UniformsMemberRegistry, TextureUniformBinder};
-use super::error::ProgramWarning;
+use super::error::{ProgramWarning, MismatchedTypeError, ProgramError, LinkError};
 use texture::ImageUnits;
 
 use std::{ptr, mem};
@@ -48,7 +48,7 @@ pub struct RawBoundProgram<'a>(PhantomData<&'a RawProgram>);
 
 struct AttachedShader {
     handle: Handle,
-    post_link_hook: unsafe fn(&RawProgram, &Gl, &mut Vec<ProgramWarning>)
+    post_link_hook: unsafe fn(&RawProgram, &Gl, &mut Vec<ProgramWarning>, &mut Vec<MismatchedTypeError>)
 }
 
 /// The second lifetime is needed in order to make the attach_shader function not cause various
@@ -66,7 +66,7 @@ pub unsafe trait ShaderStage: Sized {
     #[inline]
     unsafe fn program_pre_link_hook(_: &RawProgram, _: &Gl) {}
     #[inline]
-    unsafe fn program_post_link_hook(_: &RawProgram, _: &Gl, _: &mut Vec<ProgramWarning>) {}
+    unsafe fn program_post_link_hook(_: &RawProgram, _: &Gl, _: &mut Vec<ProgramWarning>, _: &mut Vec<MismatchedTypeError>) {}
 }
 
 pub enum VertexStage<V: Vertex> {#[doc(hidden)]_Unused(!, V)}
@@ -121,7 +121,7 @@ impl<S: ShaderStage> RawShader<S> {
 }
 
 impl RawProgram {
-    pub fn new<'b, F>(attach_shaders: F, gl: &Gl) -> Result<(RawProgram, Vec<ProgramWarning>), String>
+    pub fn new<'b, F>(attach_shaders: F, gl: &Gl) -> Result<(RawProgram, Vec<ProgramWarning>), ProgramError>
         where for<'a> F: FnOnce(RawProgramShaderAttacher<'a, 'b>)
     {
         unsafe {
@@ -129,7 +129,7 @@ impl RawProgram {
                 handle: Handle::new(gl.CreateProgram()).expect("Invalid handle returned from OpenGL"),
                 _sendsync_optout: PhantomData
             };
-            let (mut warnings, mut attached_shaders) = (Vec::new(), Vec::new());
+            let (mut warnings, mut errors, mut attached_shaders) = (Vec::new(), Vec::new(), Vec::new());
 
             attach_shaders(RawProgramShaderAttacher {
                 program: &program,
@@ -148,9 +148,16 @@ impl RawProgram {
             if is_linked == gl::TRUE as GLint {
                 for AttachedShader{handle: shader_handle, post_link_hook} in attached_shaders {
                     gl.DetachShader(program.handle.get(), shader_handle.get());
-                    post_link_hook(&program, gl, &mut warnings);
+                    post_link_hook(&program, gl, &mut warnings, &mut errors);
                 }
-                Ok((program, warnings))
+
+                match errors.len() {
+                    0 => Ok((program, warnings)),
+                    _ => {
+                        gl.DeleteProgram(program.handle.get());
+                        Err(ProgramError::MismatchedTypeError(errors))
+                    }
+                }
             } else {
                 let mut info_log_length = 0;
                 gl.GetProgramiv(program.handle.get(), gl::INFO_LOG_LENGTH, &mut info_log_length);
@@ -159,7 +166,7 @@ impl RawProgram {
                 gl.GetProgramInfoLog(program.handle.get(), info_log_length, ptr::null_mut(), info_log.as_mut_ptr() as *mut GLchar);
 
                 gl.DeleteProgram(program.handle.get());
-                Err(String::from_utf8_unchecked(info_log))
+                Err(ProgramError::LinkError(LinkError(String::from_utf8_unchecked(info_log))))
             }
         }
     }
@@ -368,10 +375,10 @@ unsafe impl<V: Vertex> ShaderStage for VertexStage<V> {
         })
     }
 
-    unsafe fn program_post_link_hook(program: &RawProgram, gl: &Gl, warnings: &mut Vec<ProgramWarning>) {
+    unsafe fn program_post_link_hook(program: &RawProgram, gl: &Gl, warnings: &mut Vec<ProgramWarning>, errors: &mut Vec<MismatchedTypeError>) {
         struct VertexAttribTypeChecker<'a, V: Vertex> {
             attrib_types: &'a mut Vec<(String, TypeTag)>,
-            warnings: &'a mut Vec<ProgramWarning>,
+            errors: &'a mut Vec<MismatchedTypeError>,
             _marker: PhantomData<V>
         }
         impl<'a, V: Vertex> VertexMemberRegistry for VertexAttribTypeChecker<'a, V> {
@@ -386,7 +393,7 @@ unsafe impl<V: Vertex> ShaderStage for VertexStage<V> {
                         attrib_index = Some(i);
 
                         if shader_ty != rust_ty {
-                            self.warnings.push(ProgramWarning::MismatchedTypes {
+                            self.errors.push(MismatchedTypeError {
                                 ident: name.to_string(),
                                 shader_ty,
                                 rust_ty
@@ -433,7 +440,7 @@ unsafe impl<V: Vertex> ShaderStage for VertexStage<V> {
 
         V::members(VertexAttribTypeChecker {
             attrib_types: &mut attrib_types,
-            warnings,
+            errors,
             _marker: PhantomData
         });
 
@@ -493,7 +500,7 @@ unsafe impl<A: Attachments> ShaderStage for FragmentStage<A> {
             _marker: PhantomData
         }))
     }
-    unsafe fn program_post_link_hook(program: &RawProgram, gl: &Gl, warnings: &mut Vec<ProgramWarning>) {
+    unsafe fn program_post_link_hook(program: &RawProgram, gl: &Gl, warnings: &mut Vec<ProgramWarning>, _: &mut Vec<MismatchedTypeError>) {
         struct FragDataChecker<'a, A: Attachments> {
             cstr_bytes: Vec<u8>,
             program: &'a RawProgram,
