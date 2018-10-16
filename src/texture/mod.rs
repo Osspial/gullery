@@ -200,19 +200,37 @@ impl<T, P> Texture<T, P>
     }
 
     #[inline]
+    pub fn swizzle_mask(&mut self, mask: Rgba<Swizzle>) {
+        let last_unit = self.state.image_units.0.num_units() - 1;
+        let mut bind = unsafe{ self.state.image_units.0.bind_texture_mut(last_unit, &mut self.raw, &self.state.gl) };
+        bind.swizzle_mask(mask.r, mask.g, mask.b, mask.a);
+    }
+
+    #[inline]
     pub fn as_dyn(&self) -> &Texture<T::Dyn, P> {
+        assert_eq!(mem::size_of::<Texture<T, P>>(), mem::size_of::<Texture<T::Dyn, P>>());
         unsafe{ &*(self as *const Texture<T, P> as *const Texture<T::Dyn, P>) }
     }
 
     #[inline]
     pub fn as_dyn_mut(&mut self) -> &mut Texture<T::Dyn, P> {
+        assert_eq!(mem::size_of::<Texture<T, P>>(), mem::size_of::<Texture<T::Dyn, P>>());
         unsafe{ &mut *(self as *mut Texture<T, P> as *mut Texture<T::Dyn, P>) }
+    }
+
+    #[inline]
+    pub fn into_dyn(self) -> Texture<T::Dyn, P> {
+        assert_eq!(mem::size_of::<Texture<T, P>>(), mem::size_of::<Texture<T::Dyn, P>>());
+        let tex = unsafe{ mem::transmute_copy::<Texture<T, P>, Texture<T::Dyn, P>>(&self) };
+        mem::forget(self);
+        tex
     }
 
     #[inline]
     pub fn as_dyn_renderable(&self) -> &Texture<T::DynRenderable, P>
         where T: TextureTypeRenderable
     {
+        assert_eq!(mem::size_of::<Texture<T, P>>(), mem::size_of::<Texture<T::DynRenderable, P>>());
         unsafe{ &*(self as *const Texture<T, P> as *const Texture<T::DynRenderable, P>) }
     }
 
@@ -220,14 +238,18 @@ impl<T, P> Texture<T, P>
     pub fn as_dyn_renderable_mut(&mut self) -> &mut Texture<T::DynRenderable, P>
         where T: TextureTypeRenderable
     {
+        assert_eq!(mem::size_of::<Texture<T, P>>(), mem::size_of::<Texture<T::DynRenderable, P>>());
         unsafe{ &mut *(self as *mut Texture<T, P> as *mut Texture<T::DynRenderable, P>) }
     }
 
     #[inline]
-    pub fn swizzle_mask(&mut self, mask: Rgba<Swizzle>) {
-        let last_unit = self.state.image_units.0.num_units() - 1;
-        let mut bind = unsafe{ self.state.image_units.0.bind_texture_mut(last_unit, &mut self.raw, &self.state.gl) };
-        bind.swizzle_mask(mask.r, mask.g, mask.b, mask.a);
+    pub fn into_dyn_renderable(self) -> Texture<T::DynRenderable, P>
+        where T: TextureTypeRenderable
+    {
+        assert_eq!(mem::size_of::<Texture<T, P>>(), mem::size_of::<Texture<T::DynRenderable, P>>());
+        let tex = unsafe{ mem::transmute_copy::<Texture<T, P>, Texture<T::DynRenderable, P>>(&self) };
+        mem::forget(self);
+        tex
     }
 
     #[inline]
