@@ -8,6 +8,7 @@ extern crate png;
 extern crate num_traits;
 
 use gullery::ContextState;
+use gullery::glsl::GLSLFloat;
 use gullery::buffer::*;
 use gullery::framebuffer::{*, render_state::*};
 use gullery::program::*;
@@ -31,7 +32,7 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: &'a Texture<SimpleTex<SRgba, D2>, ()>
+    tex: &'a Texture<SimpleTex<ImageFormat<ScalarType=GLSLFloat>, D2>, ()>
 }
 
 fn main() {
@@ -82,7 +83,7 @@ fn main() {
         (buf, DimsBox::new2(info.width, info.height))
     };
     println!("texture loaded");
-    let ferris_texture = Texture::with_images(
+    let ferris_texture: Texture<SimpleTex<SRgba, D2>, ()> = Texture::with_images(
         ferris_dims,
         Some(SRgba::slice_from_raw(&ferris_image)),
         state.clone()
@@ -110,7 +111,7 @@ fn main() {
                 WindowEvent::Resized(size_x, size_y) => {
                     window.context().resize(size_x, size_y);
                     let uniform = Uniforms {
-                        tex: &ferris_texture
+                        tex: ferris_texture.as_dyn()
                     };
                     render_state.viewport = OffsetBox::new2(0, 0, size_x, size_y);
                     default_framebuffer.clear_depth(1.0);

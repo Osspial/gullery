@@ -7,7 +7,7 @@ use {Handle, GLObject};
 
 pub trait Attachment: GLObject {
     const TARGET_TYPE: AttachmentTargetType;
-    type Format: ImageFormatRenderable;
+    type Format: ?Sized + ImageFormatRenderable;
     type MipSelector: MipSelector;
 
     fn add_to_registry<R>(

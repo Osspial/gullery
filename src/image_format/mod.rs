@@ -81,13 +81,13 @@ pub enum GLFormat {
     }
 }
 
-pub unsafe trait ImageFormat: 'static + Copy {
+pub unsafe trait ImageFormat: 'static {
     type ScalarType: ScalarType;
 }
 pub unsafe trait ImageFormatRenderable: ImageFormat {
     type FormatType: FormatType;
 }
-pub unsafe trait ConcreteImageFormat: ImageFormat {
+pub unsafe trait ConcreteImageFormat: ImageFormat + Copy {
     const FORMAT: GLFormat;
 }
 

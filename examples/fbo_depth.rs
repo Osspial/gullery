@@ -11,6 +11,7 @@ extern crate num_traits;
 
 use gullery::ContextState;
 use gullery::buffer::*;
+use gullery::glsl::GLSLFloat;
 use gullery::texture::{*, targets::*, sample_parameters::Swizzle};
 use gullery::framebuffer::{*, render_state::*};
 use gullery::program::*;
@@ -38,7 +39,7 @@ struct TextureVertex {
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
     offset: Vector2<f32>,
-    tex: &'a Texture<SimpleTex<Depth16, D2>>
+    tex: &'a Texture<SimpleTex<ImageFormat<ScalarType=GLSLFloat>, D2>>
 }
 
 #[derive(Attachments)]
@@ -155,11 +156,18 @@ fn main() {
                         window.context().resize(size_x, size_y);
                         let uniform = Uniforms {
                             offset: Vector2::new(0.0, 0.0),
-                            tex: &depth_texture
+                            tex: color_texture.as_dyn()
                         };
                         render_state.viewport = OffsetBox::new2(0, 0, size_x, size_y);
                         default_framebuffer.clear_depth(1.0);
                         default_framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0));
+
+                        default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
+
+                        let uniform = Uniforms {
+                            offset: Vector2::new(1.0, 0.0),
+                            tex: depth_texture.as_dyn()
+                        };
                         default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
 
                         window.context().swap_buffers().unwrap();
@@ -200,10 +208,12 @@ const TEX_TO_WINDOW_VERTEX_SHADER: &str = r#"
 
     in vec2 pos;
     in vec2 uv;
+    uniform vec2 offset;
+
     out vec2 tex_coord;
 
     void main() {
-        gl_Position = vec4(pos, 0, 1);
+        gl_Position = vec4(pos + offset, 0, 1);
         tex_coord = uv;
     }
 "#;

@@ -37,8 +37,9 @@ pub use self::raw::{targets, Dims, DimsSquare, DimsTag, MipSelector, Image, Text
 use cgmath_geometry::{D1, D2, D3};
 
 
+#[repr(C)]
 pub struct Texture<T, P = SampleParameters>
-    where T: TextureType,
+    where T: ?Sized + TextureType,
           P: IntoSampleParameters
 {
     pub sample_parameters: P,
@@ -185,7 +186,7 @@ impl<T, P> Texture<T, P>
 }
 
 impl<T, P> Texture<T, P>
-    where T: TextureType,
+    where T: ?Sized + TextureType,
           P: IntoSampleParameters
 {
     #[inline]
@@ -196,6 +197,30 @@ impl<T, P> Texture<T, P>
     #[inline]
     pub fn dims(&self) -> T::Dims {
         self.raw.dims()
+    }
+
+    #[inline]
+    pub fn as_dyn(&self) -> &Texture<T::Dyn, P> {
+        unsafe{ &*(self as *const Texture<T, P> as *const Texture<T::Dyn, P>) }
+    }
+
+    #[inline]
+    pub fn as_dyn_mut(&mut self) -> &mut Texture<T::Dyn, P> {
+        unsafe{ &mut *(self as *mut Texture<T, P> as *mut Texture<T::Dyn, P>) }
+    }
+
+    #[inline]
+    pub fn as_dyn_renderable(&self) -> &Texture<T::DynRenderable, P>
+        where T: TextureTypeRenderable
+    {
+        unsafe{ &*(self as *const Texture<T, P> as *const Texture<T::DynRenderable, P>) }
+    }
+
+    #[inline]
+    pub fn as_dyn_renderable_mut(&mut self) -> &mut Texture<T::DynRenderable, P>
+        where T: TextureTypeRenderable
+    {
+        unsafe{ &mut *(self as *mut Texture<T, P> as *mut Texture<T::DynRenderable, P>) }
     }
 
     #[inline]
@@ -221,7 +246,6 @@ impl<T, P> Texture<T, P>
     }
 }
 
-// TODO: API FOR JOINING SAMPLERS AND TEXTURES
 
 impl Sampler {
     pub fn new(context: Rc<ContextState>) -> Sampler {
@@ -271,7 +295,7 @@ impl ImageUnits {
 
 
 impl<T, P> Drop for Texture<T, P>
-    where T: TextureType,
+    where T: ?Sized + TextureType,
           P: IntoSampleParameters
 {
     fn drop(&mut self) {
@@ -298,7 +322,7 @@ macro_rules! texture_type_uniform {
         impl &Texture<$texture_type:ty> = ($tag_ident:ident, $u_tag_ident:ident, $i_tag_ident:ident);
     )*) => {$(
         unsafe impl<'a, C, P> UniformType for &'a Texture<$texture_type, P>
-            where C: ImageFormat,
+            where C: ?Sized + ImageFormat,
                   P: IntoSampleParameters
         {
             #[inline]
