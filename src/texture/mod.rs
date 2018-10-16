@@ -345,9 +345,9 @@ macro_rules! texture_type_uniform {
 }
 
 texture_type_uniform!{
-    impl &Texture<targets::SimpleTex<C, D1>> = (Sampler1D, USampler1D, ISampler1D);
-    impl &Texture<targets::SimpleTex<C, D2>> = (Sampler2D, USampler2D, ISampler2D);
-    impl &Texture<targets::SimpleTex<C, D3>> = (Sampler3D, USampler3D, ISampler3D);
+    impl &Texture<targets::SimpleTex<D1, C>> = (Sampler1D, USampler1D, ISampler1D);
+    impl &Texture<targets::SimpleTex<D2, C>> = (Sampler2D, USampler2D, ISampler2D);
+    impl &Texture<targets::SimpleTex<D3, C>> = (Sampler3D, USampler3D, ISampler3D);
 
     impl &Texture<targets::CubemapTex<C>> = (SamplerCube, USamplerCube, ISamplerCube);
     impl &Texture<targets::RectTex<C>> = (Sampler2DRect, USampler2DRect, ISampler2DRect);

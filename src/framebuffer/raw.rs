@@ -199,7 +199,7 @@ impl<'a, F> RawBoundFramebufferRead<'a, F>
         }
     }
     #[inline]
-    pub(crate) fn read_pixels<C: ImageFormatRenderable + ConcreteImageFormat>(&self, read_rect: OffsetBox<u32, D2>, data: &mut [C]) {
+    pub(crate) fn read_pixels<C: ImageFormatRenderable + ConcreteImageFormat>(&self, read_rect: OffsetBox<D2, u32>, data: &mut [C]) {
         // TODO: STENCIL AND DEPTH SUPPORT
         // TODO: GL_PIXEL_PACK_BUFFER SUPPORT
         assert_eq!((read_rect.width() * read_rect.height()) as usize, data.len());

@@ -32,7 +32,7 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: &'a Texture<SimpleTex<ImageFormat<ScalarType=GLSLFloat>, D2>, ()>
+    tex: &'a Texture<SimpleTex<D2, ImageFormat<ScalarType=GLSLFloat>>, ()>
 }
 
 fn main() {
@@ -83,7 +83,7 @@ fn main() {
         (buf, DimsBox::new2(info.width, info.height))
     };
     println!("texture loaded");
-    let ferris_texture: Texture<SimpleTex<SRgba, D2>, ()> = Texture::with_images(
+    let ferris_texture: Texture<SimpleTex<D2, SRgba>, ()> = Texture::with_images(
         ferris_dims,
         Some(SRgba::slice_from_raw(&ferris_image)),
         state.clone()

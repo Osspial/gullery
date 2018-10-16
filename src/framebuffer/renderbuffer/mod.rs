@@ -27,7 +27,7 @@ pub(crate) struct RenderbufferTarget(RawRenderbufferTarget);
 pub struct Renderbuffer<I: ImageFormatRenderable> {
     raw: RawRenderbuffer,
     samples: u32,
-    dims: DimsBox<u32, D2>,
+    dims: DimsBox<D2, u32>,
     state: Rc<ContextState>,
     _format: PhantomData<I>
 }
@@ -39,7 +39,7 @@ impl RenderbufferTarget {
 }
 
 impl<I: ImageFormatRenderable> Renderbuffer<I> {
-    pub fn new(dims: DimsBox<u32, D2>, samples: u32, state: Rc<ContextState>) -> Renderbuffer<I>
+    pub fn new(dims: DimsBox<D2, u32>, samples: u32, state: Rc<ContextState>) -> Renderbuffer<I>
         where I: ConcreteImageFormat
     {
         let mut raw = RawRenderbuffer::new(&state.gl);
@@ -62,7 +62,7 @@ impl<I: ImageFormatRenderable> Renderbuffer<I> {
     }
 
     #[inline(always)]
-    pub fn dims(&self) -> DimsBox<u32, D2> {
+    pub fn dims(&self) -> DimsBox<D2, u32> {
         self.dims
     }
 

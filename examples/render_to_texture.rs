@@ -37,8 +37,8 @@ struct TriUniforms {
 
 #[derive(Attachments)]
 struct Attachments<'a> {
-    color: &'a mut Texture<SimpleTex<SRgb, D2>>,
-    color_inverted: Texture<SimpleTex<SRgb, D2>>,
+    color: &'a mut Texture<SimpleTex<D2, SRgb>>,
+    color_inverted: Texture<SimpleTex<D2, SRgb>>,
 }
 
 fn main() {

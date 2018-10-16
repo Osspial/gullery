@@ -14,76 +14,86 @@
 
 use super::*;
 use cgmath_geometry::Dimensionality;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SimpleTex<C: ?Sized + ImageFormat, D: Dimensionality<u32>>(PhantomData<(*const C, D)>);
+pub struct SimpleTex<D, C>(PhantomData<(*const D, C)>)
+    where D: Dimensionality<u32>,
+          C: ?Sized + ImageFormat;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CubemapTex<C: ?Sized + ImageFormat>(PhantomData<*const C>);
+pub struct CubemapTex<C>(PhantomData<*const C>)
+    where C: ?Sized + ImageFormat;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct RectTex<C: ?Sized + ImageFormat>(PhantomData<*const C>);
+pub struct RectTex<C>(PhantomData<*const C>)
+    where C: ?Sized + ImageFormat;
+
 // #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 // pub struct BufferTex;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MultisampleTex<C: ?Sized + ImageFormat>(PhantomData<*const C>);
+pub struct MultisampleTex<C>(PhantomData<*const C>)
+    where C: ?Sized + ImageFormat;
 
 
-unsafe impl<C, D> TextureTypeSingleImage for SimpleTex<C, D>
+unsafe impl<D, C> TextureTypeSingleImage for SimpleTex<D, C>
     where C: ?Sized + ImageFormat,
           D: Dimensionality<u32>,
-          SimpleTex<C, D>: TextureType {}
-unsafe impl<C> TextureType for SimpleTex<C, D1>
+          SimpleTex<D, C>: TextureType {}
+unsafe impl<C> TextureType for SimpleTex<D1, C>
     where C: ?Sized + ImageFormat
 {
     type MipSelector = u8;
     type Format = C;
-    type Dims = DimsBox<u32, D1>;
+    type Dims = DimsBox<D1, u32>;
 
-    type Dyn = SimpleTex<ImageFormat<ScalarType=C::ScalarType>, D1>;
+    type Dyn = SimpleTex<D1, ImageFormat<ScalarType=C::ScalarType>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_1D;
 }
-unsafe impl<C> TextureTypeRenderable for SimpleTex<C, D1>
+unsafe impl<C> TextureTypeRenderable for SimpleTex<D1, C>
     where C: ?Sized + ImageFormatRenderable
 {
-    type DynRenderable = SimpleTex<ImageFormatRenderable<ScalarType=C::ScalarType, FormatType=C::FormatType>, D1>;
+    type DynRenderable = SimpleTex<D1, ImageFormatRenderable<ScalarType=C::ScalarType, FormatType=C::FormatType>>;
 }
-unsafe impl<C> TextureType for SimpleTex<C, D2>
+unsafe impl<C> TextureType for SimpleTex<D2, C>
     where C: ?Sized + ImageFormat
 {
     type MipSelector = u8;
     type Format = C;
-    type Dims = DimsBox<u32, D2>;
+    type Dims = DimsBox<D2, u32>;
 
-    type Dyn = SimpleTex<ImageFormat<ScalarType=C::ScalarType>, D2>;
+    type Dyn = SimpleTex<D2, ImageFormat<ScalarType=C::ScalarType>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_2D;
 }
-unsafe impl<C> TextureTypeRenderable for SimpleTex<C, D2>
+unsafe impl<C> TextureTypeRenderable for SimpleTex<D2, C>
     where C: ?Sized + ImageFormatRenderable
 {
-    type DynRenderable = SimpleTex<ImageFormatRenderable<ScalarType=C::ScalarType, FormatType=C::FormatType>, D2>;
+    type DynRenderable = SimpleTex<D2, ImageFormatRenderable<ScalarType=C::ScalarType, FormatType=C::FormatType>>;
 }
-unsafe impl<C> TextureType for SimpleTex<C, D3>
+unsafe impl<C> TextureType for SimpleTex<D3, C>
     where C: ?Sized + ImageFormat
 {
     type MipSelector = u8;
     type Format = C;
-    type Dims = DimsBox<u32, D3>;
+    type Dims = DimsBox<D3, u32>;
 
-    type Dyn = SimpleTex<ImageFormat<ScalarType=C::ScalarType>, D3>;
+    type Dyn = SimpleTex<D3, ImageFormat<ScalarType=C::ScalarType>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_3D;
 }
-unsafe impl<C> TextureTypeRenderable for SimpleTex<C, D3>
+unsafe impl<C> TextureTypeRenderable for SimpleTex<D3, C>
     where C: ?Sized + ImageFormatRenderable
 {
-    type DynRenderable = SimpleTex<ImageFormatRenderable<ScalarType=C::ScalarType, FormatType=C::FormatType>, D3>;
+    type DynRenderable = SimpleTex<D3, ImageFormatRenderable<ScalarType=C::ScalarType, FormatType=C::FormatType>>;
 }
-unsafe impl<C> ArrayTextureType for SimpleTex<C, D1>
+unsafe impl<C> ArrayTextureType for SimpleTex<D1, C>
     where C: ?Sized + ImageFormat
 {
     const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_1D_ARRAY;
 }
-unsafe impl<C> ArrayTextureType for SimpleTex<C, D2>
+unsafe impl<C> ArrayTextureType for SimpleTex<D2, C>
     where C: ?Sized + ImageFormat
 {
     const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_2D_ARRAY;
@@ -118,7 +128,7 @@ unsafe impl<C> TextureType for RectTex<C>
 {
     type MipSelector = ();
     type Format = C;
-    type Dims = DimsBox<u32, D2>;
+    type Dims = DimsBox<D2, u32>;
 
     type Dyn = RectTex<ImageFormat<ScalarType=C::ScalarType>>;
 
@@ -150,7 +160,7 @@ unsafe impl<C> TextureType for MultisampleTex<C>
 {
     type MipSelector = ();
     type Format = C;
-    type Dims = DimsBox<u32, D2>;
+    type Dims = DimsBox<D2, u32>;
 
     type Dyn = MultisampleTex<ImageFormat<ScalarType=C::ScalarType>>;
 

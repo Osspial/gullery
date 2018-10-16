@@ -110,9 +110,9 @@ impl<'a, I: ImageFormat> Copy for CubeImage<'a, I> {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DimsTag {
-    One(DimsBox<u32, D1>),
-    Two(DimsBox<u32, D2>),
-    Three(DimsBox<u32, D3>)
+    One(DimsBox<D1, u32>),
+    Two(DimsBox<D2, u32>),
+    Three(DimsBox<D3, u32>)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -678,7 +678,7 @@ impl DimsTag {
     }
 }
 
-impl Dims for DimsBox<u32, D1> {
+impl Dims for DimsBox<D1, u32> {
     type Offset = Vector1<u32>;
 
     #[inline] fn width(self) -> u32 {GeoBox::width(&self)}
@@ -689,7 +689,7 @@ impl Dims for DimsBox<u32, D1> {
         self.width()
     }
     #[inline]
-    fn max_size(state: &ContextState) -> DimsBox<u32, D1> {
+    fn max_size(state: &ContextState) -> DimsBox<D1, u32> {
         unsafe {
             let mut size = 0;
             state.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
@@ -697,7 +697,7 @@ impl Dims for DimsBox<u32, D1> {
         }
     }
 }
-impl Dims for DimsBox<u32, D2> {
+impl Dims for DimsBox<D2, u32> {
     type Offset = Vector2<u32>;
     #[inline] fn width(self) -> u32 {GeoBox::width(&self)}
     #[inline] fn height(self) -> u32 {GeoBox::height(&self)}
@@ -707,7 +707,7 @@ impl Dims for DimsBox<u32, D2> {
         self.width() * self.height()
     }
     #[inline]
-    fn max_size(state: &ContextState) -> DimsBox<u32, D2> {
+    fn max_size(state: &ContextState) -> DimsBox<D2, u32> {
         unsafe {
             let mut size = 0;
             state.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
@@ -733,7 +733,7 @@ impl Dims for DimsSquare {
         }
     }
 }
-impl Dims for DimsBox<u32, D3> {
+impl Dims for DimsBox<D3, u32> {
     type Offset = Vector3<u32>;
     #[inline] fn width(self) -> u32 {GeoBox::width(&self)}
     #[inline] fn height(self) -> u32 {GeoBox::height(&self)}
@@ -743,7 +743,7 @@ impl Dims for DimsBox<u32, D3> {
         self.width() * self.height() * self.depth()
     }
     #[inline]
-    fn max_size(state: &ContextState) -> DimsBox<u32, D3> {
+    fn max_size(state: &ContextState) -> DimsBox<D3, u32> {
         unsafe {
             let mut size = 0;
             state.gl.GetIntegerv(gl::MAX_3D_TEXTURE_SIZE, &mut size);
@@ -751,15 +751,15 @@ impl Dims for DimsBox<u32, D3> {
         }
     }
 }
-impl From<DimsBox<u32, D1>> for DimsTag {
+impl From<DimsBox<D1, u32>> for DimsTag {
     #[inline]
-    fn from(dims: DimsBox<u32, D1>) -> DimsTag {
+    fn from(dims: DimsBox<D1, u32>) -> DimsTag {
         DimsTag::One(dims)
     }
 }
-impl From<DimsBox<u32, D2>> for DimsTag {
+impl From<DimsBox<D2, u32>> for DimsTag {
     #[inline]
-    fn from(dims: DimsBox<u32, D2>) -> DimsTag {
+    fn from(dims: DimsBox<D2, u32>) -> DimsTag {
         DimsTag::Two(dims)
     }
 }
@@ -769,9 +769,9 @@ impl From<DimsSquare> for DimsTag {
         DimsTag::Two(DimsBox::new2(dims.side, dims.side))
     }
 }
-impl From<DimsBox<u32, D3>> for DimsTag {
+impl From<DimsBox<D3, u32>> for DimsTag {
     #[inline]
-    fn from(dims: DimsBox<u32, D3>) -> DimsTag {
+    fn from(dims: DimsBox<D3, u32>) -> DimsTag {
         DimsTag::Three(dims)
     }
 }

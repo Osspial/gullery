@@ -39,13 +39,13 @@ struct TextureVertex {
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
     offset: Vector2<f32>,
-    tex: &'a Texture<SimpleTex<ImageFormat<ScalarType=GLSLFloat>, D2>>
+    tex: &'a Texture<SimpleTex<D2, ImageFormat<ScalarType=GLSLFloat>>>
 }
 
 #[derive(Attachments)]
 struct Attachments<'a> {
-    color: &'a mut Texture<SimpleTex<SRgb, D2>>,
-    depth: &'a mut Texture<SimpleTex<Depth16, D2>>
+    color: &'a mut Texture<SimpleTex<D2, SRgb>>,
+    depth: &'a mut Texture<SimpleTex<D2, Depth16>>
 }
 
 fn main() {

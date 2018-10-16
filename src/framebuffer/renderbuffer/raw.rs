@@ -96,7 +96,7 @@ impl RawRenderbufferTarget {
 }
 
 impl<'a> RawBoundRenderbufferMut<'a> {
-    pub fn alloc_storage(&mut self, internal_format: GLenum, dims: DimsBox<u32, D2>, samples: u32) {
+    pub fn alloc_storage(&mut self, internal_format: GLenum, dims: DimsBox<D2, u32>, samples: u32) {
         let width = dims.width() as i32;
         let height = dims.height() as i32;
         unsafe {

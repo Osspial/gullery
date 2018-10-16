@@ -35,7 +35,7 @@ pub struct RenderState {
     pub texture_cubemap_seamless: bool,
     pub program_point_size: bool,
     pub polygon_offset: Option<PolygonOffset>,
-    pub viewport: OffsetBox<u32, D2>,
+    pub viewport: OffsetBox<D2, u32>,
     pub color_mask: ColorMask,
     pub depth_mask: bool,
 }

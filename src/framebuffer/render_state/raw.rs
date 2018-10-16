@@ -230,7 +230,7 @@ pub fn set_gl_cap(gl: &Gl, cap: Capability) {
     }
 }
 
-pub fn set_viewport(gl: &Gl, vp_rect: OffsetBox<u32, D2>) {
+pub fn set_viewport(gl: &Gl, vp_rect: OffsetBox<D2, u32>) {
     assert!(vp_rect.width() < GLint::max_value() as u32);
     assert!(vp_rect.height() < GLint::max_value() as u32);
     unsafe {

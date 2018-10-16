@@ -125,7 +125,7 @@ pub trait Framebuffer {
     }
 
     #[inline]
-    fn read_pixels<C>(&mut self, read_rect: OffsetBox<u32, D2>, data: &mut [C])
+    fn read_pixels<C>(&mut self, read_rect: OffsetBox<D2, u32>, data: &mut [C])
         where C: ImageFormatRenderable + ConcreteImageFormat,
               Self::Attachments: DefaultFramebufferAttachments
     {
@@ -140,7 +140,7 @@ pub trait Framebuffer {
     #[inline]
     fn read_pixels_fbo<C, A>(
         &mut self,
-        read_rect: OffsetBox<u32, D2>,
+        read_rect: OffsetBox<D2, u32>,
         data: &mut [C],
         get_attachment: impl FnOnce(&Self::Attachments) -> &A
     )
