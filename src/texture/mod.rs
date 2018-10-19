@@ -32,7 +32,10 @@ use std::rc::Rc;
 use std::cell::Cell;
 use std::error::Error;
 
-pub use self::raw::{targets, Dims, DimsSquare, DimsTag, MipSelector, Image, TextureType, ArrayTextureType};
+pub use self::raw::{
+    targets, Dims, DimsSquare, DimsTag, MipSelector, Image, TextureType,
+    CubeImage, TextureTypeSingleImage, TextureTypeRenderable
+};
 
 use cgmath_geometry::{D1, D2, D3};
 

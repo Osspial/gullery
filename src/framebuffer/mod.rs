@@ -31,7 +31,7 @@ use buffer::Index;
 use vertex::VertexArrayObject;
 use uniform::Uniforms;
 use program::Program;
-use image_format::{Rgba, FormatType, ImageFormatRenderable, ConcreteImageFormat, ImageFormatType};
+use image_format::{Rgba, FormatType, ImageFormatRenderable, ConcreteImageFormat, FormatTypeTag};
 use self::render_state::RenderState;
 use cgmath_geometry::D2;
 use cgmath_geometry::rect::OffsetBox;
@@ -161,13 +161,13 @@ pub trait Framebuffer {
                 if !*self.valid {
                     let image_type = <At::Format as ImageFormatRenderable>::FormatType::FORMAT_TYPE;
                     if get_member(self.attachments) as *const _ as *const () == self.ptr {
-                        if image_type == ImageFormatType::Color {
+                        if image_type == FormatTypeTag::Color {
                             *self.color_index = Some(self.color_index_wip);
                         }
                         *self.valid = true;
                     }
 
-                    if image_type == ImageFormatType::Color {
+                    if image_type == FormatTypeTag::Color {
                         self.color_index_wip += 1;
                     }
                 }

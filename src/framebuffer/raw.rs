@@ -25,7 +25,7 @@ use buffer::Index;
 use vertex::vao::BoundVAO;
 use uniform::Uniforms;
 use program::BoundProgram;
-use image_format::{FormatType, ImageFormatRenderable, ConcreteImageFormat, ImageFormatType, Rgba, GLFormat};
+use image_format::{FormatType, ImageFormatRenderable, ConcreteImageFormat, FormatTypeTag, Rgba, FormatAttributes};
 use super::Renderbuffer;
 use super::attachments::*;
 
@@ -209,10 +209,10 @@ impl<'a, F> RawBoundFramebufferRead<'a, F>
         assert!(read_rect.height() as i32 >= 0);
 
         let (pixel_format, pixel_type) = match C::FORMAT {
-            GLFormat::Uncompressed{pixel_format, pixel_type, ..} => (pixel_format, pixel_type),
-            GLFormat::Compressed{..} => panic!("compressed format information passed with uncompressed texture;\
+            FormatAttributes::Uncompressed{pixel_format, pixel_type, ..} => (pixel_format, pixel_type),
+            FormatAttributes::Compressed{..} => panic!("compressed format information passed with uncompressed texture;\
                                                 check the image format's ATTRIBUTES.format field. It should have a\
-                                                GLFormat::Uncompressed value")
+                                                FormatAttributes::Uncompressed value")
         };
         unsafe {
             self.gl.ReadPixels(
@@ -335,11 +335,11 @@ pub unsafe trait RawBoundFramebuffer {
                     let handle = member.handle();
                     let attachment: GLenum;
                     match <<Renderbuffer<Im> as Attachment>::Format as ImageFormatRenderable>::FormatType::FORMAT_TYPE {
-                        ImageFormatType::Color => {
+                        FormatTypeTag::Color => {
                             attachment = gl::COLOR_ATTACHMENT0 + self.color_index;
                             self.color_index += 1;
                         },
-                        ImageFormatType::Depth => {
+                        FormatTypeTag::Depth => {
                             if self.depth_attachment_used {
                                 panic!("Attempted to attach multiple depth images to a single FBO");
                             }
@@ -371,11 +371,11 @@ pub unsafe trait RawBoundFramebuffer {
                     let handle = texture.handle();
                     let attachment: GLenum;
                     match <<Texture<T, P> as Attachment>::Format as ImageFormatRenderable>::FormatType::FORMAT_TYPE {
-                        ImageFormatType::Color => {
+                        FormatTypeTag::Color => {
                             attachment = gl::COLOR_ATTACHMENT0 + self.color_index;
                             self.color_index += 1;
                         },
-                        ImageFormatType::Depth => {
+                        FormatTypeTag::Depth => {
                             if self.depth_attachment_used {
                                 panic!("Attempted to attach multiple depth images to a single FBO");
                             }

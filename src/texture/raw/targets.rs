@@ -88,16 +88,16 @@ unsafe impl<C> TextureTypeRenderable for SimpleTex<D3, C>
 {
     type DynRenderable = SimpleTex<D3, ImageFormatRenderable<ScalarType=C::ScalarType, FormatType=C::FormatType>>;
 }
-unsafe impl<C> ArrayTextureType for SimpleTex<D1, C>
-    where C: ?Sized + ImageFormat
-{
-    const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_1D_ARRAY;
-}
-unsafe impl<C> ArrayTextureType for SimpleTex<D2, C>
-    where C: ?Sized + ImageFormat
-{
-    const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_2D_ARRAY;
-}
+// unsafe impl<C> ArrayTextureType for SimpleTex<D1, C>
+//     where C: ?Sized + ImageFormat
+// {
+//     const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_1D_ARRAY;
+// }
+// unsafe impl<C> ArrayTextureType for SimpleTex<D2, C>
+//     where C: ?Sized + ImageFormat
+// {
+//     const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_2D_ARRAY;
+// }
 
 unsafe impl<C> TextureType for CubemapTex<C>
     where C: ?Sized + ImageFormat
@@ -171,8 +171,8 @@ unsafe impl<C> TextureTypeRenderable for MultisampleTex<C>
 {
     type DynRenderable = MultisampleTex<ImageFormatRenderable<ScalarType=C::ScalarType, FormatType=C::FormatType>>;
 }
-unsafe impl<C> ArrayTextureType for MultisampleTex<C>
-    where C: ?Sized + ImageFormat
-{
-    const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_2D_MULTISAMPLE_ARRAY;
-}
+// unsafe impl<C> ArrayTextureType for MultisampleTex<C>
+//     where C: ?Sized + ImageFormat
+// {
+//     const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_2D_MULTISAMPLE_ARRAY;
+// }

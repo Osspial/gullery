@@ -12,6 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Types used to specify image formats.
+//!
+//! There are two broad classes of image formats: compressed formats and uncompressed formats.
+//!
+//! *Uncompressed formats* are swaths of pure pixel data, and are easier to manipulate
+//! programmatically. For this reason, they're generally usable as render targets. The biggest
+//! downside to them is that they take up significant amounts of space in GPU memory - something
+//! to avoid if you're trying to draw complex scenes with many different textures! These can
+//! be found in the Structs section of this module.
+//!
+//! *Compressed formats*, on the other hand, take up significantly less space than uncompressed
+//! formats while usually offering comparable quality. However, GPUs use significantly different
+//! compression formats than the kind commonly seen on the web (such as PNGs or JPEGs)! GPU formats
+//! are designed to both reduce the size of the texture while also offering fast color retrieval,
+//! but generally don't compress quite as well as web compression formats. They cannot be used as
+//! render targets. Compressed texture types can be found in the [`compressed`](./compressed/index.html)
+//! module.
+
 macro_rules! impl_slice_conversions {
     ($ty:ty) => {
         #[inline(always)]
@@ -61,58 +79,86 @@ use cgmath::{Vector1, Vector2, Vector3, Vector4};
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ImageFormatType {
+pub enum FormatTypeTag {
     Color,
     Depth,
     // Stencil,
     // DepthStencil
 }
 
+/// Attributes used by OpenGL to process and display images.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum GLFormat {
+pub enum FormatAttributes {
+    /// Attributes of an uncompressed image format.
     Uncompressed {
+        /// The format the GPU uses internally to store pixel data.
+        ///
+        /// Technically, this can differ from the pixel format and pixel type. If it does, the
+        /// drivers are supposed to perform a conversion to the internal format. However, Gullery
+        /// only exposes types where the internal and external formats match for the sake of
+        /// transparency and simplicity.
         internal_format: GLenum,
+        /// The structure of the uploaded pixel data.
+        ///
+        /// This can indicate, for example, the number of color fields in the pixel data, or if the
+        /// format is a depth format.
         pixel_format: GLenum,
+        /// The *underyling type* for the uploaded pixel data.
+        ///
+        /// This indicates what primitive (e.g. `u8`, `f32`) the format uses to upload pixel data.
         pixel_type: GLenum
     },
+    /// Attributes of a compressed image format.
     Compressed {
+        /// The format used to store and upload pixel data.
         internal_format: GLenum,
+        /// The number of pixels in a single block of pixel data.
+        ///
+        /// Gullery's compressed formats expose a single instance of a struct as a block of pixel
+        /// data.
         pixels_per_block: usize
     }
 }
 
+/// An image format the GPU can use to look up pixel data.
 pub unsafe trait ImageFormat: 'static {
     type ScalarType: ScalarType;
 }
+/// An image format the GPU can use as a render target.
 pub unsafe trait ImageFormatRenderable: ImageFormat {
     type FormatType: FormatType;
 }
 pub unsafe trait ConcreteImageFormat: ImageFormat + Copy {
-    const FORMAT: GLFormat;
+    const FORMAT: FormatAttributes;
 }
 
+/// Marker trait used to indicate if a format is a color, depth, or stencil format.
 pub trait FormatType {
-    const FORMAT_TYPE: ImageFormatType;
+    const FORMAT_TYPE: FormatTypeTag;
 }
+/// Marker type that indicates a color image format.
 pub enum ColorFormat {}
+/// Marker type that indicates a depth image format.
 pub enum DepthFormat {}
 impl FormatType for ColorFormat {
-    const FORMAT_TYPE: ImageFormatType = ImageFormatType::Color;
+    const FORMAT_TYPE: FormatTypeTag = FormatTypeTag::Color;
 }
 impl FormatType for DepthFormat {
-    const FORMAT_TYPE: ImageFormatType = ImageFormatType::Depth;
+    const FORMAT_TYPE: FormatTypeTag = FormatTypeTag::Depth;
 }
 
 pub trait ColorComponents {
     type Scalar: Scalar;
 }
 
+/// 16-bit unsigned depth format.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Depth16(pub u16);
 // #[repr(C)]
 // #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 // pub struct Depth24(pub u32);
+/// 32-bit floating-point depth format.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Depth32F(pub f32);
@@ -127,7 +173,7 @@ unsafe impl ImageFormatRenderable for Depth16 {
     type FormatType = DepthFormat;
 }
 unsafe impl ConcreteImageFormat for Depth16 {
-    const FORMAT: GLFormat = GLFormat::Uncompressed {
+    const FORMAT: FormatAttributes = FormatAttributes::Uncompressed {
         internal_format: gl::DEPTH_COMPONENT16,
         pixel_format: gl::DEPTH_COMPONENT,
         pixel_type: <u16 as Scalar>::GL_ENUM,
@@ -141,13 +187,20 @@ unsafe impl ImageFormatRenderable for Depth32F {
     type FormatType = DepthFormat;
 }
 unsafe impl ConcreteImageFormat for Depth32F {
-    const FORMAT: GLFormat = GLFormat::Uncompressed {
+    const FORMAT: FormatAttributes = FormatAttributes::Uncompressed {
         internal_format: gl::DEPTH_COMPONENT32F,
         pixel_format: gl::DEPTH_COMPONENT,
         pixel_type: <f32 as Scalar>::GL_ENUM,
     };
 }
 
+/// Linear four-channel RGBA color format.
+///
+/// If you want GLSL to take normalized integer or floating point data, `S` can be `u8`,
+/// `i8`, `u16`, `i16`, or `f32`. If you want GLSL to take integer data, `S` can be a [`GLSLInt`]
+/// wrapipng a `u8`, `i8`, `u16`, `i16`, `u32`, or `i32`.
+///
+/// [`GLSLInt`]: ../glsl/struct.GLSLInt.html
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Rgba<S=u8> {
@@ -157,6 +210,13 @@ pub struct Rgba<S=u8> {
     pub a: S
 }
 
+/// Linear three-channel RGB color format.
+///
+/// If you want GLSL to take normalized integer or floating point data, `S` can be `u8`,
+/// `i8`, `u16`, `i16`, or `f32`. If you want GLSL to take integer data, `S` can be a [`GLSLInt`]
+/// wrapipng a `u8`, `i8`, `u16`, `i16`, `u32`, or `i32`.
+///
+/// [`GLSLInt`]: ../glsl/struct.GLSLInt.html
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Rgb<S=u8> {
@@ -165,6 +225,13 @@ pub struct Rgb<S=u8> {
     pub b: S
 }
 
+/// Linear two-channel RG color format.
+///
+/// If you want GLSL to take normalized integer or floating point data, `S` can be `u8`,
+/// `i8`, `u16`, `i16`, or `f32`. If you want GLSL to take integer data, `S` can be a [`GLSLInt`]
+/// wrapipng a `u8`, `i8`, `u16`, `i16`, `u32`, or `i32`.
+///
+/// [`GLSLInt`]: ../glsl/struct.GLSLInt.html
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Rg<S=u8> {
@@ -172,12 +239,23 @@ pub struct Rg<S=u8> {
     pub g: S
 }
 
+/// Linear single-channel red color format.
+///
+/// If you want GLSL to take normalized integer or floating point data, `S` can be `u8`,
+/// `i8`, `u16`, `i16`, or `f32`. If you want GLSL to take integer data, `S` can be a [`GLSLInt`]
+/// wrapipng a `u8`, `i8`, `u16`, `i16`, `u32`, or `i32`.
+///
+/// [`GLSLInt`]: ../glsl/struct.GLSLInt.html
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Red<S=u8> {
     pub r: S
 }
 
+/// Four-channel sRGBA color format.
+///
+/// Unlike linear RGBA data, this applies a gamma correction curve to the color data upon access. See
+/// [here](https://en.wikipedia.org/wiki/SRGB) for more details.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SRgba {
@@ -187,6 +265,10 @@ pub struct SRgba {
     pub a: u8
 }
 
+/// Three-channel sRGB color format.
+///
+/// Unlike linear RGB data, this applies a gamma correction curve to the color data upon access. See
+/// [here](https://en.wikipedia.org/wiki/SRGB) for more details.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SRgb {
@@ -310,7 +392,7 @@ macro_rules! basic_format {
             type FormatType = ColorFormat;
         }
         unsafe impl ConcreteImageFormat for Rgba<$prim> {
-            const FORMAT: GLFormat = GLFormat::Uncompressed {
+            const FORMAT: FormatAttributes = FormatAttributes::Uncompressed {
                 internal_format: gl::$rgba_enum,
                 pixel_format: if_integer!(if $prim => (gl::RGBA_INTEGER) else (gl::RGBA)),
                 pixel_type: <$prim as Scalar>::GL_ENUM,
@@ -326,7 +408,7 @@ macro_rules! basic_format {
             type FormatType = ColorFormat;
         }
         unsafe impl ConcreteImageFormat for Rgb<$prim> {
-            const FORMAT: GLFormat = GLFormat::Uncompressed {
+            const FORMAT: FormatAttributes = FormatAttributes::Uncompressed {
                 internal_format: gl::$rgb_enum,
                 pixel_format: if_integer!(if $prim => (gl::RGB_INTEGER) else (gl::RGB)),
                 pixel_type: <$prim as Scalar>::GL_ENUM,
@@ -342,7 +424,7 @@ macro_rules! basic_format {
             type FormatType = ColorFormat;
         }
         unsafe impl ConcreteImageFormat for Rg<$prim> {
-            const FORMAT: GLFormat = GLFormat::Uncompressed {
+            const FORMAT: FormatAttributes = FormatAttributes::Uncompressed {
                 internal_format: gl::$rg_enum,
                 pixel_format: if_integer!(if $prim => (gl::RG_INTEGER) else (gl::RG)),
                 pixel_type: <$prim as Scalar>::GL_ENUM,
@@ -358,7 +440,7 @@ macro_rules! basic_format {
             type FormatType = ColorFormat;
         }
         unsafe impl ConcreteImageFormat for Red<$prim> {
-            const FORMAT: GLFormat = GLFormat::Uncompressed {
+            const FORMAT: FormatAttributes = FormatAttributes::Uncompressed {
                 internal_format: gl::$r_enum,
                 pixel_format: if_integer!(if $prim => (gl::RED_INTEGER) else (gl::RED)),
                 pixel_type: <$prim as Scalar>::GL_ENUM,
@@ -394,7 +476,7 @@ unsafe impl ImageFormatRenderable for SRgba {
     type FormatType = ColorFormat;
 }
 unsafe impl ConcreteImageFormat for SRgba {
-    const FORMAT: GLFormat = GLFormat::Uncompressed {
+    const FORMAT: FormatAttributes = FormatAttributes::Uncompressed {
         internal_format: gl::SRGB8_ALPHA8,
         pixel_format: gl::RGBA,
         pixel_type: <u8 as Scalar>::GL_ENUM,
@@ -410,7 +492,7 @@ unsafe impl ImageFormatRenderable for SRgb {
     type FormatType = ColorFormat;
 }
 unsafe impl ConcreteImageFormat for SRgb {
-    const FORMAT: GLFormat = GLFormat::Uncompressed {
+    const FORMAT: FormatAttributes = FormatAttributes::Uncompressed {
         internal_format: gl::SRGB8,
         pixel_format: gl::RGB,
         pixel_type: <u8 as Scalar>::GL_ENUM,

@@ -19,7 +19,7 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use ContextState;
-use image_format::{ConcreteImageFormat, ImageFormat, ImageFormatRenderable, GLFormat};
+use image_format::{ConcreteImageFormat, ImageFormat, ImageFormatRenderable, FormatAttributes};
 
 use std::{mem, ptr, iter};
 use std::cell::Cell;
@@ -145,9 +145,9 @@ pub unsafe trait TextureTypeRenderable: TextureType {
 
 pub unsafe trait TextureTypeSingleImage: TextureType {}
 
-pub unsafe trait ArrayTextureType: TextureType {
-    const ARRAY_BIND_TARGET: GLenum;
-}
+// pub unsafe trait ArrayTextureType: TextureType {
+//     const ARRAY_BIND_TARGET: GLenum;
+// }
 
 pub trait MipSelector: Copy {
     type IterLess: Iterator<Item=Self>;
@@ -428,7 +428,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
 
             let upload_data = |gl: &Gl, image_bind, data, data_len| {
                 match T::Format::FORMAT {
-                    GLFormat::Uncompressed{internal_format, pixel_format, pixel_type} => {
+                    FormatAttributes::Uncompressed{internal_format, pixel_format, pixel_type} => {
                         match self.tex.dims.into() {
                             DimsTag::One(_) =>
                                 gl.TexImage1D(
@@ -453,7 +453,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
                                 ),
                         }
                     },
-                    GLFormat::Compressed{internal_format, ..} => {
+                    FormatAttributes::Compressed{internal_format, ..} => {
                         match self.tex.dims.into() {
                             DimsTag::One(_) =>
                                 gl.CompressedTexImage1D(
@@ -482,8 +482,8 @@ impl<'a, T> RawBoundTextureMut<'a, T>
             };
 
             let pixels_per_unit = match T::Format::FORMAT {
-                GLFormat::Uncompressed{..} => 1,
-                GLFormat::Compressed{pixels_per_block, ..} => pixels_per_block
+                FormatAttributes::Uncompressed{..} => 1,
+                FormatAttributes::Compressed{pixels_per_block, ..} => pixels_per_block
             };
 
             match image {
@@ -542,7 +542,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
 
         unsafe {
             match T::Format::FORMAT {
-                GLFormat::Uncompressed{pixel_format, pixel_type, ..} => match sub_dims.into() {
+                FormatAttributes::Uncompressed{pixel_format, pixel_type, ..} => match sub_dims.into() {
                     One(dims) => image.variants(|image_bind, data| self.gl.TexSubImage1D(
                         image_bind, level.to_glint(),
                         offset[0] as GLint,
@@ -568,7 +568,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
                         pixel_format, pixel_type, data.as_ptr() as *const GLvoid
                     ))
                 },
-                GLFormat::Compressed{..} => unimplemented!()
+                FormatAttributes::Compressed{..} => unimplemented!()
             }
         }
     }

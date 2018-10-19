@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Program and shader errors.
+
 use glsl::TypeTag;
 
 use std::error::Error;
@@ -24,6 +26,7 @@ pub struct ShaderError(pub(super) String);
 #[derive(Debug, Clone)]
 pub struct LinkError(pub(super) String);
 
+/// A Rust type was mapped to a mismatched GLSL type.
 #[derive(Debug, Clone)]
 pub struct MismatchedTypeError {
     pub ident: String,

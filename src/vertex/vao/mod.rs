@@ -15,6 +15,7 @@
 mod raw;
 use self::raw::*;
 
+use {GLObject, Handle};
 use vertex::Vertex;
 use buffer::{Index, Buffer};
 
@@ -24,6 +25,12 @@ pub struct VertexArrayObject<V: Vertex, I: Index> {
     raw: RawVAO<V>,
     vertex_buffer: Buffer<V>,
     index_buffer: Option<Buffer<I>>
+}
+
+impl<V: Vertex, I: Index> GLObject for VertexArrayObject<V, I> {
+    fn handle(&self) -> Handle {
+        self.raw.handle()
+    }
 }
 
 pub(crate) struct VAOTarget(RawVAOTarget);
