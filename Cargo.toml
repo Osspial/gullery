@@ -5,16 +5,16 @@ authors = ["Osspial <osspial@gmail.com>"]
 
 [dependencies]
 gullery_bindings = {path = "./gullery_bindings"}
-derive_more = "0.6"
-num-traits = "0.1"
+derive_more = "0.13"
+num-traits = "0.2"
 cgmath-geometry = { git = "https://github.com/Osspial/cgmath-geometry" }
 bitflags = "1.0"
 
 [dev-dependencies]
 glutin = "0.13"
-quickcheck = "0.4"
+quickcheck = "0.7"
 gullery_macros = { path = "./gullery_macros" }
-png = "0.12"
+png = "0.13"
 dds-rs = "0.7"
 
 [workspace]
