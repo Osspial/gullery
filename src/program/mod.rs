@@ -37,7 +37,9 @@ pub struct Shader<S: ShaderStage> {
     state: Rc<ContextState>
 }
 
-pub struct Program<V: Vertex, U: 'static + Uniforms, A: 'static + Attachments> {
+pub struct Program<V, U, A=()>
+    where V: Vertex, U: 'static + Uniforms, A: 'static + Attachments
+{
     raw: RawProgram,
     uniform_locs: U::ULC,
     state: Rc<ContextState>,
