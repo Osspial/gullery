@@ -12,7 +12,7 @@ extern crate num_traits;
 use gullery::ContextState;
 use gullery::buffer::*;
 use gullery::glsl::GLSLFloat;
-use gullery::texture::{*, targets::*, sample_parameters::Swizzle};
+use gullery::texture::{*, sample_parameters::Swizzle};
 use gullery::framebuffer::{*, render_state::*};
 use gullery::program::*;
 use gullery::image_format::*;
@@ -39,13 +39,13 @@ struct TextureVertex {
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
     offset: Vector2<f32>,
-    tex: &'a Texture<SimpleTex<D2, ImageFormat<ScalarType=GLSLFloat>>>
+    tex: &'a Texture<D2, ImageFormat<ScalarType=GLSLFloat>>
 }
 
 #[derive(Attachments)]
 struct Attachments<'a> {
-    color: &'a mut Texture<SimpleTex<D2, SRgb>>,
-    depth: &'a mut Texture<SimpleTex<D2, Depth16>>
+    color: &'a mut Texture<D2, SRgb>,
+    depth: &'a mut Texture<D2, Depth16>
 }
 
 fn main() {

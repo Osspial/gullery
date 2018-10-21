@@ -11,7 +11,7 @@ extern crate num_traits;
 
 use gullery::ContextState;
 use gullery::buffer::*;
-use gullery::texture::{*, targets::*};
+use gullery::texture::*;
 use gullery::framebuffer::{*, render_state::*};
 use gullery::program::*;
 use gullery::image_format::*;
@@ -37,8 +37,8 @@ struct TriUniforms {
 
 #[derive(Attachments)]
 struct Attachments<'a> {
-    color: &'a mut Texture<SimpleTex<D2, SRgb>>,
-    color_inverted: Texture<SimpleTex<D2, SRgb>>,
+    color: &'a mut Texture<D2, SRgb>,
+    color_inverted: Texture<D2, SRgb>,
 }
 
 fn main() {

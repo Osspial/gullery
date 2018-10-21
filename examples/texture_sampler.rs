@@ -13,7 +13,6 @@ use gullery::framebuffer::{*, render_state::*};
 use gullery::program::*;
 use gullery::image_format::*;
 use gullery::texture::{*, sample_parameters::*};
-use gullery::texture::targets::SimpleTex;
 use gullery::vertex::VertexArrayObject;
 
 use cgmath_geometry::{cgmath, D2};
@@ -34,12 +33,12 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: SampledTexture<'a, SimpleTex<D2, SRgba>, ()>,
+    tex: SampledTexture<'a, D2, SRgba, ()>,
     offset: Vector2<f32>,
     scale: Vector2<f32>
 }
 
-fn load_texture_from_file(path: &str, state: &Rc<ContextState>) -> Result<Texture<SimpleTex<D2, SRgba>, ()>, io::Error> {
+fn load_texture_from_file(path: &str, state: &Rc<ContextState>) -> Result<Texture<D2, SRgba, ()>, io::Error> {
     let (image, dims) = {
         let decoder = png::Decoder::new(File::open(path)?);
         let (info, mut reader) = decoder.read_info()?;

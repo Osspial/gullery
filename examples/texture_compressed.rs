@@ -14,7 +14,6 @@ use gullery::program::*;
 use gullery::image_format::*;
 use gullery::image_format::compressed::RGTC;
 use gullery::texture::*;
-use gullery::texture::targets::SimpleTex;
 use gullery::vertex::VertexArrayObject;
 
 use cgmath_geometry::{cgmath, D2};
@@ -32,7 +31,7 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: &'a Texture<SimpleTex<D2, RGTC<Rg>>, ()>
+    tex: &'a Texture<D2, RGTC<Rg>, ()>
 }
 
 fn main() {

@@ -27,13 +27,14 @@ use std::ops::{Deref, Index, Range};
 use std::marker::PhantomData;
 
 use cgmath::{Vector1, Vector2, Vector3};
-use cgmath_geometry::{D1, D2, D3};
+use cgmath_geometry::{Dimensionality, D1, D2, D3};
 use cgmath_geometry::rect::{GeoBox, DimsBox};
 use super::sample_parameters::*;
 
 #[repr(C)]
-pub struct RawTexture<T>
-    where T: ?Sized + TextureType
+pub struct RawTexture<D, T>
+    where D: Dimensionality<u32>,
+          T: ?Sized + TextureType<D>
 {
     handle: Handle,
     dims: T::Dims,
@@ -50,7 +51,7 @@ pub struct RawSampler {
 //     where T: TextureType<ArrayLayerSelector=usize>
 // {
 //     handle: GLuint,
-//     dims: T::Dims,
+//     dims: D,
 //     mips: u8,
 //     size: usize
 // }
@@ -69,18 +70,20 @@ pub struct RawImageUnits {
 }
 
 #[repr(C)]
-pub struct RawBoundTexture<'a, T>
-    where T: 'a + ?Sized + TextureType
+pub struct RawBoundTexture<'a, D, T>
+    where D: Dimensionality<u32>,
+          T: 'a + ?Sized + TextureType<D>
 {
-    tex: &'a RawTexture<T>,
+    tex: &'a RawTexture<D, T>,
     gl: &'a Gl
 }
 
 #[repr(C)]
-pub struct RawBoundTextureMut<'a, T>
-    where T: 'a + ?Sized + TextureType
+pub struct RawBoundTextureMut<'a, D, T>
+    where D: Dimensionality<u32>,
+          T: 'a + ?Sized + TextureType<D>
 {
-    tex: &'a mut RawTexture<T>,
+    tex: &'a mut RawTexture<D, T>,
     gl: &'a Gl
 }
 
@@ -129,21 +132,21 @@ pub trait Dims: 'static + Into<DimsTag> + Copy {
     fn max_size(state: &ContextState) -> Self;
 }
 
-pub unsafe trait TextureType: 'static {
+pub unsafe trait TextureType<D: Dimensionality<u32>>: 'static {
     type MipSelector: MipSelector;
     type Format: ?Sized + ImageFormat;
     type Dims: Dims;
 
-    type Dyn: TextureType<MipSelector=Self::MipSelector, Dims=Self::Dims>;
+    type Dyn: ?Sized + TextureType<D, MipSelector=Self::MipSelector>;
 
     const BIND_TARGET: GLenum;
 }
 
-pub unsafe trait TextureTypeRenderable: TextureType {
-    type DynRenderable: TextureType<MipSelector=Self::MipSelector, Dims=Self::Dims>;
+pub unsafe trait TextureTypeRenderable<D: Dimensionality<u32>>: TextureType<D> {
+    type DynRenderable: ?Sized + TextureType<D, MipSelector=Self::MipSelector>;
 }
 
-pub unsafe trait TextureTypeSingleImage: TextureType {}
+pub unsafe trait TextureTypeSingleImage<D: Dimensionality<u32>>: TextureType<D> {}
 
 // pub unsafe trait ArrayTextureType: TextureType {
 //     const ARRAY_BIND_TARGET: GLenum;
@@ -157,8 +160,9 @@ pub trait MipSelector: Copy {
     fn iter_less(self) -> Self::IterLess;
     fn try_increment(self) -> Self;
 }
-pub trait Image<'a, T>: Copy + Sized
-    where T: TextureType,
+pub trait Image<'a, D, T>: Copy + Sized
+    where D: Dimensionality<u32>,
+          T: TextureType<D>,
           T::Format: Sized
 {
     fn variants<F: FnMut(GLenum, &'a [T::Format])>(self, for_each: F);
@@ -166,10 +170,11 @@ pub trait Image<'a, T>: Copy + Sized
 }
 
 
-impl<T> RawTexture<T>
-    where T: ?Sized + TextureType
+impl<D, T> RawTexture<D, T>
+    where D: Dimensionality<u32>,
+          T: ?Sized + TextureType<D>
 {
-    pub fn new(dims: T::Dims, gl: &Gl) -> RawTexture<T> {
+    pub fn new(dims: T::Dims, gl: &Gl) -> RawTexture<D, T> {
         unsafe {
             let mut handle = 0;
             gl.GenTextures(1, &mut handle);
@@ -267,8 +272,9 @@ impl RawImageUnits {
     }
 
     #[inline]
-    pub unsafe fn bind_texture<'a, T>(&'a self, unit: u32, tex: &'a RawTexture<T>, gl: &'a Gl) -> RawBoundTexture<'a, T>
-        where T: 'a + ?Sized + TextureType
+    pub unsafe fn bind_texture<'a, D, T>(&'a self, unit: u32, tex: &'a RawTexture<D, T>, gl: &'a Gl) -> RawBoundTexture<'a, D, T>
+        where D: Dimensionality<u32>,
+              T: 'a + ?Sized + TextureType<D>
     {
         let max_unit = self.image_units.len() as u32 - 1;
 
@@ -295,8 +301,9 @@ impl RawImageUnits {
     }
 
     #[inline]
-    pub unsafe fn bind_texture_mut<'a, T>(&'a self, unit: u32, tex: &'a mut RawTexture<T>, gl: &'a Gl) -> RawBoundTextureMut<'a, T>
-        where T: 'a + ?Sized + TextureType
+    pub unsafe fn bind_texture_mut<'a, D, T>(&'a self, unit: u32, tex: &'a mut RawTexture<D, T>, gl: &'a Gl) -> RawBoundTextureMut<'a, D, T>
+        where D: Dimensionality<u32>,
+              T: 'a + ?Sized + TextureType<D>
     {
         self.bind_texture(unit, tex, gl);
         RawBoundTextureMut{ tex, gl }
@@ -348,10 +355,11 @@ impl RawImageUnits {
 }
 
 
-impl<'a, T> RawBoundTexture<'a, T>
-    where T: TextureType
+impl<'a, D, T> RawBoundTexture<'a, D, T>
+    where D: Dimensionality<u32>,
+          T: TextureType<D>
 {
-    pub fn raw_tex(&self) -> &RawTexture<T> {
+    pub fn raw_tex(&self) -> &RawTexture<D, T> {
         &self.tex
     }
 }
@@ -401,11 +409,12 @@ pub trait ParameterUploader {
     }
 }
 
-impl<'a, T> RawBoundTextureMut<'a, T>
-    where T: TextureType
+impl<'a, D, T> RawBoundTextureMut<'a, D, T>
+    where D: Dimensionality<u32>,
+          T: TextureType<D>
 {
     pub fn alloc_image<'b, I>(&mut self, level: T::MipSelector, image: Option<I>)
-        where I: Image<'b, T>,
+        where I: Image<'b, D, T>,
               T::Format: ConcreteImageFormat
     {
         unsafe {
@@ -511,7 +520,7 @@ impl<'a, T> RawBoundTextureMut<'a, T>
         sub_dims: T::Dims,
         image: I,
     )
-        where I: Image<'b, T>,
+        where I: Image<'b, D, T>,
               T::Format: ConcreteImageFormat
     {
         use self::DimsTag::*;
@@ -574,8 +583,9 @@ impl<'a, T> RawBoundTextureMut<'a, T>
     }
 }
 
-impl<'a, T> RawBoundTextureMut<'a, T>
-    where T: ?Sized + TextureType
+impl<'a, D, T> RawBoundTextureMut<'a, D, T>
+    where D: Dimensionality<u32>,
+          T: ?Sized + TextureType<D>
 {
     #[inline]
     pub fn swizzle_mask(&mut self, r: Swizzle, g: Swizzle, b: Swizzle, a: Swizzle) {
@@ -589,9 +599,9 @@ impl<'a, T> RawBoundTextureMut<'a, T>
     }
 }
 
-// TODO: IMPLEMENT PARAMETERUPLOADER FOR Sampler AND MOVE CALLS TO IT
-impl<'a, T> ParameterUploader for RawBoundTexture<'a, T>
-    where T: ?Sized + TextureType
+impl<'a, D, T> ParameterUploader for RawBoundTexture<'a, D, T>
+    where D: Dimensionality<u32>,
+          T: ?Sized + TextureType<D>
 {
     #[inline]
     fn gl(&self) -> &Gl { self.gl }
@@ -618,13 +628,14 @@ impl<'a> ParameterUploader for (&'a Gl, &'a RawSampler) {
     }
 }
 
-impl<'a, T> Deref for RawBoundTextureMut<'a, T>
-    where T: TextureType
+impl<'a, D, T> Deref for RawBoundTextureMut<'a, D, T>
+    where D: Dimensionality<u32>,
+          T: TextureType<D>
 {
-    type Target = RawBoundTexture<'a, T>;
+    type Target = RawBoundTexture<'a, D, T>;
     #[inline]
-    fn deref(&self) -> &RawBoundTexture<'a, T> {
-        unsafe{ &*(self as *const _ as *const RawBoundTexture<'a, T>) }
+    fn deref(&self) -> &RawBoundTexture<'a, D, T> {
+        unsafe{ &*(self as *const _ as *const RawBoundTexture<'a, D, T>) }
     }
 }
 
@@ -776,7 +787,7 @@ impl From<DimsBox<D3, u32>> for DimsTag {
     }
 }
 
-impl<'a, I> Image<'a, targets::CubemapTex<I>> for CubeImage<'a, I>
+impl<'a, I> Image<'a, D2, targets::CubemapTex<I>> for CubeImage<'a, I>
     where I: ImageFormat
 {
     fn variants<F: FnMut(GLenum, &'a [I])>(self, mut for_each: F) {
@@ -796,8 +807,9 @@ impl<'a, I> Image<'a, targets::CubemapTex<I>> for CubeImage<'a, I>
         for_each(gl::TEXTURE_CUBE_MAP_NEGATIVE_Z);
    }
 }
-impl<'a, T> Image<'a, T> for &'a [T::Format]
-    where T: TextureTypeSingleImage,
+impl<'a, D, T> Image<'a, D, T> for &'a [T::Format]
+    where D: Dimensionality<u32>,
+          T: TextureTypeSingleImage<D>,
           T::Format: Sized
 {
     fn variants<F: FnMut(GLenum, &'a [T::Format])>(self, mut for_each: F) {
@@ -807,8 +819,9 @@ impl<'a, T> Image<'a, T> for &'a [T::Format]
         for_each(T::BIND_TARGET);
    }
 }
-impl<'a, T> Image<'a, T> for !
-    where T: TextureType,
+impl<'a, D, T> Image<'a, D, T> for !
+    where D: Dimensionality<u32>,
+          T: TextureType<D>,
           T::Format: Sized
 {
     fn variants<F: FnMut(GLenum, &'a [T::Format])>(self, _: F) {    }

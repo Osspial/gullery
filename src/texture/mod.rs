@@ -37,18 +37,19 @@ pub use self::raw::{
     CubeImage, TextureTypeSingleImage, TextureTypeRenderable
 };
 
-use cgmath_geometry::{D1, D2, D3};
+use cgmath_geometry::{Dimensionality, D1, D2, D3};
 
 
 #[repr(C)]
-pub struct Texture<T, P = SampleParameters>
-    where T: ?Sized + TextureType,
+pub struct Texture<D, T, P = SampleParameters>
+    where D: Dimensionality<u32>,
+          T: ?Sized + TextureType<D>,
           P: IntoSampleParameters
 {
     pub sample_parameters: P,
     old_sample_parameters: Cell<P>,
 
-    raw: RawTexture<T>,
+    raw: RawTexture<D, T>,
     state: Rc<ContextState>
 }
 
@@ -60,17 +61,19 @@ pub struct Sampler {
     state: Rc<ContextState>,
 }
 
-pub struct SampledTexture<'a, T, P>
-    where T: TextureType,
+pub struct SampledTexture<'a, D, T, P>
+    where D: Dimensionality<u32>,
+          T: TextureType<D>,
           P: IntoSampleParameters
 {
     pub sampler: &'a Sampler,
-    pub texture: &'a Texture<T, P>
+    pub texture: &'a Texture<D, T, P>
 }
 
 #[derive(Debug, Clone)]
-pub enum TexCreateError<T>
-    where T: TextureType
+pub enum TexCreateError<D, T>
+    where D: Dimensionality<u32>,
+          T: TextureType<D>
 {
     DimsExceedMax {
         requested: T::Dims,
@@ -78,8 +81,9 @@ pub enum TexCreateError<T>
     }
 }
 
-impl<T, P> GLObject for Texture<T, P>
-    where T: TextureType,
+impl<D, T, P> GLObject for Texture<D, T, P>
+    where D: Dimensionality<u32>,
+          T: TextureType<D>,
           P: IntoSampleParameters
 {
     #[inline(always)]
@@ -96,15 +100,17 @@ impl GLObject for Sampler {
 }
 
 pub(crate) struct ImageUnits(RawImageUnits);
-pub(crate) struct BoundTexture<'a, T>(RawBoundTexture<'a, T>)
-    where T: TextureType;
+pub(crate) struct BoundTexture<'a, D, T>(RawBoundTexture<'a, D, T>)
+    where D: Dimensionality<u32>,
+          T: ?Sized + TextureType<D>;
 
-impl<T, P> Texture<T, P>
-    where P: IntoSampleParameters,
-          T: TextureType,
+impl<D, T, P> Texture<D, T, P>
+    where D: Dimensionality<u32>,
+          P: IntoSampleParameters,
+          T: TextureType<D>,
           T::Format: ConcreteImageFormat
 {
-    pub fn new(dims: T::Dims, mips: T::MipSelector, state: Rc<ContextState>) -> Result<Texture<T, P>, TexCreateError<T>> {
+    pub fn new(dims: T::Dims, mips: T::MipSelector, state: Rc<ContextState>) -> Result<Texture<D, T, P>, TexCreateError<D, T>> {
         let max_size = T::Dims::max_size(&state);
         let (max_width, max_height, max_depth) = max_size.into().to_tuple();
         let (width, height, depth) = dims.into().to_tuple();
@@ -134,9 +140,9 @@ impl<T, P> Texture<T, P>
         })
     }
 
-    pub fn with_images<'a, I, J>(dims: T::Dims, images: J, state: Rc<ContextState>) -> Result<Texture<T, P>, TexCreateError<T>>
-        where T: TextureType<MipSelector=u8>,
-              I: Image<'a, T>,
+    pub fn with_images<'a, I, J>(dims: T::Dims, images: J, state: Rc<ContextState>) -> Result<Texture<D, T, P>, TexCreateError<D, T>>
+        where T: TextureType<D, MipSelector=u8>,
+              I: Image<'a, D, T>,
               J: IntoIterator<Item=I>
     {
         let max_size = T::Dims::max_size(&state);
@@ -180,7 +186,7 @@ impl<T, P> Texture<T, P>
 
     #[inline]
     pub fn sub_image<'a, I>(&mut self, level: T::MipSelector, offset: <T::Dims as Dims>::Offset, sub_dims: T::Dims, image: I)
-        where I: Image<'a, T>
+        where I: Image<'a, D, T>
     {
         let last_unit = self.state.image_units.0.num_units() - 1;
         let mut bind = unsafe{ self.state.image_units.0.bind_texture_mut(last_unit, &mut self.raw, &self.state.gl) };
@@ -188,8 +194,9 @@ impl<T, P> Texture<T, P>
     }
 }
 
-impl<T, P> Texture<T, P>
-    where T: ?Sized + TextureType,
+impl<D, T, P> Texture<D, T, P>
+    where D: Dimensionality<u32>,
+          T: ?Sized + TextureType<D>,
           P: IntoSampleParameters
 {
     #[inline]
@@ -210,47 +217,47 @@ impl<T, P> Texture<T, P>
     }
 
     #[inline]
-    pub fn as_dyn(&self) -> &Texture<T::Dyn, P> {
-        assert_eq!(mem::size_of::<Texture<T, P>>(), mem::size_of::<Texture<T::Dyn, P>>());
-        unsafe{ &*(self as *const Texture<T, P> as *const Texture<T::Dyn, P>) }
+    pub fn as_dyn(&self) -> &Texture<D, T::Dyn, P> {
+        assert_eq!(mem::size_of::<Texture<D, T, P>>(), mem::size_of::<Texture<D, T::Dyn, P>>());
+        unsafe{ &*(self as *const Texture<D, T, P> as *const Texture<D, T::Dyn, P>) }
     }
 
     #[inline]
-    pub fn as_dyn_mut(&mut self) -> &mut Texture<T::Dyn, P> {
-        assert_eq!(mem::size_of::<Texture<T, P>>(), mem::size_of::<Texture<T::Dyn, P>>());
-        unsafe{ &mut *(self as *mut Texture<T, P> as *mut Texture<T::Dyn, P>) }
+    pub fn as_dyn_mut(&mut self) -> &mut Texture<D, T::Dyn, P> {
+        assert_eq!(mem::size_of::<Texture<D, T, P>>(), mem::size_of::<Texture<D, T::Dyn, P>>());
+        unsafe{ &mut *(self as *mut Texture<D, T, P> as *mut Texture<D, T::Dyn, P>) }
     }
 
     #[inline]
-    pub fn into_dyn(self) -> Texture<T::Dyn, P> {
-        assert_eq!(mem::size_of::<Texture<T, P>>(), mem::size_of::<Texture<T::Dyn, P>>());
-        let tex = unsafe{ mem::transmute_copy::<Texture<T, P>, Texture<T::Dyn, P>>(&self) };
+    pub fn into_dyn(self) -> Texture<D, T::Dyn, P> {
+        assert_eq!(mem::size_of::<Texture<D, T, P>>(), mem::size_of::<Texture<D, T::Dyn, P>>());
+        let tex = unsafe{ mem::transmute_copy::<Texture<D, T, P>, Texture<D, T::Dyn, P>>(&self) };
         mem::forget(self);
         tex
     }
 
     #[inline]
-    pub fn as_dyn_renderable(&self) -> &Texture<T::DynRenderable, P>
-        where T: TextureTypeRenderable
+    pub fn as_dyn_renderable(&self) -> &Texture<D, T::DynRenderable, P>
+        where T: TextureTypeRenderable<D>
     {
-        assert_eq!(mem::size_of::<Texture<T, P>>(), mem::size_of::<Texture<T::DynRenderable, P>>());
-        unsafe{ &*(self as *const Texture<T, P> as *const Texture<T::DynRenderable, P>) }
+        assert_eq!(mem::size_of::<Texture<D, T, P>>(), mem::size_of::<Texture<D, T::DynRenderable, P>>());
+        unsafe{ &*(self as *const Texture<D, T, P> as *const Texture<D, T::DynRenderable, P>) }
     }
 
     #[inline]
-    pub fn as_dyn_renderable_mut(&mut self) -> &mut Texture<T::DynRenderable, P>
-        where T: TextureTypeRenderable
+    pub fn as_dyn_renderable_mut(&mut self) -> &mut Texture<D, T::DynRenderable, P>
+        where T: TextureTypeRenderable<D>
     {
-        assert_eq!(mem::size_of::<Texture<T, P>>(), mem::size_of::<Texture<T::DynRenderable, P>>());
-        unsafe{ &mut *(self as *mut Texture<T, P> as *mut Texture<T::DynRenderable, P>) }
+        assert_eq!(mem::size_of::<Texture<D, T, P>>(), mem::size_of::<Texture<D, T::DynRenderable, P>>());
+        unsafe{ &mut *(self as *mut Texture<D, T, P> as *mut Texture<D, T::DynRenderable, P>) }
     }
 
     #[inline]
-    pub fn into_dyn_renderable(self) -> Texture<T::DynRenderable, P>
-        where T: TextureTypeRenderable
+    pub fn into_dyn_renderable(self) -> Texture<D, T::DynRenderable, P>
+        where T: TextureTypeRenderable<D>
     {
-        assert_eq!(mem::size_of::<Texture<T, P>>(), mem::size_of::<Texture<T::DynRenderable, P>>());
-        let tex = unsafe{ mem::transmute_copy::<Texture<T, P>, Texture<T::DynRenderable, P>>(&self) };
+        assert_eq!(mem::size_of::<Texture<D, T, P>>(), mem::size_of::<Texture<D, T::DynRenderable, P>>());
+        let tex = unsafe{ mem::transmute_copy::<Texture<D, T, P>, Texture<D, T::DynRenderable, P>>(&self) };
         mem::forget(self);
         tex
     }
@@ -301,8 +308,9 @@ impl ImageUnits {
     }
 
     #[inline]
-    pub unsafe fn bind<'a, T, P>(&'a self, unit: u32, tex: &'a Texture<T, P>, sampler: Option<&Sampler>, gl: &'a Gl) -> BoundTexture<T>
-        where T: TextureType,
+    pub unsafe fn bind<'a, D, T, P>(&'a self, unit: u32, tex: &'a Texture<D, T, P>, sampler: Option<&Sampler>, gl: &'a Gl) -> BoundTexture<D, T>
+        where D: Dimensionality<u32>,
+              T: ?Sized + TextureType<D>,
               P: IntoSampleParameters
     {
         let tex_bind = self.0.bind_texture(unit, &tex.raw, gl);
@@ -319,8 +327,9 @@ impl ImageUnits {
 }
 
 
-impl<T, P> Drop for Texture<T, P>
-    where T: ?Sized + TextureType,
+impl<D, T, P> Drop for Texture<D, T, P>
+    where D: Dimensionality<u32>,
+          T: ?Sized + TextureType<D>,
           P: IntoSampleParameters
 {
     fn drop(&mut self) {
@@ -344,9 +353,9 @@ impl Drop for Sampler {
 
 macro_rules! texture_type_uniform {
     ($(
-        impl &Texture<$texture_type:ty> = ($tag_ident:ident, $u_tag_ident:ident, $i_tag_ident:ident);
+        impl &Texture<$d:ty, $texture_type:ty> = ($tag_ident:ident, $u_tag_ident:ident, $i_tag_ident:ident);
     )*) => {$(
-        unsafe impl<'a, C, P> UniformType for &'a Texture<$texture_type, P>
+        unsafe impl<'a, C, P> UniformType for &'a Texture<$d, $texture_type, P>
             where C: ?Sized + ImageFormat,
                   P: IntoSampleParameters
         {
@@ -370,23 +379,24 @@ macro_rules! texture_type_uniform {
 }
 
 texture_type_uniform!{
-    impl &Texture<targets::SimpleTex<D1, C>> = (Sampler1D, USampler1D, ISampler1D);
-    impl &Texture<targets::SimpleTex<D2, C>> = (Sampler2D, USampler2D, ISampler2D);
-    impl &Texture<targets::SimpleTex<D3, C>> = (Sampler3D, USampler3D, ISampler3D);
+    impl &Texture<D1, C> = (Sampler1D, USampler1D, ISampler1D);
+    impl &Texture<D2, C> = (Sampler2D, USampler2D, ISampler2D);
+    impl &Texture<D3, C> = (Sampler3D, USampler3D, ISampler3D);
 
-    impl &Texture<targets::CubemapTex<C>> = (SamplerCube, USamplerCube, ISamplerCube);
-    impl &Texture<targets::RectTex<C>> = (Sampler2DRect, USampler2DRect, ISampler2DRect);
-    impl &Texture<targets::MultisampleTex<C>> = (Sampler2DMS, USampler2DMS, ISampler2DMS);
+    impl &Texture<D2, targets::CubemapTex<C>> = (SamplerCube, USamplerCube, ISamplerCube);
+    impl &Texture<D2, targets::RectTex<C>> = (Sampler2DRect, USampler2DRect, ISampler2DRect);
+    impl &Texture<D2, targets::MultisampleTex<C>> = (Sampler2DMS, USampler2DMS, ISampler2DMS);
 }
 
-unsafe impl<'a, T, P> UniformType for SampledTexture<'a, T, P>
-    where T: TextureType,
+unsafe impl<'a, D, T, P> UniformType for SampledTexture<'a, D, T, P>
+    where D: Dimensionality<u32>,
+          T: TextureType<D>,
           P: IntoSampleParameters,
-          &'a Texture<T, P>: UniformType
+          &'a Texture<D, T, P>: UniformType
 {
     #[inline]
     fn uniform_tag() -> TypeTag {
-        <&'a Texture<T, P> as UniformType>::uniform_tag()
+        <&'a Texture<D, T, P> as UniformType>::uniform_tag()
     }
     #[inline]
     unsafe fn upload(&self, loc: GLint, binder: &mut TextureUniformBinder, gl: &Gl) {
@@ -396,20 +406,22 @@ unsafe impl<'a, T, P> UniformType for SampledTexture<'a, T, P>
 }
 
 
-impl<T> From<TexCreateError<T>> for io::Error
-    where T: TextureType,
-          TexCreateError<T>: Send + Sync + fmt::Debug
+impl<D, T> From<TexCreateError<D, T>> for io::Error
+    where D: Dimensionality<u32>,
+          T: TextureType<D>,
+          TexCreateError<D, T>: Send + Sync + fmt::Debug
 {
-    fn from(err: TexCreateError<T>) -> io::Error {
+    fn from(err: TexCreateError<D, T>) -> io::Error {
         io::Error::new(io::ErrorKind::Other, err)
     }
 }
 
-impl<T: TextureType> Error for TexCreateError<T>
-    where TexCreateError<T>: fmt::Debug {}
+impl<D: Dimensionality<u32>, T: TextureType<D>> Error for TexCreateError<D, T>
+    where TexCreateError<D, T>: fmt::Debug {}
 
-impl<T> fmt::Display for TexCreateError<T>
-    where T: TextureType
+impl<D, T> fmt::Display for TexCreateError<D, T>
+    where D: Dimensionality<u32>,
+          T: TextureType<D>
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
@@ -427,8 +439,9 @@ impl<T> fmt::Display for TexCreateError<T>
 }
 
 
-impl<'a, T, P> Clone for SampledTexture<'a, T, P>
-    where T: TextureType,
+impl<'a, D, T, P> Clone for SampledTexture<'a, D, T, P>
+    where D: Dimensionality<u32>,
+          T: TextureType<D>,
           P: IntoSampleParameters + 'a
 {
     fn clone(&self) -> Self {
@@ -439,6 +452,7 @@ impl<'a, T, P> Clone for SampledTexture<'a, T, P>
     }
 }
 
-impl<'a, T, P> Copy for SampledTexture<'a, T, P>
-    where T: TextureType,
+impl<'a, D, T, P> Copy for SampledTexture<'a, D, T, P>
+    where D: Dimensionality<u32>,
+          T: TextureType<D>,
           P: IntoSampleParameters + 'a {}
