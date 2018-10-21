@@ -32,11 +32,24 @@ use std::marker::PhantomData;
 
 pub use self::raw::{ShaderStage, VertexStage, GeometryStage, FragmentStage};
 
+/// User-defined code that represents a single stage of the rendering pipeline.
+///
+/// Gullery exposes three shader stages that can be linked together when contructiong a `Program`
+/// object:
+/// * Vertex stage.
+///   * Processes raw vertex data passed into a draw call through a VAO. Outputs render primitives.
+///     [(OpenGL Wiki)](https://www.khronos.org/opengl/wiki/Vertex_Shader)
+/// * Geometry stage (optional).
+///   * Takes primitives from the vertex stage and outputs more primitives.
+/// * Fragment stage
+///   * Takes the data from the vertex stage and produces color data which is drawn to a render target
+///     Said color data can be displayed to the user or saved for later use.
 pub struct Shader<S: ShaderStage> {
     raw: RawShader<S>,
     state: Rc<ContextState>
 }
 
+/// Compiled collection of shaders used by the GPU to render content.
 pub struct Program<V, U, A=()>
     where V: Vertex, U: 'static + Uniforms, A: 'static + Attachments
 {
