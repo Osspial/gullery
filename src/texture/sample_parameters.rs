@@ -1,6 +1,5 @@
 use gl::{self, types::*};
 use image_format::Rgba;
-use std::cell::Cell;
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -58,23 +57,6 @@ pub struct SampleParameters {
     pub lod_bias: f32,
     // pub border_color: Option<Rgba<f32>>,
     // TODO: GL_TEXTURE_COMPARE_MODE
-}
-
-pub trait IntoSampleParameters: 'static + Default + Copy + PartialEq {
-    fn into_sample_parameters(self) -> Option<SampleParameters>;
-    fn into_sample_parameters_cell(this: &Cell<Self>) -> Option<&Cell<SampleParameters>>;
-}
-
-impl IntoSampleParameters for SampleParameters {
-    #[inline(always)]
-    fn into_sample_parameters(self) -> Option<SampleParameters> {Some(self)}
-    fn into_sample_parameters_cell(this: &Cell<Self>) -> Option<&Cell<SampleParameters>> {Some(this)}
-}
-
-impl IntoSampleParameters for () {
-    #[inline(always)]
-    fn into_sample_parameters(self) -> Option<SampleParameters> {None}
-    fn into_sample_parameters_cell(_: &Cell<()>) -> Option<&Cell<SampleParameters>> {None}
 }
 
 impl Default for FilterMin {

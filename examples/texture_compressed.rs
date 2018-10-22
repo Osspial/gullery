@@ -31,7 +31,7 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: &'a Texture<D2, RGTC<Rg>, ()>
+    tex: &'a Texture<D2, RGTC<Rg>>
 }
 
 fn main() {

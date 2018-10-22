@@ -1,5 +1,4 @@
 use texture::{Texture, TextureType, MipSelector};
-use texture::sample_parameters::IntoSampleParameters;
 use image_format::ImageFormatRenderable;
 use framebuffer::Renderbuffer;
 use std::marker::PhantomData;
@@ -74,12 +73,12 @@ pub trait AttachmentsMemberRegistry {
         name: &str,
         get_member: impl FnOnce(&Self::Attachments) -> &Renderbuffer<I>
     );
-    fn add_texture<D, T, P>(
+    fn add_texture<D, T>(
         &mut self,
         name: &str,
-        get_member: impl FnOnce(&Self::Attachments) -> &Texture<D, T, P>,
+        get_member: impl FnOnce(&Self::Attachments) -> &Texture<D, T>,
         texture_level: T::MipSelector
-    ) where D: Dimensionality<u32>, T: TextureType<D>, T::Format: ImageFormatRenderable, P: IntoSampleParameters;
+    ) where D: Dimensionality<u32>, T: TextureType<D>, T::Format: ImageFormatRenderable;
 }
 
 pub(crate) trait AttachmentsMemberRegistryNoSpecifics {
@@ -102,10 +101,9 @@ impl<R> AttachmentsMemberRegistry for AMRNSImpl<R>
         self.0.add_member(name, get_member);
     }
     #[inline]
-    fn add_texture<D, T, P>(&mut self, name: &str, get_member: impl FnOnce(&Self::Attachments) -> &Texture<D, T, P>, _: T::MipSelector)
+    fn add_texture<D, T>(&mut self, name: &str, get_member: impl FnOnce(&Self::Attachments) -> &Texture<D, T>, _: T::MipSelector)
         where D: Dimensionality<u32>,
               T: TextureType<D>,
-              P: IntoSampleParameters,
               T::Format: ImageFormatRenderable
     {
         self.0.add_member(name, get_member);
@@ -149,10 +147,9 @@ impl<I: ImageFormatRenderable> Attachment for Renderbuffer<I> {
     }
 }
 
-impl<D, T, P> Attachment for Texture<D, T, P>
+impl<D, T> Attachment for Texture<D, T>
     where D: Dimensionality<u32>,
           T: TextureType<D>,
-          P: IntoSampleParameters,
           T::Format: ImageFormatRenderable
 {
     const TARGET_TYPE: AttachmentTargetType = AttachmentTargetType::Texture;

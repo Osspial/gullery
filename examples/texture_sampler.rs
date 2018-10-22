@@ -33,12 +33,12 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: SampledTexture<'a, D2, SRgba, ()>,
+    tex: SampledTexture<'a, D2, SRgba>,
     offset: Vector2<f32>,
     scale: Vector2<f32>
 }
 
-fn load_texture_from_file(path: &str, state: &Rc<ContextState>) -> Result<Texture<D2, SRgba, ()>, io::Error> {
+fn load_texture_from_file(path: &str, state: &Rc<ContextState>) -> Result<Texture<D2, SRgba>, io::Error> {
     let (image, dims) = {
         let decoder = png::Decoder::new(File::open(path)?);
         let (info, mut reader) = decoder.read_info()?;

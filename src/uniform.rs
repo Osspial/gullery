@@ -19,7 +19,6 @@ use cgmath::{Vector1, Vector2, Vector3, Vector4, Point1, Point2, Point3, Matrix2
 use cgmath_geometry::Dimensionality;
 use glsl::{TypeTag, TransparentType};
 use texture::{ImageUnits, Texture, Sampler, TextureType};
-use texture::sample_parameters::IntoSampleParameters;
 
 pub struct TextureUniformBinder<'a> {
     pub(crate) image_units: &'a ImageUnits,
@@ -27,16 +26,15 @@ pub struct TextureUniformBinder<'a> {
 }
 
 impl<'a> TextureUniformBinder<'a> {
-    pub unsafe fn bind<D, T, P>(&mut self, tex: &Texture<D, T, P>, sampler: Option<&Sampler>, gl: &Gl) -> u32
+    pub unsafe fn bind<D, T>(&mut self, tex: &Texture<D, T>, sampler: Option<&Sampler>, gl: &Gl) -> u32
         where D: Dimensionality<u32>,
               T: ?Sized + TextureType<D>,
-              P: IntoSampleParameters
     {
         if let Some(sampler) = sampler {
             sampler.upload_parameters();
-        } else {
+        }/* else {
             tex.upload_parameters();
-        }
+        }*/
 
         let ret = *self.unit;
         self.image_units.bind(*self.unit, tex, sampler, gl);
