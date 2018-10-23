@@ -127,12 +127,12 @@ pub enum TypeBasicTag {
     SamplerCube = gl::SAMPLER_CUBE,
     // Sampler1DShadow = gl::SAMPLER_1D_SHADOW,
     // Sampler2DShadow = gl::SAMPLER_2D_SHADOW,
-    // Sampler1DArray = gl::SAMPLER_1D_ARRAY,
-    // Sampler2DArray = gl::SAMPLER_2D_ARRAY,
+    Sampler1DArray = gl::SAMPLER_1D_ARRAY,
+    Sampler2DArray = gl::SAMPLER_2D_ARRAY,
     // Sampler1DArrayShadow = gl::SAMPLER_1D_ARRAY_SHADOW,
     // Sampler2DArrayShadow = gl::SAMPLER_2D_ARRAY_SHADOW,
     Sampler2DMS = gl::SAMPLER_2D_MULTISAMPLE,
-    // Sampler2DMSArray = gl::SAMPLER_2D_MULTISAMPLE_ARRAY,
+    Sampler2DMSArray = gl::SAMPLER_2D_MULTISAMPLE_ARRAY,
     // SamplerCubeShadow = gl::SAMPLER_CUBE_SHADOW,
     // SamplerBuffer = gl::SAMPLER_BUFFER,
     Sampler2DRect = gl::SAMPLER_2D_RECT,
@@ -141,20 +141,20 @@ pub enum TypeBasicTag {
     ISampler2D = gl::INT_SAMPLER_2D,
     ISampler3D = gl::INT_SAMPLER_3D,
     ISamplerCube = gl::INT_SAMPLER_CUBE,
-    // ISampler1DArray = gl::INT_SAMPLER_1D_ARRAY,
-    // ISampler2DArray = gl::INT_SAMPLER_2D_ARRAY,
+    ISampler1DArray = gl::INT_SAMPLER_1D_ARRAY,
+    ISampler2DArray = gl::INT_SAMPLER_2D_ARRAY,
     ISampler2DMS = gl::INT_SAMPLER_2D_MULTISAMPLE,
-    // ISampler2DMSArray = gl::INT_SAMPLER_2D_MULTISAMPLE_ARRAY,
+    ISampler2DMSArray = gl::INT_SAMPLER_2D_MULTISAMPLE_ARRAY,
     // ISamplerBuffer = gl::INT_SAMPLER_BUFFER,
     ISampler2DRect = gl::INT_SAMPLER_2D_RECT,
     USampler1D = gl::UNSIGNED_INT_SAMPLER_1D,
     USampler2D = gl::UNSIGNED_INT_SAMPLER_2D,
     USampler3D = gl::UNSIGNED_INT_SAMPLER_3D,
     USamplerCube = gl::UNSIGNED_INT_SAMPLER_CUBE,
-    // USampler1DArray = gl::UNSIGNED_INT_SAMPLER_1D_ARRAY,
-    // USampler2DArray = gl::UNSIGNED_INT_SAMPLER_2D_ARRAY,
+    USampler1DArray = gl::UNSIGNED_INT_SAMPLER_1D_ARRAY,
+    USampler2DArray = gl::UNSIGNED_INT_SAMPLER_2D_ARRAY,
     USampler2DMS = gl::UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE,
-    // USampler2DMSArray = gl::UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE_ARRAY,
+    USampler2DMSArray = gl::UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE_ARRAY,
     // USamplerBuffer = gl::UNSIGNED_INT_SAMPLER_BUFFER,
     USampler2DRect = gl::UNSIGNED_INT_SAMPLER_2D_RECT,
 }
@@ -304,12 +304,12 @@ impl Display for TypeBasicTag {
             SamplerCube => "samplerCube",
             // Sampler1DShadow => "sampler1DShadow",
             // Sampler2DShadow => "sampler2DShadow",
-            // Sampler1DArray => "sampler1DArray",
-            // Sampler2DArray => "sampler2DArray",
+            Sampler1DArray => "sampler1DArray",
+            Sampler2DArray => "sampler2DArray",
             // Sampler1DArrayShadow => "sampler1DArrayShadow",
             // Sampler2DArrayShadow => "sampler2DArrayShadow",
             Sampler2DMS => "sampler2DMS",
-            // Sampler2DMSArray => "sampler2DMSArray",
+            Sampler2DMSArray => "sampler2DMSArray",
             // SamplerCubeShadow => "samplerCubeShadow",
             // SamplerBuffer => "samplerBuffer",
             Sampler2DRect => "sampler2DRect",
@@ -318,20 +318,20 @@ impl Display for TypeBasicTag {
             ISampler2D => "isampler2D",
             ISampler3D => "isampler3D",
             ISamplerCube => "isamplerCube",
-            // ISampler1DArray => "isampler1DArray",
-            // ISampler2DArray => "isampler2DArray",
+            ISampler1DArray => "isampler1DArray",
+            ISampler2DArray => "isampler2DArray",
             ISampler2DMS => "isampler2DMS",
-            // ISampler2DMSArray => "isampler2DMSArray",
+            ISampler2DMSArray => "isampler2DMSArray",
             // ISamplerBuffer => "isamplerBuffer",
             ISampler2DRect => "isampler2DRect",
             USampler1D => "usampler1D",
             USampler2D => "usampler2D",
             USampler3D => "usampler3D",
             USamplerCube => "usamplerCube",
-            // USampler1DArray => "usampler1DArray",
-            // USampler2DArray => "usampler2DArray",
+            USampler1DArray => "usampler1DArray",
+            USampler2DArray => "usampler2DArray",
             USampler2DMS => "usampler2DMS",
-            // USampler2DMSArray => "usampler2DMSArray",
+            USampler2DMSArray => "usampler2DMSArray",
             // USamplerBuffer => "usamplerBuffer",
             USampler2DRect => "usampler2DRect",
         };
@@ -392,12 +392,12 @@ impl TypeBasicTag {
             SamplerCube |
             // Sampler1DShadow |
             // Sampler2DShadow |
-            // Sampler1DArray |
-            // Sampler2DArray |
+            Sampler1DArray |
+            Sampler2DArray |
             // Sampler1DArrayShadow |
             // Sampler2DArrayShadow |
             Sampler2DMS |
-            // Sampler2DMSArray |
+            Sampler2DMSArray |
             // SamplerCubeShadow |
             // SamplerBuffer |
             Sampler2DRect |
@@ -406,20 +406,20 @@ impl TypeBasicTag {
             ISampler2D |
             ISampler3D |
             ISamplerCube |
-            // ISampler1DArray |
-            // ISampler2DArray |
+            ISampler1DArray |
+            ISampler2DArray |
             ISampler2DMS |
-            // ISampler2DMSArray |
+            ISampler2DMSArray |
             // ISamplerBuffer |
             ISampler2DRect |
             USampler1D |
             USampler2D |
             USampler3D |
             USamplerCube |
-            // USampler1DArray |
-            // USampler2DArray |
+            USampler1DArray |
+            USampler2DArray |
             USampler2DMS |
-            // USampler2DMSArray |
+            USampler2DMSArray |
             // USamplerBuffer |
             USampler2DRect => 1,
         }
@@ -453,12 +453,12 @@ impl TypeBasicTag {
             SamplerCube |
             // Sampler1DShadow |
             // Sampler2DShadow |
-            // Sampler1DArray |
-            // Sampler2DArray |
+            Sampler1DArray |
+            Sampler2DArray |
             // Sampler1DArrayShadow |
             // Sampler2DArrayShadow |
             Sampler2DMS |
-            // Sampler2DMSArray |
+            Sampler2DMSArray |
             // SamplerCubeShadow |
             // SamplerBuffer |
             Sampler2DRect |
@@ -467,20 +467,20 @@ impl TypeBasicTag {
             ISampler2D |
             ISampler3D |
             ISamplerCube |
-            // ISampler1DArray |
-            // ISampler2DArray |
+            ISampler1DArray |
+            ISampler2DArray |
             ISampler2DMS |
-            // ISampler2DMSArray |
+            ISampler2DMSArray |
             // ISamplerBuffer |
             ISampler2DRect |
             USampler1D |
             USampler2D |
             USampler3D |
             USamplerCube |
-            // USampler1DArray |
-            // USampler2DArray |
+            USampler1DArray |
+            USampler2DArray |
             USampler2DMS |
-            // USampler2DMSArray |
+            USampler2DMSArray |
             // USamplerBuffer |
             USampler2DRect |
             // Double |

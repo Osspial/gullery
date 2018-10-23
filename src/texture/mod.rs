@@ -104,7 +104,10 @@ impl<D, T> Texture<D, T>
           T::Format: ConcreteImageFormat
 {
     pub fn new(dims: T::Dims, mips: T::MipSelector, state: Rc<ContextState>) -> Result<Texture<D, T>, TexCreateError<D, T>> {
-        let max_size = T::Dims::max_size(&state);
+        let max_size = match T::IS_ARRAY {
+            false => T::Dims::max_size(&state),
+            true => T::Dims::max_size_array(&state).expect("Tried to create Array texture with nonarray dims type")
+        };
         let (max_width, max_height, max_depth) = max_size.into().to_tuple();
         let (width, height, depth) = dims.into().to_tuple();
 
@@ -320,6 +323,31 @@ impl Drop for Sampler {
     }
 }
 
+/// Switch between two different token trees, using the first token tree if the parenthesis contain
+/// tokens and the second tree if the parenthesis don't contain tokens.
+#[macro_export]
+macro_rules! if_tokens {
+    (
+        ($($if_tokens:tt)+) {
+            $($tokens_exist:tt)*
+        } else {
+            $($tokens_else:tt)*
+        }
+    ) => {
+        $($tokens_exist)*
+    };
+
+    (
+        () {
+            $($tokens_exist:tt)*
+        } else {
+            $($tokens_else:tt)*
+        }
+    ) => {
+        $($tokens_else)*
+    };
+}
+
 macro_rules! texture_type_uniform {
     ($(
         impl &Texture<$d:ty, $texture_type:ty> = ($tag_ident:ident, $u_tag_ident:ident, $i_tag_ident:ident);
@@ -351,9 +379,13 @@ texture_type_uniform!{
     impl &Texture<D2, C> = (Sampler2D, USampler2D, ISampler2D);
     impl &Texture<D3, C> = (Sampler3D, USampler3D, ISampler3D);
 
+    impl &Texture<D1, targets::ArrayTex<C>> = (Sampler1DArray, USampler1DArray, ISampler1DArray);
+    impl &Texture<D2, targets::ArrayTex<C>> = (Sampler2DArray, USampler2DArray, ISampler2DArray);
+
     impl &Texture<D2, targets::CubemapTex<C>> = (SamplerCube, USamplerCube, ISamplerCube);
     impl &Texture<D2, targets::RectTex<C>> = (Sampler2DRect, USampler2DRect, ISampler2DRect);
     impl &Texture<D2, targets::MultisampleTex<C>> = (Sampler2DMS, USampler2DMS, ISampler2DMS);
+    impl &Texture<D2, targets::ArrayTex<targets::MultisampleTex<C>>> = (Sampler2DMSArray, USampler2DMSArray, ISampler2DMSArray);
 }
 
 unsafe impl<'a, D, T> UniformType for SampledTexture<'a, D, T>

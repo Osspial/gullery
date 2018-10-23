@@ -130,6 +130,7 @@ pub trait Dims: 'static + Into<DimsTag> + Copy {
     fn depth(self) -> u32;
     fn num_pixels(self) -> u32;
     fn max_size(state: &ContextState) -> Self;
+    fn max_size_array(_state: &ContextState) -> Option<Self> {None}
 }
 
 pub unsafe trait TextureType<D: Dimensionality<u32>>: 'static {
@@ -140,6 +141,7 @@ pub unsafe trait TextureType<D: Dimensionality<u32>>: 'static {
     type Dyn: ?Sized + TextureType<D, MipSelector=Self::MipSelector>;
 
     const BIND_TARGET: GLenum;
+    const IS_ARRAY: bool = false;
 }
 
 pub unsafe trait TextureTypeRenderable<D: Dimensionality<u32>>: TextureType<D> {
@@ -725,6 +727,15 @@ impl Dims for DimsBox<D2, u32> {
             DimsBox::new2(size as u32, size as u32)
         }
     }
+    #[inline]
+    fn max_size_array(state: &ContextState) -> Option<DimsBox<D2, u32>> {
+        unsafe {
+            let (mut size, mut array_size) = (0, 0);
+            state.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
+            state.gl.GetIntegerv(gl::MAX_ARRAY_TEXTURE_LAYERS, &mut array_size);
+            Some(DimsBox::new2(size as u32, array_size as u32))
+        }
+    }
 }
 impl Dims for DimsSquare {
     type Offset = Vector2<u32>;
@@ -759,6 +770,15 @@ impl Dims for DimsBox<D3, u32> {
             let mut size = 0;
             state.gl.GetIntegerv(gl::MAX_3D_TEXTURE_SIZE, &mut size);
             DimsBox::new3(size as u32, size as u32, size as u32)
+        }
+    }
+    #[inline]
+    fn max_size_array(state: &ContextState) -> Option<DimsBox<D3, u32>> {
+        unsafe {
+            let (mut size, mut array_size) = (0, 0);
+            state.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
+            state.gl.GetIntegerv(gl::MAX_ARRAY_TEXTURE_LAYERS, &mut array_size);
+            Some(DimsBox::new3(size as u32, size as u32, array_size as u32))
         }
     }
 }

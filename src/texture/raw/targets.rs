@@ -16,6 +16,10 @@ use super::*;
 use cgmath_geometry::Dimensionality;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ArrayTex<C>(PhantomData<*const C>)
+    where C: ?Sized;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CubemapTex<C>(PhantomData<*const C>)
     where C: ?Sized + ImageFormat;
 
@@ -31,6 +35,34 @@ pub struct MultisampleTex<C>(PhantomData<*const C>)
     where C: ?Sized + ImageFormat;
 
 
+unsafe impl<D, C> TextureTypeSingleImage<D> for ArrayTex<C>
+    where C: ?Sized + ImageFormat,
+          D: Dimensionality<u32>,
+          ArrayTex<C>: TextureType<D> {}
+unsafe impl<C> TextureType<D1> for ArrayTex<C>
+    where C: ?Sized + ImageFormat
+{
+    type MipSelector = u8;
+    type Format = C;
+    type Dims = DimsBox<D2, u32>;
+
+    type Dyn = ArrayTex<ImageFormat<ScalarType=C::ScalarType>>;
+
+    const BIND_TARGET: GLenum = gl::TEXTURE_1D_ARRAY;
+    const IS_ARRAY: bool = true;
+}
+unsafe impl<C> TextureType<D2> for ArrayTex<C>
+    where C: ?Sized + ImageFormat
+{
+    type MipSelector = u8;
+    type Format = C;
+    type Dims = DimsBox<D3, u32>;
+
+    type Dyn = ArrayTex<ImageFormat<ScalarType=C::ScalarType>>;
+
+    const BIND_TARGET: GLenum = gl::TEXTURE_2D_ARRAY;
+    const IS_ARRAY: bool = true;
+}
 unsafe impl<D, C> TextureTypeSingleImage<D> for C
     where C: ?Sized + ImageFormat,
           D: Dimensionality<u32>,
@@ -83,16 +115,6 @@ unsafe impl<C> TextureTypeRenderable<D3> for C
 {
     type DynRenderable = ImageFormatRenderable<ScalarType=C::ScalarType, FormatType=C::FormatType>;
 }
-// unsafe impl<C> ArrayTextureType for SimpleTex<D1, C>
-//     where C: ?Sized + ImageFormat
-// {
-//     const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_1D_ARRAY;
-// }
-// unsafe impl<C> ArrayTextureType for SimpleTex<D2, C>
-//     where C: ?Sized + ImageFormat
-// {
-//     const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_2D_ARRAY;
-// }
 
 unsafe impl<C> TextureType<D2> for CubemapTex<C>
     where C: ?Sized + ImageFormat
@@ -110,11 +132,6 @@ unsafe impl<C> TextureTypeRenderable<D2> for CubemapTex<C>
 {
     type DynRenderable = CubemapTex<ImageFormatRenderable<ScalarType=C::ScalarType, FormatType=C::FormatType>>;
 }
-// This is an OpenGL 4.0 feature soooo it's not enabled.
-// unsafe impl ArrayTextureType for CubemapTex {
-//     #[inline]
-//     const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_CUBE_MAP_ARRAY;
-// }
 
 unsafe impl<C> TextureTypeSingleImage<D2> for RectTex<C>
     where C: ?Sized + ImageFormat {}
@@ -166,8 +183,15 @@ unsafe impl<C> TextureTypeRenderable<D2> for MultisampleTex<C>
 {
     type DynRenderable = MultisampleTex<ImageFormatRenderable<ScalarType=C::ScalarType, FormatType=C::FormatType>>;
 }
-// unsafe impl<C> ArrayTextureType for MultisampleTex<C>
-//     where C: ?Sized + ImageFormat
-// {
-//     const ARRAY_BIND_TARGET: GLenum = gl::TEXTURE_2D_MULTISAMPLE_ARRAY;
-// }
+unsafe impl<C> TextureType<D2> for ArrayTex<MultisampleTex<C>>
+    where C: ?Sized + ImageFormat
+{
+    type MipSelector = ();
+    type Format = C;
+    type Dims = DimsBox<D3, u32>;
+
+    type Dyn = ArrayTex<MultisampleTex<ImageFormat<ScalarType=C::ScalarType>>>;
+
+    const BIND_TARGET: GLenum = gl::TEXTURE_2D_MULTISAMPLE_ARRAY;
+    const IS_ARRAY: bool = true;
+}
