@@ -428,12 +428,31 @@ impl<'a, D, T> RawBoundTextureMut<'a, D, T>
             }
 
 
-            let (width, height, depth) = self.tex.dims.into().to_tuple();
 
-            let dims_exponent = mip_level as u32 + 1;
-            let width = width.pow(dims_exponent) as GLsizei;
-            let height = height.pow(dims_exponent) as GLsizei;
-            let depth = depth.pow(dims_exponent) as GLsizei;
+            let dims_exponent = mip_level as u32;
+            let (width, height, depth): (GLsizei, GLsizei, GLsizei);
+            let dim_divisor = 2u32.pow(dims_exponent);
+            match T::IS_ARRAY {
+                false => {
+                    let (base_width, base_height, base_depth) = self.tex.dims.into().to_tuple();
+                    width = (base_width / dim_divisor).max(1) as GLsizei;
+                    height = (base_height / dim_divisor).max(1) as GLsizei;
+                    depth = (base_depth / dim_divisor).max(1) as GLsizei;
+                },
+                true => match self.tex.dims.into() {
+                    DimsTag::One(_) => panic!("1D Array texture doesn't make sense"),
+                    DimsTag::Two(dims) => {
+                        width = (dims.width() / dim_divisor).max(1) as GLsizei;
+                        height = dims.height() as GLsizei;
+                        depth = 1;
+                    },
+                    DimsTag::Three(dims) => {
+                        width = (dims.width() / dim_divisor).max(1) as GLsizei;
+                        height = (dims.height() / dim_divisor).max(1) as GLsizei;
+                        depth = dims.depth() as GLsizei;
+                    }
+                }
+            }
 
             let num_pixels_expected = (width * height * depth) as usize;
 
