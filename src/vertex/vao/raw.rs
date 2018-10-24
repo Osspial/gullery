@@ -16,9 +16,9 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use {Handle, ContextState, GLObject};
-use glsl::{TransparentType, Scalar, TypeBasicTag};
-use vertex::{Vertex, VertexMemberRegistry};
-use buffer::{Buffer, Index};
+use glsl::{TransparentType, Scalar, TypeTagSingle};
+use vertex::{Vertex, VertexMemberRegistry, Index};
+use buffer::Buffer;
 
 use std::mem;
 use std::cell::Cell;
@@ -63,6 +63,11 @@ impl<V: Vertex> RawVAO<V> {
                 _sendsync_optout: PhantomData
             }
         }
+    }
+
+    #[inline(always)]
+    pub fn handle(&self) -> Handle {
+        self.handle
     }
 
     pub fn delete(self, state: &ContextState) {
@@ -160,7 +165,7 @@ impl<'a, V: Vertex> VertexMemberRegistry for VertexAttribBuilder<'a, V> {
                     let slot_offset = slot as usize * attrib_size;
 
                     match T::Scalar::prim_tag() {
-                        TypeBasicTag::Float => gl.VertexAttribPointer(
+                        TypeTagSingle::Float => gl.VertexAttribPointer(
                             self.attrib_loc + slot,
                             attrib_len as GLint,
                             T::Scalar::GL_ENUM,
@@ -168,16 +173,16 @@ impl<'a, V: Vertex> VertexMemberRegistry for VertexAttribBuilder<'a, V> {
                             mem::size_of::<V>() as GLsizei,
                             (attrib_offset + slot_offset) as *const GLvoid
                         ),
-                        TypeBasicTag::Int |
-                        TypeBasicTag::UInt |
-                        TypeBasicTag::Bool => gl.VertexAttribIPointer(
+                        TypeTagSingle::Int |
+                        TypeTagSingle::UInt |
+                        TypeTagSingle::Bool => gl.VertexAttribIPointer(
                             self.attrib_loc + slot,
                             attrib_len as GLint,
                             T::Scalar::GL_ENUM,
                             mem::size_of::<V>() as GLsizei,
                             (attrib_offset + slot_offset) as *const GLvoid
                         ),
-                        // TypeBasicTag::Double => {
+                        // TypeTagSingle::Double => {
                         //     panic!("Attempting to use OpenGL 4 feature")
                         //     gl.VertexAttribLPointer(
                         //         self.attrib_loc,
@@ -201,12 +206,5 @@ impl<'a, V: Vertex> VertexMemberRegistry for VertexAttribBuilder<'a, V> {
             }
             assert_eq!(0, gl.GetError());
         }
-    }
-}
-
-impl<V: Vertex> GLObject for RawVAO<V> {
-    #[inline]
-    fn handle(&self) -> Handle {
-        self.handle
     }
 }

@@ -15,11 +15,12 @@
 mod raw;
 use self::raw::*;
 
-use {GLObject, Handle};
-use vertex::Vertex;
-use buffer::{Index, Buffer};
+use {GLObject, Handle, ContextState};
+use vertex::{Index, Vertex};
+use buffer::Buffer;
 
 use std::{mem, ptr};
+use std::rc::Rc;
 
 pub struct VertexArrayObject<V: Vertex, I: Index> {
     raw: RawVAO<V>,
@@ -30,6 +31,10 @@ pub struct VertexArrayObject<V: Vertex, I: Index> {
 impl<V: Vertex, I: Index> GLObject for VertexArrayObject<V, I> {
     fn handle(&self) -> Handle {
         self.raw.handle()
+    }
+    #[inline]
+    fn state(&self) -> &Rc<ContextState> {
+        &self.vertex_buffer.state()
     }
 }
 

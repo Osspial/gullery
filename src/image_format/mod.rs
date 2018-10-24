@@ -330,22 +330,22 @@ impl<S: ScalarNum> From<Red<S>> for Rgba<S> {
 unsafe impl<S: ScalarNum> TransparentType for Rgba<S> {
     type Scalar = S;
     #[inline]
-    fn prim_tag() -> TypeBasicTag {Self::Scalar::prim_tag().vectorize(4).unwrap()}
+    fn prim_tag() -> TypeTagSingle {Self::Scalar::prim_tag().vectorize(4).unwrap()}
 }
 unsafe impl<S: ScalarNum> TransparentType for Rgb<S> {
     type Scalar = S;
     #[inline]
-    fn prim_tag() -> TypeBasicTag {Self::Scalar::prim_tag().vectorize(3).unwrap()}
+    fn prim_tag() -> TypeTagSingle {Self::Scalar::prim_tag().vectorize(3).unwrap()}
 }
 unsafe impl<S: ScalarNum> TransparentType for Rg<S> {
     type Scalar = S;
     #[inline]
-    fn prim_tag() -> TypeBasicTag {Self::Scalar::prim_tag().vectorize(2).unwrap()}
+    fn prim_tag() -> TypeTagSingle {Self::Scalar::prim_tag().vectorize(2).unwrap()}
 }
 unsafe impl<S: ScalarNum> TransparentType for Red<S> {
     type Scalar = S;
     #[inline]
-    fn prim_tag() -> TypeBasicTag {Self::Scalar::prim_tag().vectorize(1).unwrap()}
+    fn prim_tag() -> TypeTagSingle {Self::Scalar::prim_tag().vectorize(1).unwrap()}
 }
 impl<S: ScalarNum> Into<Vector4<S>> for Rgba<S> {
     #[inline]

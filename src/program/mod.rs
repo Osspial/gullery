@@ -13,7 +13,25 @@
 // limitations under the License.
 
 //! Create and manage shaders and GPU programs.
-
+//!
+//! ## Shaders
+//! Gullery exposes three shader stages that can be linked together when constructing a `Program`
+//! object:
+//! * [Vertex stage](./enum.VertexStage.html).
+//!   * Processes raw vertex data passed into a draw call through a VAO. Outputs render primitives.
+//!     [(OpenGL Wiki)](https://www.khronos.org/opengl/wiki/Vertex_Shader)
+//! * [Geometry stage](./enum.GeometryStage.html) (optional).
+//!   * Takes primitives from the vertex stage and outputs more primitives.
+//!     [(OpenGL Wiki)](https://www.khronos.org/opengl/wiki/Geometry_Shader)
+//! * [Fragment stage](./enum.FragmentStage.html)
+//!   * Takes the data from the vertex stage and produces color data which is drawn to a render target
+//!     Said color data can be displayed to the user or saved for later use.
+//!     [(OpenGL Wiki)](https://www.khronos.org/opengl/wiki/Fragment_Shader)
+//!
+//! ## Programs
+//! Once the desired shaders have been compiled, they must be linked together to create a `Program`
+//! object. These objects then get used by the `Framebuffer::draw` function to render the provided
+//! vertex data to a render target.
 pub mod error;
 mod raw;
 
@@ -34,22 +52,15 @@ pub use self::raw::{ShaderStage, VertexStage, GeometryStage, FragmentStage};
 
 /// User-defined code that represents a single stage of the rendering pipeline.
 ///
-/// Gullery exposes three shader stages that can be linked together when contructiong a `Program`
-/// object:
-/// * Vertex stage.
-///   * Processes raw vertex data passed into a draw call through a VAO. Outputs render primitives.
-///     [(OpenGL Wiki)](https://www.khronos.org/opengl/wiki/Vertex_Shader)
-/// * Geometry stage (optional).
-///   * Takes primitives from the vertex stage and outputs more primitives.
-/// * Fragment stage
-///   * Takes the data from the vertex stage and produces color data which is drawn to a render target
-///     Said color data can be displayed to the user or saved for later use.
+/// See module-level documentation for information on shader types.
 pub struct Shader<S: ShaderStage> {
     raw: RawShader<S>,
     state: Rc<ContextState>
 }
 
 /// Compiled collection of shaders used by the GPU to render content.
+///
+/// See module-level documentation for information on program usage.
 pub struct Program<V, U, A=()>
     where V: Vertex, U: 'static + Uniforms, A: 'static + Attachments
 {
@@ -67,6 +78,10 @@ pub(crate) struct BoundProgram<'a, V: 'a + Vertex, U: 'static + Uniforms, A: 'st
 
 
 impl<S: ShaderStage> Shader<S> {
+    /// Create a new shader from the provided source code.
+    ///
+    /// Returns `Ok(shader)` if compilation succeeded. If it didn't, returns `Err(shader_err)` with
+    /// the reason for failure.
     pub fn new(source: &str, state: Rc<ContextState>) -> Result<Shader<S>, ShaderError> {
         Ok(Shader {
             raw: RawShader::new(source, &state.gl).map_err(|e| ShaderError(e))?,
@@ -76,6 +91,10 @@ impl<S: ShaderStage> Shader<S> {
 }
 
 impl<V: Vertex, U: Uniforms, A: Attachments> Program<V, U, A> {
+    /// Create a new program by linking together the provided shaders.
+    ///
+    /// Returns `Ok(program)` if compilation succeeded. If it didn't, returns `Err(program_err)` with
+    /// the reason for failure.
     pub fn new(vert: &Shader<VertexStage<V>>, geom: Option<&Shader<GeometryStage>>, frag: &Shader<FragmentStage<A>>) -> Result<(Program<V, U, A>, Vec<ProgramWarning>), ProgramError> {
         // Temporary variables storing the pointers to the OpenGL state for each of the shaders.
         let vsp = vert.state.as_ref() as *const _;
@@ -142,6 +161,10 @@ impl<S: ShaderStage> GLObject for Shader<S> {
     fn handle(&self) -> Handle {
         self.raw.handle()
     }
+    #[inline]
+    fn state(&self) -> &Rc<ContextState> {
+        &self.state
+    }
 }
 
 impl<V, U, A> GLObject for Program<V, U, A>
@@ -152,6 +175,10 @@ impl<V, U, A> GLObject for Program<V, U, A>
     #[inline]
     fn handle(&self) -> Handle {
         self.raw.handle()
+    }
+    #[inline]
+    fn state(&self) -> &Rc<ContextState> {
+        &self.state
     }
 }
 

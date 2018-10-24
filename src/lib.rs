@@ -49,19 +49,28 @@ use std::num::NonZeroU32;
 pub type Handle = NonZeroU32;
 pub trait GLObject {
     fn handle(&self) -> Handle;
+    fn state(&self) -> &Rc<ContextState>;
 }
 
 impl<'a, O: GLObject> GLObject for &'a O {
     #[inline(always)]
     fn handle(&self) -> Handle {
-        O::handle(*self)
+        O::handle(self)
+    }
+    #[inline]
+    fn state(&self) -> &Rc<ContextState> {
+        O::state(self)
     }
 }
 
 impl<'a, O: GLObject> GLObject for &'a mut O {
     #[inline(always)]
     fn handle(&self) -> Handle {
-        O::handle(*self)
+        O::handle(self)
+    }
+    #[inline]
+    fn state(&self) -> &Rc<ContextState> {
+        O::state(self)
     }
 }
 

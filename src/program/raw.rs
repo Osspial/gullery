@@ -18,7 +18,7 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use {Handle, ContextState, GLObject};
-use glsl::{TypeTag, TypeBasicTag, TransparentType};
+use glsl::{TypeTag, TypeTagSingle, TransparentType};
 use vertex::{Vertex, VertexMemberRegistry};
 use uniform::{UniformType, Uniforms, UniformLocContainer, UniformsMemberRegistry, TextureUniformBinder};
 use super::error::{ProgramWarning, MismatchedTypeError, ProgramError, LinkError};
@@ -60,6 +60,7 @@ pub struct RawProgramShaderAttacher<'a, 'b> {
     _marker: PhantomData<&'b ()>
 }
 
+/// Identifies shader stages and provides pre/post-linking hooks.
 pub unsafe trait ShaderStage: Sized {
     const SHADER_TYPE_ENUM: GLenum;
 
@@ -69,8 +70,17 @@ pub unsafe trait ShaderStage: Sized {
     unsafe fn program_post_link_hook(_: &RawProgram, _: &Gl, _: &mut Vec<ProgramWarning>, _: &mut Vec<MismatchedTypeError>) {}
 }
 
+/// Vertex processing shader stage.
+///
+/// See module-level documentation for more information.
 pub enum VertexStage<V: Vertex> {#[doc(hidden)]_Unused(!, V)}
+/// Geometry/primitive processing shader stage.
+///
+/// See module-level documentation for more information.
 pub enum GeometryStage {}
+/// Fragment processing shader stage.
+///
+/// See module-level documentation for more information.
 pub enum FragmentStage<A: Attachments> {#[doc(hidden)]_Unused(!, A)}
 
 
@@ -111,6 +121,10 @@ impl<S: ShaderStage> RawShader<S> {
                 })
             }
         }
+    }
+
+    pub fn handle(&self) -> Handle {
+        self.handle
     }
 
     pub fn delete(self, gl: &Gl) {
@@ -200,7 +214,7 @@ impl RawProgram {
                     assert_eq!(0, self.gl.GetError());
 
                     if loc == -1 {
-                        self.warnings.push(ProgramWarning::IdentNotFound(name.to_string()));
+                        self.warnings.push(ProgramWarning::UnusedRustUniform(name.to_string()));
                     }
 
                 }
@@ -223,6 +237,10 @@ impl RawProgram {
             gl
         });
         locs
+    }
+
+    pub fn handle(&self) -> Handle {
+        self.handle
     }
 
     pub fn delete(self, state: &ContextState) {
@@ -310,20 +328,6 @@ impl<'a> RawBoundProgram<'a> {
             gl,
             uniform
         })
-    }
-}
-
-impl<S: ShaderStage> GLObject for RawShader<S> {
-    #[inline]
-    fn handle(&self) -> Handle {
-        self.handle
-    }
-}
-
-impl GLObject for RawProgram {
-    #[inline]
-    fn handle(&self) -> Handle {
-        self.handle
     }
 }
 
@@ -429,7 +433,7 @@ unsafe impl<V: Vertex> ShaderStage for VertexStage<V> {
             );
             name_buffer.truncate(name_len as usize);
             let name = String::from_utf8(name_buffer).unwrap();
-            let prim_tag = TypeBasicTag::from_gl_enum(ty).expect(&format!("unsupported GLSL type in attribute {}", name));
+            let prim_tag = TypeTagSingle::from_gl_enum(ty).expect(&format!("unsupported GLSL type in attribute {}", name));
             let shader_ty = match size {
                 1 => TypeTag::Single(prim_tag),
                 _ => TypeTag::Array(prim_tag, size as usize)
@@ -445,7 +449,7 @@ unsafe impl<V: Vertex> ShaderStage for VertexStage<V> {
         });
 
         for (name, _) in attrib_types {
-            warnings.push(ProgramWarning::UnusedAttrib(name));
+            warnings.push(ProgramWarning::UnusedVertexAttribute(name));
         }
     }
 }
@@ -528,7 +532,7 @@ unsafe impl<A: Attachments> ShaderStage for FragmentStage<A> {
                     unsafe {
                         let data_location = self.gl.GetFragDataLocation(self.program.handle.get(), cstr.as_ptr());
                         if data_location == -1 {
-                            self.warnings.push(ProgramWarning::UnusedColor(name.to_string()));
+                            self.warnings.push(ProgramWarning::UnusedColorAttachment(name.to_string()));
                         }
                         assert_eq!(0, self.gl.GetError());
                     }

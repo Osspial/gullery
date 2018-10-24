@@ -55,6 +55,10 @@ pub struct RawBoundBufferMut<'a, T, B>
 
 const USAGE_OFFSET: GLenum = 35039;
 
+/// Buffer usage hint.
+///
+/// This doesn't actually change how the buffer behaves, but can potentially impact how the GPU
+/// stores a buffer and how fast certain operations are.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum BufferUsage {
@@ -179,6 +183,11 @@ impl<T: Copy> RawBuffer<T> {
         self.size
     }
 
+    #[inline]
+    pub fn handle(&self) -> Handle {
+        self.handle
+    }
+
     pub(crate) fn delete(self, state: &ContextState) {
         unsafe {
             if mem::size_of::<T>() != 0 {
@@ -186,13 +195,6 @@ impl<T: Copy> RawBuffer<T> {
                 state.gl.DeleteBuffers(1, &self.handle.get());
             }
         }
-    }
-}
-
-impl<T: Copy> GLObject for RawBuffer<T> {
-    #[inline]
-    fn handle(&self) -> Handle {
-        self.handle
     }
 }
 
@@ -265,29 +267,29 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
         }
     }
 
-    #[inline]
-    pub(crate) fn alloc_size(&mut self, size: usize, usage: BufferUsage) {
-        assert!(size <= isize::max_value() as usize);
-        if mem::size_of::<T>() != 0 {
-            unsafe {self.gl.BufferData(
-                B::TARGET,
-                (size * mem::size_of::<T>()) as GLsizeiptr,
-                ptr::null_mut(),
-                usage.to_gl_enum()
-            )};
+    // #[inline]
+    // pub(crate) fn alloc_size(&mut self, size: usize, usage: BufferUsage) {
+    //     assert!(size <= isize::max_value() as usize);
+    //     if mem::size_of::<T>() != 0 {
+    //         unsafe {self.gl.BufferData(
+    //             B::TARGET,
+    //             (size * mem::size_of::<T>()) as GLsizeiptr,
+    //             ptr::null_mut(),
+    //             usage.to_gl_enum()
+    //         )};
 
-            let error = unsafe{ self.gl.GetError() };
-            if error == 0 {
-                self.buffer.size = size;
-            } else {
-                if error == gl::OUT_OF_MEMORY {
-                    panic!("OpenGL out of memory!");
-                } else {
-                    panic!("Unexpected OpenGL error: {}", error);
-                }
-            }
-        }
-    }
+    //         let error = unsafe{ self.gl.GetError() };
+    //         if error == 0 {
+    //             self.buffer.size = size;
+    //         } else {
+    //             if error == gl::OUT_OF_MEMORY {
+    //                 panic!("OpenGL out of memory!");
+    //             } else {
+    //                 panic!("Unexpected OpenGL error: {}", error);
+    //             }
+    //         }
+    //     }
+    // }
 
     #[inline]
     pub(crate) fn alloc_upload(&mut self, data: &[T], usage: BufferUsage) {

@@ -24,7 +24,7 @@ use self::raw::*;
 use self::sample_parameters::*;
 use image_format::{ConcreteImageFormat, ImageFormat, Rgba};
 
-use glsl::{TypeTag, TypeBasicTag, ScalarType};
+use glsl::{TypeTag, TypeTagSingle, ScalarType};
 use uniform::{UniformType, TextureUniformBinder};
 
 use std::{mem, io, fmt};
@@ -33,7 +33,7 @@ use std::cell::Cell;
 use std::error::Error;
 
 pub use self::raw::{
-    targets, Dims, DimsSquare, DimsTag, MipSelector, Image, TextureType,
+    types, Dims, DimsSquare, DimsTag, MipSelector, Image, TextureType,
     CubeImage, TextureTypeSingleImage, TextureTypeRenderable
 };
 
@@ -84,12 +84,20 @@ impl<D, T> GLObject for Texture<D, T>
     fn handle(&self) -> Handle {
         self.raw.handle()
     }
+    #[inline]
+    fn state(&self) -> &Rc<ContextState> {
+        &self.state
+    }
 }
 
 impl GLObject for Sampler {
     #[inline(always)]
     fn handle(&self) -> Handle {
         self.raw.handle()
+    }
+    #[inline]
+    fn state(&self) -> &Rc<ContextState> {
+        &self.state
     }
 }
 
@@ -323,31 +331,6 @@ impl Drop for Sampler {
     }
 }
 
-/// Switch between two different token trees, using the first token tree if the parenthesis contain
-/// tokens and the second tree if the parenthesis don't contain tokens.
-#[macro_export]
-macro_rules! if_tokens {
-    (
-        ($($if_tokens:tt)+) {
-            $($tokens_exist:tt)*
-        } else {
-            $($tokens_else:tt)*
-        }
-    ) => {
-        $($tokens_exist)*
-    };
-
-    (
-        () {
-            $($tokens_exist:tt)*
-        } else {
-            $($tokens_else:tt)*
-        }
-    ) => {
-        $($tokens_else)*
-    };
-}
-
 macro_rules! texture_type_uniform {
     ($(
         impl &Texture<$d:ty, $texture_type:ty> = ($tag_ident:ident, $u_tag_ident:ident, $i_tag_ident:ident);
@@ -358,10 +341,10 @@ macro_rules! texture_type_uniform {
             #[inline]
             fn uniform_tag() -> TypeTag {
                 TypeTag::Single(match C::ScalarType::PRIM_TAG {
-                    TypeBasicTag::Float => TypeBasicTag::$tag_ident,
-                    TypeBasicTag::Int => TypeBasicTag::$i_tag_ident,
-                    TypeBasicTag::Bool |
-                    TypeBasicTag::UInt => TypeBasicTag::$u_tag_ident,
+                    TypeTagSingle::Float => TypeTagSingle::$tag_ident,
+                    TypeTagSingle::Int => TypeTagSingle::$i_tag_ident,
+                    TypeTagSingle::Bool |
+                    TypeTagSingle::UInt => TypeTagSingle::$u_tag_ident,
                     _ => panic!("Bad scalar type tag")
                 })
             }
@@ -379,13 +362,13 @@ texture_type_uniform!{
     impl &Texture<D2, C> = (Sampler2D, USampler2D, ISampler2D);
     impl &Texture<D3, C> = (Sampler3D, USampler3D, ISampler3D);
 
-    impl &Texture<D1, targets::ArrayTex<C>> = (Sampler1DArray, USampler1DArray, ISampler1DArray);
-    impl &Texture<D2, targets::ArrayTex<C>> = (Sampler2DArray, USampler2DArray, ISampler2DArray);
+    impl &Texture<D1, types::ArrayTex<C>> = (Sampler1DArray, USampler1DArray, ISampler1DArray);
+    impl &Texture<D2, types::ArrayTex<C>> = (Sampler2DArray, USampler2DArray, ISampler2DArray);
 
-    impl &Texture<D2, targets::CubemapTex<C>> = (SamplerCube, USamplerCube, ISamplerCube);
-    impl &Texture<D2, targets::RectTex<C>> = (Sampler2DRect, USampler2DRect, ISampler2DRect);
-    impl &Texture<D2, targets::MultisampleTex<C>> = (Sampler2DMS, USampler2DMS, ISampler2DMS);
-    impl &Texture<D2, targets::ArrayTex<targets::MultisampleTex<C>>> = (Sampler2DMSArray, USampler2DMSArray, ISampler2DMSArray);
+    impl &Texture<D2, types::CubemapTex<C>> = (SamplerCube, USamplerCube, ISamplerCube);
+    impl &Texture<D2, types::RectTex<C>> = (Sampler2DRect, USampler2DRect, ISampler2DRect);
+    impl &Texture<D2, types::MultisampleTex<C>> = (Sampler2DMS, USampler2DMS, ISampler2DMS);
+    impl &Texture<D2, types::ArrayTex<types::MultisampleTex<C>>> = (Sampler2DMSArray, USampler2DMSArray, ISampler2DMSArray);
 }
 
 unsafe impl<'a, D, T> UniformType for SampledTexture<'a, D, T>

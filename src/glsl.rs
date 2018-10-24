@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Types used to interface with GLSL.
+
 use gl::{self, types::*};
 
 use cgmath::{Vector1, Vector2, Vector3, Vector4, Point1, Point2, Point3, Matrix2, Matrix3, Matrix4};
@@ -28,9 +30,15 @@ use num_traits::identities::{Zero, One};
 pub unsafe trait TransparentType: 'static + Copy {
     type Scalar: Scalar;
     /// The OpenGL constant associated with this type.
-    fn prim_tag() -> TypeBasicTag;
+    fn prim_tag() -> TypeTagSingle;
 }
 
+/// Scalar that OpenGL can read.
+///
+/// Implemented for `u8`, `u16`, `u32`, `i8`, `i16`, `i32`, `f32`, `bool`, and [`GLSLInt`]-wrapped
+/// integers.
+///
+/// [`GLSLInt`]: ./struct.GLSLInt.html
 pub unsafe trait Scalar: TransparentType {
     type ScalarType: ScalarType;
     const GL_ENUM: GLenum;
@@ -38,51 +46,67 @@ pub unsafe trait Scalar: TransparentType {
     const SIGNED: bool;
 }
 
+/// Marker trait that indicates the type GLSL reads a scalar value as.
 pub unsafe trait ScalarType {
-    const PRIM_TAG: TypeBasicTag;
+    const PRIM_TAG: TypeTagSingle;
     const IS_INTEGER: bool;
 }
 
+/// Marker enum for types GLSL reads as a *bool*.
+///
+/// Used in conjunction with [`Scalar::ScalarType`](./trait.Scalar.html#associatedtype.ScalarType)
 pub enum GLSLBool {}
+/// Marker enum for types GLSL reads as a *float*.
+///
+/// Used in conjunction with [`Scalar::ScalarType`](./trait.Scalar.html#associatedtype.ScalarType)
 pub enum GLSLFloat {}
+/// Marker enum for types GLSL reads as a *signed int*.
+///
+/// Used in conjunction with [`Scalar::ScalarType`](./trait.Scalar.html#associatedtype.ScalarType)
 pub enum GLSLIntSigned {}
+/// Marker enum for types GLSL reads as a *unsigned int*.
+///
+/// Used in conjunction with [`Scalar::ScalarType`](./trait.Scalar.html#associatedtype.ScalarType)
 pub enum GLSLIntUnsigned {}
 
 unsafe impl ScalarType for GLSLFloat {
-    const PRIM_TAG: TypeBasicTag = TypeBasicTag::Float;
+    const PRIM_TAG: TypeTagSingle = TypeTagSingle::Float;
     const IS_INTEGER: bool = false;
 }
 unsafe impl ScalarType for GLSLBool {
-    const PRIM_TAG: TypeBasicTag = TypeBasicTag::Bool;
+    const PRIM_TAG: TypeTagSingle = TypeTagSingle::Bool;
     const IS_INTEGER: bool = true;
 }
 unsafe impl ScalarType for GLSLIntSigned {
-    const PRIM_TAG: TypeBasicTag = TypeBasicTag::Int;
+    const PRIM_TAG: TypeTagSingle = TypeTagSingle::Int;
     const IS_INTEGER: bool = true;
 }
 unsafe impl ScalarType for GLSLIntUnsigned {
-    const PRIM_TAG: TypeBasicTag = TypeBasicTag::UInt;
+    const PRIM_TAG: TypeTagSingle = TypeTagSingle::UInt;
     const IS_INTEGER: bool = true;
 }
 
 unsafe impl<S: Scalar> TransparentType for S {
     type Scalar = S;
     #[inline(always)]
-    fn prim_tag() -> TypeBasicTag {S::ScalarType::PRIM_TAG}
+    fn prim_tag() -> TypeTagSingle {S::ScalarType::PRIM_TAG}
 }
 
+/// A scalar that is also a number.
 pub unsafe trait ScalarNum: Scalar + Num {}
 unsafe impl<S: Scalar + Num> ScalarNum for S {}
 
+/// The GLSL type associated with a rust type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TypeTag {
-    Single(TypeBasicTag),
-    Array(TypeBasicTag, usize)
+    Single(TypeTagSingle),
+    Array(TypeTagSingle, usize)
 }
 
+/// The GLSL type associated with a non-array rust type.
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TypeBasicTag {
+pub enum TypeTagSingle {
     Float = gl::FLOAT,
     Vec2 = gl::FLOAT_VEC2,
     Vec3 = gl::FLOAT_VEC3,
@@ -164,7 +188,7 @@ macro_rules! impl_glsl_vector {
         unsafe impl<P: Scalar> TransparentType for $vector<P> {
             type Scalar = P;
             #[inline]
-            fn prim_tag() -> TypeBasicTag {Self::Scalar::prim_tag().vectorize($num).unwrap()}
+            fn prim_tag() -> TypeTagSingle {Self::Scalar::prim_tag().vectorize($num).unwrap()}
         }
     )*}
 }
@@ -175,7 +199,7 @@ macro_rules! impl_glsl_matrix {
         unsafe impl TransparentType for $matrix<f32> {
             type Scalar = f32;
             #[inline]
-            fn prim_tag() -> TypeBasicTag {Self::Scalar::prim_tag().matricize($num, $num).unwrap()}
+            fn prim_tag() -> TypeTagSingle {Self::Scalar::prim_tag().matricize($num, $num).unwrap()}
         }
     )*}
 }
@@ -240,8 +264,8 @@ unsafe impl Scalar for bool {
     const SIGNED: bool = false;
 }
 
-impl From<TypeBasicTag> for GLenum {
-    fn from(tag: TypeBasicTag) -> GLenum {
+impl From<TypeTagSingle> for GLenum {
+    fn from(tag: TypeTagSingle) -> GLenum {
         unsafe{ mem::transmute(tag) }
     }
 }
@@ -256,9 +280,9 @@ impl Display for TypeTag {
     }
 }
 
-impl Display for TypeBasicTag {
+impl Display for TypeTagSingle {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        use self::TypeBasicTag::*;
+        use self::TypeTagSingle::*;
         let string = match *self {
             Float => "float",
             Vec2 => "vec2",
@@ -340,9 +364,10 @@ impl Display for TypeBasicTag {
     }
 }
 
-impl TypeBasicTag {
+impl TypeTagSingle {
+    /// The number of scalars the represented type contains.
     pub fn len(self) -> usize {
-        use self::TypeBasicTag::*;
+        use self::TypeTagSingle::*;
         match self {
             // Double |
             Int   |
@@ -425,8 +450,9 @@ impl TypeBasicTag {
         }
     }
 
+    /// The number of attribute slots needed to upload an instance of the represented type.
     pub fn num_attrib_slots(self) -> usize {
-        use self::TypeBasicTag::*;
+        use self::TypeTagSingle::*;
         match self {
             // DMat2x3 |
             // Mat2x3  |
@@ -506,8 +532,11 @@ impl TypeBasicTag {
         }
     }
 
-    pub fn vectorize(self, len: u8) -> Option<TypeBasicTag> {
-        use self::TypeBasicTag::*;
+    /// Turn a scalar tag into a vector tag with the given length.
+    ///
+    /// Returns `None` if no vector type could be found for the tag with the requested length.
+    pub fn vectorize(self, len: u8) -> Option<TypeTagSingle> {
+        use self::TypeTagSingle::*;
         match (self, len) {
             (Int, 1) => Some(Int),
             (Int, 2) => Some(IVec2),
@@ -537,8 +566,11 @@ impl TypeBasicTag {
         }
     }
 
-    pub fn matricize(self, width: u8, height: u8) -> Option<TypeBasicTag> {
-        use self::TypeBasicTag::*;
+    /// Turn a scalar tag into a matrix tag with the given dimensions.
+    ///
+    /// Returns `None` if no matrix type could be found for the tag with the requested dimensions.
+    pub fn matricize(self, width: u8, height: u8) -> Option<TypeTagSingle> {
+        use self::TypeTagSingle::*;
         match (self, width, height) {
             (Float, 2, 2) => Some(Mat2),
             (Float, 3, 3) => Some(Mat3),
@@ -562,8 +594,9 @@ impl TypeBasicTag {
         }
     }
 
-    pub fn from_gl_enum(gl_enum: GLenum) -> Option<TypeBasicTag> {
-        use self::TypeBasicTag::*;
+    /// Try to cast a raw OpenGL enum to a type tag.
+    pub fn from_gl_enum(gl_enum: GLenum) -> Option<TypeTagSingle> {
+        use self::TypeTagSingle::*;
         match gl_enum {
             gl::FLOAT => Some(Float),
             gl::FLOAT_VEC2 => Some(Vec2),
@@ -645,14 +678,9 @@ impl TypeBasicTag {
 }
 
 
-#[derive(Debug)]
-pub enum ParseNormalizedIntError {
-    Empty,
-    Invalid,
-    OutOfBounds
-}
-
-
+/// Wrapper type that causes GLSL to read the wrapped value as an integer.
+///
+/// Can wrap `u8`, `u16`, `u32`, `i8`, `i16`, and `i32`.
 #[repr(transparent)]
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, From)]
 pub struct GLSLInt<I>(pub I)

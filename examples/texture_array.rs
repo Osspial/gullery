@@ -14,7 +14,7 @@ use gullery::framebuffer::{*, render_state::*};
 use gullery::program::*;
 use gullery::image_format::*;
 use gullery::texture::*;
-use gullery::texture::targets::ArrayTex;
+use gullery::texture::types::ArrayTex;
 use gullery::vertex::VertexArrayObject;
 
 use cgmath_geometry::{cgmath, D2};

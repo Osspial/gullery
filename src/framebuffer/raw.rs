@@ -19,8 +19,7 @@ use gl::{self, Gl};
 use gl::types::*;
 
 use {Handle, ContextState, GLObject};
-use vertex::Vertex;
-use buffer::Index;
+use vertex::{Index, Vertex};
 use vertex::vao::BoundVAO;
 use uniform::Uniforms;
 use program::BoundProgram;

@@ -19,12 +19,14 @@ use glsl::TypeTag;
 use std::error::Error;
 use std::fmt::{self, Display};
 
+/// Error reported by driver that occurred during shader compilation.
 #[derive(Debug, Clone)]
-pub struct ShaderError(pub(super) String);
+pub struct ShaderError(pub String);
 
-// Link could not be created; Ganon wins big
+/// Error reported by driver that occurred during program linking.
+// Link could not be created; Ganon wins big.
 #[derive(Debug, Clone)]
-pub struct LinkError(pub(super) String);
+pub struct LinkError(pub String);
 
 /// A Rust type was mapped to a mismatched GLSL type.
 #[derive(Debug, Clone)]
@@ -34,21 +36,33 @@ pub struct MismatchedTypeError {
     pub rust_ty: TypeTag
 }
 
+/// Error that occurred during program compilation.
 #[derive(Debug, Clone)]
 pub enum ProgramError {
+    /// Error reported by driver that occurred during program linking.
     LinkError(LinkError),
-    /// A mismatch exists betweeen a Rust type an a GLSL type.
+    /// A mismatch exists between a Rust type an a GLSL type.
     ///
     /// Technically, OpenGL's API allow this to compile successfully. However it's also undefined
     /// behavior so a well-formed program *should* never do this.
     MismatchedTypeError(Vec<MismatchedTypeError>)
 }
 
+/// Error detected by Gullery that could indicate a misbehaved program.
 #[derive(Debug, Clone)]
 pub enum ProgramWarning {
-    IdentNotFound(String),
-    UnusedAttrib(String),
-    UnusedColor(String),
+    /// A uniform was specified, but is unused by OpenGL.
+    ///
+    /// Includes the uniform's identifier.
+    UnusedRustUniform(String),
+    /// A vertex attribute was specified, but is unused by OpenGL.
+    ///
+    /// Includes the attribute's identifier.
+    UnusedVertexAttribute(String),
+    /// A color attachment was specified, but is unused by OpenGL.
+    ///
+    /// Includes the attachment's identifier.
+    UnusedColorAttachment(String),
 }
 
 impl Display for ShaderError {
@@ -92,9 +106,9 @@ impl Display for ProgramWarning {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         use self::ProgramWarning::*;
         match *self {
-            IdentNotFound(ref ident) => write!(f, "Identifier not found `{}`", ident),
-            UnusedAttrib(ref ident) => write!(f, "Unused shader attribute `{}`", ident),
-            UnusedColor(ref ident) => write!(f, "Unused color attachment `{}`", ident),
+            UnusedRustUniform(ref ident) => write!(f, "Uniform uniform `{}`", ident),
+            UnusedVertexAttribute(ref ident) => write!(f, "Unused vertex attribute `{}`", ident),
+            UnusedColorAttachment(ref ident) => write!(f, "Unused color attachment `{}`", ident),
         }
     }
 }

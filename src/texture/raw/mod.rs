@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod targets;
+pub mod types;
 
 use Handle;
 use gl::{self, Gl};
@@ -826,7 +826,7 @@ impl From<DimsBox<D3, u32>> for DimsTag {
     }
 }
 
-impl<'a, I> Image<'a, D2, targets::CubemapTex<I>> for CubeImage<'a, I>
+impl<'a, I> Image<'a, D2, types::CubemapTex<I>> for CubeImage<'a, I>
     where I: ImageFormat
 {
     fn variants<F: FnMut(GLenum, &'a [I])>(self, mut for_each: F) {

@@ -77,6 +77,10 @@ impl<I: ImageFormatRenderable> GLObject for Renderbuffer<I> {
     fn handle(&self) -> Handle {
         self.raw.handle()
     }
+    #[inline]
+    fn state(&self) -> &Rc<ContextState> {
+        &self.state
+    }
 }
 
 impl<I: ImageFormatRenderable> Drop for Renderbuffer<I> {

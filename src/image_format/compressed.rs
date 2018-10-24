@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 //! Compressed image formats.
 //!
 //! GPU texture formats tend to be compressed in isolated blocks of pixel data. As such, each
@@ -21,7 +22,7 @@
 //! data can be tricky to figure out if you don't know where you're supposed to look. If you're
 //! just getting started with graphics programming the [NVIDIA Texture Compression tools][nvidia]
 //! let you compress raw image data to several GPU formats which gullery can use with the types
-//! in this module. These generate DDS files, which can beither e loaded manually or with the DDS
+//! in this module. These generate DDS files, which can either e loaded manually or with the DDS
 //! crate of your choice.
 //!
 //! [nvidia]: https://developer.nvidia.com/gpu-accelerated-texture-compression

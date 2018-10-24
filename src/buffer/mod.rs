@@ -14,7 +14,8 @@
 
 mod raw;
 
-pub use self::raw::{RawBindTarget, BufferUsage};
+pub(crate) use self::raw::RawBindTarget;
+pub use self::raw::BufferUsage;
 use self::raw::{targets, RawBuffer};
 
 use gl::{Gl, types::*};
@@ -24,22 +25,6 @@ use {Handle, ContextState, GLObject};
 use std::mem;
 use std::rc::Rc;
 use std::ops::RangeBounds;
-
-pub unsafe trait Index: 'static + Copy {
-    const INDEX_GL_ENUM: Option<GLenum>;
-}
-unsafe impl Index for ! {
-    const INDEX_GL_ENUM: Option<GLenum> = None;
-}
-unsafe impl Index for u8 {
-    const INDEX_GL_ENUM: Option<GLenum> = Some(u8::GL_ENUM);
-}
-unsafe impl Index for u16 {
-    const INDEX_GL_ENUM: Option<GLenum> = Some(u16::GL_ENUM);
-}
-unsafe impl Index for u32 {
-    const INDEX_GL_ENUM: Option<GLenum> = Some(u32::GL_ENUM);
-}
 
 pub(crate) struct BufferBinds {
     copy_read: targets::RawCopyRead,
@@ -70,25 +55,26 @@ pub struct Buffer<T: 'static + Copy> {
 }
 
 impl<T: 'static + Copy> Buffer<T> {
-    #[inline]
-    pub fn with_size(usage: BufferUsage, size: usize, state: Rc<ContextState>) -> Buffer<T> {
-        let raw = {
-            let ContextState {
-                ref buffer_binds,
-                ref gl,
-                ..
-            } = *state;
+    // This allocates with undefined data which can be unsafe.
+    // #[inline]
+    // pub fn with_size(usage: BufferUsage, size: usize, state: Rc<ContextState>) -> Buffer<T> {
+    //     let raw = {
+    //         let ContextState {
+    //             ref buffer_binds,
+    //             ref gl,
+    //             ..
+    //         } = *state;
 
-            let mut raw = RawBuffer::new(gl);
-            {
-                let mut bind = unsafe{ buffer_binds.copy_write.bind_mut(&mut raw, gl) };
-                bind.alloc_size(size, usage)
-            }
-            raw
-        };
+    //         let mut raw = RawBuffer::new(gl);
+    //         {
+    //             let mut bind = unsafe{ buffer_binds.copy_write.bind_mut(&mut raw, gl) };
+    //             bind.alloc_size(size, usage)
+    //         }
+    //         raw
+    //     };
 
-        Buffer{raw, state}
-    }
+    //     Buffer{raw, state}
+    // }
 
     #[inline]
     pub fn with_data(usage: BufferUsage, data: &[T], state: Rc<ContextState>) -> Buffer<T> {
@@ -151,17 +137,16 @@ impl<T: 'static + Copy> Buffer<T> {
         let mut dest_bind = unsafe{ buffer_binds.copy_write.bind_mut(&mut dest_buf.raw, gl) };
         src_bind.copy_to(&mut dest_bind, self_range, write_offset);
     }
-
-    #[inline]
-    pub fn state(&self) -> &Rc<ContextState> {
-        &self.state
-    }
 }
 
 impl<T: 'static + Copy> GLObject for Buffer<T> {
     #[inline]
     fn handle(&self) -> Handle {
         self.raw.handle()
+    }
+    #[inline]
+    fn state(&self) -> &Rc<ContextState> {
+        &self.state
     }
 }
 

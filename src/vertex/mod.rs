@@ -15,8 +15,25 @@
 pub(crate) mod vao;
 pub use self::vao::VertexArrayObject;
 
-use glsl::TransparentType;
+use gl::types::GLenum;
+use glsl::{TransparentType, Scalar};
 use std::marker::PhantomData;
+
+pub unsafe trait Index: 'static + Copy {
+    const INDEX_GL_ENUM: Option<GLenum>;
+}
+unsafe impl Index for ! {
+    const INDEX_GL_ENUM: Option<GLenum> = None;
+}
+unsafe impl Index for u8 {
+    const INDEX_GL_ENUM: Option<GLenum> = Some(u8::GL_ENUM);
+}
+unsafe impl Index for u16 {
+    const INDEX_GL_ENUM: Option<GLenum> = Some(u16::GL_ENUM);
+}
+unsafe impl Index for u32 {
+    const INDEX_GL_ENUM: Option<GLenum> = Some(u32::GL_ENUM);
+}
 
 pub trait VertexMemberRegistry {
     type Group: Vertex;
