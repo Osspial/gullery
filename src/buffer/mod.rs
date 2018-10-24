@@ -18,8 +18,7 @@ pub(crate) use self::raw::RawBindTarget;
 pub use self::raw::BufferUsage;
 use self::raw::{targets, RawBuffer};
 
-use gl::{Gl, types::*};
-use glsl::Scalar;
+use gl::Gl;
 use {Handle, ContextState, GLObject};
 
 use std::mem;

@@ -17,7 +17,7 @@ use image_format::{ImageFormatRenderable, FormatTypeTag, FormatType};
 use gl::{self, Gl};
 use gl::types::*;
 
-use {Handle, ContextState, GLObject};
+use {Handle, ContextState};
 use glsl::{TypeTag, TypeTagSingle, TransparentType};
 use vertex::{Vertex, VertexMemberRegistry};
 use uniform::{UniformType, Uniforms, UniformLocContainer, UniformsMemberRegistry, TextureUniformBinder};

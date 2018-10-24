@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use {ContextState, GLObject, Handle};
+use {ContextState, Handle};
 
 use gl::{self, Gl};
 use gl::types::*;
 
-use std::{ptr, mem};
+use std::mem;
 use std::ops::{Deref, RangeBounds};
 use std::cell::Cell;
 use std::marker::PhantomData;
