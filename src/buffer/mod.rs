@@ -75,6 +75,10 @@ impl<T: 'static + Copy> Buffer<T> {
     //     Buffer{raw, state}
     // }
 
+    /// Create a new buffer and upload the provided data to the buffer.
+    ///
+    /// ## Panics
+    /// Panics is GPU is out of memory.
     #[inline]
     pub fn with_data(usage: BufferUsage, data: &[T], state: Rc<ContextState>) -> Buffer<T> {
         let raw = {
@@ -95,11 +99,16 @@ impl<T: 'static + Copy> Buffer<T> {
         Buffer{raw, state}
     }
 
+    /// Returns the number of elements in the buffer.
     #[inline]
-    pub fn size(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.raw.size()
     }
 
+    /// Reads data from the GPU into `buf`, starting at `offset` elements into the buffer.
+    ///
+    /// ## Panics
+    /// Panics if `offset + buf.len() > self.len()`
     #[inline]
     pub fn get_data(&self, offset: usize, buf: &mut [T]) {
         let ContextState {
@@ -112,6 +121,11 @@ impl<T: 'static + Copy> Buffer<T> {
         bind.get_data(offset, buf);
     }
 
+    /// Writes data from `data` into the GPU buffer, starting the write at `offset` elements into
+    /// the buffer.
+    ///
+    /// ## Panics
+    /// Panics if `offset + buf.len() > self.len()`
     #[inline]
     pub fn sub_data(&mut self, offset: usize, data: &[T]) {
         let ContextState {
