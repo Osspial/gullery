@@ -48,7 +48,9 @@ use std::num::NonZeroU32;
 
 pub type Handle = NonZeroU32;
 pub trait GLObject {
+    /// Handle to the OpenGL Object.
     fn handle(&self) -> Handle;
+    /// The `ContextState` associated with this object.
     fn state(&self) -> &Rc<ContextState>;
 }
 
@@ -79,10 +81,11 @@ pub struct ContextState {
     program_target: program::ProgramTarget,
     vao_target: vertex::vao::VAOTarget,
     framebuffer_targets: framebuffer::FramebufferTargets,
+    default_framebuffer_exists: Cell<bool>,
     render_state: Cell<framebuffer::render_state::RenderState>,
     image_units: texture::ImageUnits,
     renderbuffer_target: framebuffer::renderbuffer::RenderbufferTarget,
-    gl: Gl
+    gl: Gl,
 }
 
 impl ContextState {
@@ -114,6 +117,7 @@ impl ContextState {
             program_target: program::ProgramTarget::new(),
             vao_target: vertex::vao::VAOTarget::new(),
             framebuffer_targets: framebuffer::FramebufferTargets::new(),
+            default_framebuffer_exists: Cell::new(false),
             render_state: Cell::new(framebuffer::render_state::RenderState::default()),
             image_units: texture::ImageUnits::new(&gl),
             renderbuffer_target: framebuffer::renderbuffer::RenderbufferTarget::new(),

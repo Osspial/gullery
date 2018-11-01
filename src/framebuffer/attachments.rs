@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use cgmath_geometry::Dimensionality;
 use {Handle, GLObject};
 
-pub trait Attachment: GLObject {
+pub trait AttachmentType: GLObject {
     const TARGET_TYPE: AttachmentTargetType;
     type Format: ?Sized + ImageFormatRenderable;
     type MipSelector: MipSelector;
@@ -41,7 +41,7 @@ pub trait Attachments: Sized {
         impl<'a, A: Attachments> AttachmentsMemberRegistryNoSpecifics for MemberCounter<'a, A> {
             type Attachments = A;
             #[inline(always)]
-            fn add_member<At: Attachment>(&mut self, _: &str, _: impl FnOnce(&Self::Attachments) -> &At)
+            fn add_member<At: AttachmentType>(&mut self, _: &str, _: impl FnOnce(&Self::Attachments) -> &At)
             {
                 *self.0 += 1;
             }
@@ -83,7 +83,7 @@ pub trait AttachmentsMemberRegistry {
 
 pub(crate) trait AttachmentsMemberRegistryNoSpecifics {
     type Attachments: Attachments;
-    fn add_member<A: Attachment>(
+    fn add_member<A: AttachmentType>(
         &mut self,
         name: &str,
         get_member: impl FnOnce(&Self::Attachments) -> &A
@@ -135,7 +135,7 @@ impl Attachments for () {
 }
 unsafe impl DefaultFramebufferAttachments for () {}
 
-impl<I: ImageFormatRenderable> Attachment for Renderbuffer<I> {
+impl<I: ImageFormatRenderable> AttachmentType for Renderbuffer<I> {
     const TARGET_TYPE: AttachmentTargetType = AttachmentTargetType::Renderbuffer;
     type Format = I;
     type MipSelector = ();
@@ -147,7 +147,7 @@ impl<I: ImageFormatRenderable> Attachment for Renderbuffer<I> {
     }
 }
 
-impl<D, T> Attachment for Texture<D, T>
+impl<D, T> AttachmentType for Texture<D, T>
     where D: Dimensionality<u32>,
           T: TextureType<D>,
           T::Format: ImageFormatRenderable
@@ -163,7 +163,7 @@ impl<D, T> Attachment for Texture<D, T>
     }
 }
 
-impl<'a, A: 'a + Attachment> Attachment for &'a mut A {
+impl<'a, A: 'a + AttachmentType> AttachmentType for &'a mut A {
     const TARGET_TYPE: AttachmentTargetType = A::TARGET_TYPE;
     type Format = A::Format;
     type MipSelector = A::MipSelector;

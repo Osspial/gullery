@@ -15,7 +15,7 @@
 //! Create and manage shaders and GPU programs.
 //!
 //! ## Shaders
-//! Gullery exposes three shader stages that can be linked together when constructing a `Program`
+//! Gullery exposes three shader stages that can be linked together when constructing a [`Program`]
 //! object:
 //! * [Vertex stage](./enum.VertexStage.html).
 //!   * Processes raw vertex data passed into a draw call through a VAO. Outputs render primitives.
@@ -32,6 +32,8 @@
 //! Once the desired shaders have been compiled, they must be linked together to create a `Program`
 //! object. These objects then get used by the `Framebuffer::draw` function to render the provided
 //! vertex data to a render target.
+//!
+//! [`Program`]: ./struct.Program.html
 pub mod error;
 mod raw;
 
@@ -60,8 +62,27 @@ pub struct Shader<S: ShaderStage> {
 
 /// Compiled collection of shaders used by the GPU to render content.
 ///
-/// See module-level documentation for information on program usage.
-pub struct Program<V, U, A=()>
+/// See module-level documentation for information on general program usage.
+///
+/// ## Generic Parameters
+/// * `V`: The type of [`Vertex`] taken by this program as input. Passed by a [`VertexArrayObject`] that
+///   contains a [`Buffer<V>`] to the [`Framebuffer::draw`] function.
+/// * `U`: The [`Uniforms`] data uploaded to the GPU for each draw call. Passed through
+///   [`Framebuffer::draw`]. This is optional, and programs that don't use uniforms may pass `()` as
+///   in this type's place.
+/// * `A`: The type of framebuffer attachments that this program's fragment shader renders to. This
+///   doesn't get used if you're drawing to the default renderbuffer, but is used alongside
+///   [`Renderbuffer`]s, [`FramebufferObject`]s, and [`FramebufferObjectAttached`]s. Optional, and will
+///   accept `()` to indicate use of default attachments.
+///
+/// [`Vertex`]: ../vertex/trait.Vertex.html
+/// [`Uniforms`]: ../uniform/trait.Uniforms.html
+/// [`Framebuffer::draw`]: ../framebuffer/trait.Framebuffer.html#method.draw
+/// [`Renderbuffer`]: ../framebuffer/struct.Renderbuffer.html
+/// [`FramebufferObject`]: ../framebuffer/struct.FramebufferObject.html
+/// [`FramebufferObjectAttached`]: ../framebuffer/struct.FramebufferObjectAttached.html
+/// [`VertexArrayObject`]: ../vertex/struct.VertexArrayObject.html
+pub struct Program<V, U=(), A=()>
     where V: Vertex, U: 'static + Uniforms, A: 'static + Attachments
 {
     raw: RawProgram,

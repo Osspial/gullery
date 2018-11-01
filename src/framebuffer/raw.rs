@@ -265,7 +265,7 @@ impl<'a, F> RawBoundFramebufferDraw<'a, F>
         let read_offset = ::bound_to_num_start(range.start_bound(), 0);
 
         if let (Some(index_type), Some(index_buffer)) = (index_type_option, bound_vao.vao().index_buffer()) {
-            let read_end = ::bound_to_num_end(range.end_bound(), index_buffer.size());
+            let read_end = ::bound_to_num_end(range.end_bound(), index_buffer.len());
             assert!(read_offset <= read_end);
             assert!((read_end - read_offset) <= GLsizei::max_value() as usize);
 
@@ -278,7 +278,7 @@ impl<'a, F> RawBoundFramebufferDraw<'a, F>
                 );
             }
         } else {
-            let read_end = ::bound_to_num_end(range.end_bound(), bound_vao.vao().vertex_buffer().size());
+            let read_end = ::bound_to_num_end(range.end_bound(), bound_vao.vao().vertex_buffer().len());
             assert!(read_offset <= GLint::max_value() as usize);
             assert!(read_offset <= read_end);
             assert!((read_end - read_offset) <= isize::max_value() as usize);

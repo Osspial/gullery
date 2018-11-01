@@ -43,17 +43,31 @@ pub(crate) struct FramebufferTargets {
     draw: RawFramebufferTargetDraw
 }
 
+/// The default back framebuffer.
+///
+/// If the OpenGL context exists and is associated with a window, drawing to this will draw to the
+/// screen's back buffer. *You will need to call your windowing library's buffer swapping to show
+/// the drawn contents to the user.*
 pub struct DefaultFramebuffer {
     raw: RawDefaultFramebuffer,
     state: Rc<ContextState>
 }
 
+/// An off-screen framebuffer.
+///
+/// Note that this just creates the object to which rendering attachments are attached - you still
+/// need to allocate storage that the GPU can write to. This can be done by creating either a
+/// [`Renderbuffer`] or a [`Texture`] with a [renderable image format]. That storage is than
+/// attached to a `FramebufferObject` by populating the [`FramebufferObjectAttached`] struct with
+/// this `FramebufferObject` and an [`Attachments`] struct that references your desired render
+/// targets.
 pub struct FramebufferObject<A: 'static + FBOAttachments> {
     raw: RawFramebufferObject,
     handles: A::AHC,
     state: Rc<ContextState>
 }
 
+/// An off-screen framebuffer paired with a set of render targets.
 pub struct FramebufferObjectAttached<A, F=FramebufferObject<<A as Attachments>::Static>>
     where A: FBOAttachments,
           A::Static: FBOAttachments,
@@ -144,7 +158,7 @@ pub trait Framebuffer {
     )
         where C: ImageFormatRenderable + ConcreteImageFormat,
               Self::Attachments: FBOAttachments,
-              A: Attachment<Format=C>
+              A: AttachmentType<Format=C>
     {
         struct AttachmentRefMatcher<'a, A: 'a> {
             ptr: *const (),
@@ -155,7 +169,7 @@ pub trait Framebuffer {
         }
         impl<'a, A: Attachments> AttachmentsMemberRegistryNoSpecifics for AttachmentRefMatcher<'a, A> {
             type Attachments = A;
-            fn add_member<At: Attachment>(&mut self, _: &str, get_member: impl FnOnce(&A) -> &At) {
+            fn add_member<At: AttachmentType>(&mut self, _: &str, get_member: impl FnOnce(&A) -> &At) {
                 if !*self.valid {
                     let image_type = <At::Format as ImageFormatRenderable>::FormatType::FORMAT_TYPE;
                     if get_member(self.attachments) as *const _ as *const () == self.ptr {
@@ -226,10 +240,22 @@ pub trait Framebuffer {
 }
 
 impl DefaultFramebuffer {
-    pub fn new(state: Rc<ContextState>) -> DefaultFramebuffer {
-        DefaultFramebuffer {
-            raw: RawDefaultFramebuffer,
-            state
+    /// Creates a handle* to the default framebuffer.
+    ///
+    /// Returns `None` if a `DefaultFramebuffer` has already been created for the associated
+    /// `ContextState`.
+    ///
+    /// <sub>\* OpenGL doesn't actually provide a handle to the default framebuffer - it just draws to it
+    /// when no other framebuffer is bound. This struct exists to provide API consistency.</sub>
+    pub fn new(state: Rc<ContextState>) -> Option<DefaultFramebuffer> {
+        if !state.default_framebuffer_exists.get() {
+            state.default_framebuffer_exists.set(true);
+            Some(DefaultFramebuffer {
+                raw: RawDefaultFramebuffer,
+                state
+            })
+        } else {
+            None
         }
     }
 }
@@ -258,6 +284,12 @@ impl<A: FBOAttachments> Drop for FramebufferObject<A> {
         let mut fbo = unsafe{ mem::uninitialized() };
         mem::swap(&mut fbo, &mut self.raw);
         fbo.delete(&self.state);
+    }
+}
+
+impl Drop for DefaultFramebuffer {
+    fn drop(&mut self) {
+        self.state.default_framebuffer_exists.set(false);
     }
 }
 

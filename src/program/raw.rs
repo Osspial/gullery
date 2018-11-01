@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use framebuffer::attachments::{Attachment, Attachments, AttachmentsMemberRegistryNoSpecifics, AMRNSImpl};
+use framebuffer::attachments::{AttachmentType, Attachments, AttachmentsMemberRegistryNoSpecifics, AMRNSImpl};
 use image_format::{ImageFormatRenderable, FormatTypeTag, FormatType};
 use gl::{self, Gl};
 use gl::types::*;
@@ -469,7 +469,7 @@ unsafe impl<A: Attachments> ShaderStage for FragmentStage<A> {
         impl<'a, A: Attachments> AttachmentsMemberRegistryNoSpecifics for FragDataBinder<'a, A> {
             type Attachments = A;
             fn add_member<T>(&mut self, name: &str, _: impl FnOnce(&A) -> &T)
-                where T: Attachment
+                where T: AttachmentType
             {
                 if <T::Format as ImageFormatRenderable>::FormatType::FORMAT_TYPE == FormatTypeTag::Color {
                     // We can't just take ownership of the Vec<u8> to make it a CString, so we have to
@@ -515,7 +515,7 @@ unsafe impl<A: Attachments> ShaderStage for FragmentStage<A> {
         impl<'a, A: Attachments> AttachmentsMemberRegistryNoSpecifics for FragDataChecker<'a, A> {
             type Attachments = A;
             fn add_member<T>(&mut self, name: &str, _: impl FnOnce(&A) -> &T)
-                where T: Attachment
+                where T: AttachmentType
             {
                 if <T::Format as ImageFormatRenderable>::FormatType::FORMAT_TYPE == FormatTypeTag::Color {
                     // We can't just take ownership of the Vec<u8> to make it a CString, so we have to
