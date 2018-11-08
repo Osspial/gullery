@@ -54,7 +54,7 @@ pub trait Attachments: Sized {
 }
 
 pub unsafe trait FBOAttachments: Attachments {}
-pub unsafe trait DefaultFramebufferAttachments: Attachments {}
+pub unsafe trait FramebufferDefaultAttachments: Attachments {}
 
 pub trait AttachmentHandleContainer: AsRef<[Option<Handle>]> + AsMut<[Option<Handle>]> {
     fn new_zeroed() -> Self;
@@ -133,7 +133,7 @@ impl Attachments for () {
     fn members<R>(_reg: R)
         where R: AttachmentsMemberRegistry<Attachments=Self> {}
 }
-unsafe impl DefaultFramebufferAttachments for () {}
+unsafe impl FramebufferDefaultAttachments for () {}
 
 impl<I: ImageFormatRenderable> AttachmentType for Renderbuffer<I> {
     const TARGET_TYPE: AttachmentTargetType = AttachmentTargetType::Renderbuffer;

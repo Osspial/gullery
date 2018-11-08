@@ -48,8 +48,8 @@ pub(crate) struct FramebufferTargets {
 /// If the OpenGL context exists and is associated with a window, drawing to this will draw to the
 /// screen's back buffer. *You will need to call your windowing library's buffer swapping to show
 /// the drawn contents to the user.*
-pub struct DefaultFramebuffer {
-    raw: RawDefaultFramebuffer,
+pub struct FramebufferDefault {
+    raw: RawFramebufferDefault,
     state: Rc<ContextState>
 }
 
@@ -139,7 +139,7 @@ pub trait Framebuffer {
     #[inline]
     fn read_pixels<C>(&mut self, read_rect: OffsetBox<D2, u32>, data: &mut [C])
         where C: ImageFormatRenderable + ConcreteImageFormat,
-              Self::Attachments: DefaultFramebufferAttachments
+              Self::Attachments: FramebufferDefaultAttachments
     {
         let (raw, arm, state) = self.raw_mut();
         unsafe {
@@ -239,19 +239,19 @@ pub trait Framebuffer {
     }
 }
 
-impl DefaultFramebuffer {
+impl FramebufferDefault {
     /// Creates a handle* to the default framebuffer.
     ///
-    /// Returns `None` if a `DefaultFramebuffer` has already been created for the associated
+    /// Returns `None` if a `FramebufferDefault` has already been created for the associated
     /// `ContextState`.
     ///
     /// <sub>\* OpenGL doesn't actually provide a handle to the default framebuffer - it just draws to it
     /// when no other framebuffer is bound. This struct exists to provide API consistency.</sub>
-    pub fn new(state: Rc<ContextState>) -> Option<DefaultFramebuffer> {
+    pub fn new(state: Rc<ContextState>) -> Option<FramebufferDefault> {
         if !state.default_framebuffer_exists.get() {
             state.default_framebuffer_exists.set(true);
-            Some(DefaultFramebuffer {
-                raw: RawDefaultFramebuffer,
+            Some(FramebufferDefault {
+                raw: RawFramebufferDefault,
                 state
             })
         } else {
@@ -287,7 +287,7 @@ impl<A: FBOAttachments> Drop for FramebufferObject<A> {
     }
 }
 
-impl Drop for DefaultFramebuffer {
+impl Drop for FramebufferDefault {
     fn drop(&mut self) {
         self.state.default_framebuffer_exists.set(false);
     }
@@ -312,10 +312,10 @@ impl FramebufferTargets {
     }
 }
 
-impl Framebuffer for DefaultFramebuffer {
+impl Framebuffer for FramebufferDefault {
     type Attachments = ();
     type AttachmentsStatic = ();
-    type Raw = RawDefaultFramebuffer;
+    type Raw = RawFramebufferDefault;
     #[inline]
     fn raw(&self) -> (&Self::Raw, &ContextState) {
         (&self.raw, &self.state)

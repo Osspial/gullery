@@ -114,7 +114,7 @@ fn main() {
         ..RenderState::default()
     };
 
-    let mut default_framebuffer = DefaultFramebuffer::new(state.clone());
+    let mut default_framebuffer = FramebufferDefault::new(state.clone());
 
     let anisotropy_values = [1.0, 2.0, 4.0, 8.0, 16.0];
     let mut anisotropy_index = 0;

@@ -209,7 +209,7 @@ fn impl_attachments(derive_input: &DeriveInput) -> Tokens {
                             }
                             const NUM_DEPTH_ATTACHMENTS: usize = 0
                                 #(+ unsafe {
-                                    Transmute{ from: <<#types as _gullery::framebuffer::attachments::Attachment>::Format as _gullery::image_format::ImageFormatRenderable>::FormatType::FORMAT_TYPE }.to
+                                    Transmute{ from: <<#types as _gullery::framebuffer::attachments::AttachmentType>::Format as _gullery::image_format::ImageFormatRenderable>::FormatType::FORMAT_TYPE }.to
                                     ==
                                     Transmute{ from: _gullery::image_format::FormatTypeTag::Depth}.to
                                  } as usize)*;
@@ -226,7 +226,7 @@ fn impl_attachments(derive_input: &DeriveInput) -> Tokens {
                             where M: _gullery::framebuffer::attachments::AttachmentsMemberRegistry<Attachments=Self>
                         {
                             #(
-                                <#types_1 as _gullery::framebuffer::attachments::Attachment>::add_to_registry(&mut reg, stringify!(#idents), |t| &t.#idents_1, Default::default());
+                                <#types_1 as _gullery::framebuffer::attachments::AttachmentType>::add_to_registry(&mut reg, stringify!(#idents), |t| &t.#idents_1, Default::default());
                             )*
                         }
                     }

@@ -36,8 +36,8 @@ pub unsafe trait RawFramebuffer {
     fn handle(&self) -> Option<Handle>;
 }
 
-pub struct RawDefaultFramebuffer;
-unsafe impl RawFramebuffer for RawDefaultFramebuffer {
+pub struct RawFramebufferDefault;
+unsafe impl RawFramebuffer for RawFramebufferDefault {
     #[inline]
     fn handle(&self) -> Option<Handle> {None}
 }
@@ -332,7 +332,7 @@ pub unsafe trait RawBoundFramebuffer {
                     *handle = Some(member.handle());
                     let handle = member.handle();
                     let attachment: GLenum;
-                    match <<Renderbuffer<Im> as Attachment>::Format as ImageFormatRenderable>::FormatType::FORMAT_TYPE {
+                    match <<Renderbuffer<Im> as AttachmentType>::Format as ImageFormatRenderable>::FormatType::FORMAT_TYPE {
                         FormatTypeTag::Color => {
                             attachment = gl::COLOR_ATTACHMENT0 + self.color_index;
                             self.color_index += 1;
@@ -368,7 +368,7 @@ pub unsafe trait RawBoundFramebuffer {
                     *handle = Some(texture.handle());
                     let handle = texture.handle();
                     let attachment: GLenum;
-                    match <<Texture<D, T> as Attachment>::Format as ImageFormatRenderable>::FormatType::FORMAT_TYPE {
+                    match <<Texture<D, T> as AttachmentType>::Format as ImageFormatRenderable>::FormatType::FORMAT_TYPE {
                         FormatTypeTag::Color => {
                             attachment = gl::COLOR_ATTACHMENT0 + self.color_index;
                             self.color_index += 1;

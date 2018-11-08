@@ -148,7 +148,7 @@ fn main() {
 
         depth_texture.swizzle_mask(Rgba::new(Swizzle::Red, Swizzle::Red, Swizzle::Red, Swizzle::One));
 
-        let mut default_framebuffer = DefaultFramebuffer::new(state.clone());
+        let mut default_framebuffer = FramebufferDefault::new(state.clone());
         events_loop.run_forever(|event| {
             match event {
                 Event::WindowEvent{event, ..} => match event {

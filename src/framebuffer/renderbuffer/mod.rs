@@ -24,6 +24,11 @@ use std::rc::Rc;
 use std::marker::PhantomData;
 
 pub(crate) struct RenderbufferTarget(RawRenderbufferTarget);
+
+/// GPU storage optimized for rendering.
+///
+/// It may be faster to render to this than render to a [`Texture`]. However, this cannot be
+/// resampled by a shader - if that's necessary, a [`Texture`] should be used.
 pub struct Renderbuffer<I: ImageFormatRenderable> {
     raw: RawRenderbuffer,
     samples: u32,

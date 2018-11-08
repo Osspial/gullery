@@ -114,7 +114,7 @@ fn main() {
         ..RenderState::default()
     };
 
-    let mut default_framebuffer = DefaultFramebuffer::new(state.clone());
+    let mut default_framebuffer = FramebufferDefault::new(state.clone());
     let mut array_index = 0;
     let mut redraw = |array_index| {
         render_state.viewport = OffsetBox::new2(0, 0, window.get_inner_size().unwrap().0, window.get_inner_size().unwrap().1);
