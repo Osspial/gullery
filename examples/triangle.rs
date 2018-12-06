@@ -22,6 +22,7 @@ use cgmath_geometry::rect::OffsetBox;
 use cgmath::*;
 
 use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuilder, ContextBuilder, GlWindow, GlProfile, GlRequest};
+use glutin::dpi::LogicalSize;
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
@@ -37,7 +38,7 @@ struct TriUniforms {
 fn main() {
     let mut events_loop = EventsLoop::new();
     let window = GlWindow::new(
-        WindowBuilder::new().with_dimensions(512, 512),
+        WindowBuilder::new().with_dimensions(LogicalSize::new(512.0, 512.0)),
         ContextBuilder::new()
             .with_gl_profile(GlProfile::Core)
             .with_gl(GlRequest::GlThenGles {
@@ -80,23 +81,24 @@ fn main() {
         ..RenderState::default()
     };
 
-    let mut default_framebuffer = FramebufferDefault::new(state.clone());
+    let mut default_framebuffer = FramebufferDefault::new(state.clone()).unwrap();
     events_loop.run_forever(|event| {
         match event {
             Event::WindowEvent{event, ..} => match event {
-                WindowEvent::Resized(size_x, size_y) => {
-                    window.context().resize(size_x, size_y);
+                WindowEvent::Resized(logical_size) => {
+                    let physical_size = logical_size.to_physical(window.get_hidpi_factor());
+                    window.resize(physical_size);
                     let uniform = TriUniforms {
                         offset: Point2::new(0.0, 0.0)
                     };
-                    render_state.viewport = OffsetBox::new2(0, 0, size_x, size_y);
+                    render_state.viewport = OffsetBox::new2(0, 0, physical_size.width as _, physical_size.height as _);
                     default_framebuffer.clear_depth(1.0);
                     default_framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0));
                     default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
 
-                    window.context().swap_buffers().unwrap();
+                    window.swap_buffers().unwrap();
                 }
-                WindowEvent::Closed => return ControlFlow::Break,
+                WindowEvent::CloseRequested => return ControlFlow::Break,
                 _ => ()
             },
             _ => ()
