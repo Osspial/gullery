@@ -24,6 +24,7 @@ use cgmath_geometry::rect::{DimsBox, OffsetBox};
 use cgmath::*;
 
 use glutin::*;
+use glutin::dpi::LogicalSize;
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
@@ -53,7 +54,7 @@ fn main() {
 
     let mut events_loop = EventsLoop::new();
     let window = GlWindow::new(
-        WindowBuilder::new().with_dimensions(size_x * 2, size_y),
+        WindowBuilder::new().with_dimensions(LogicalSize::new(size_x as f64 * 2.0, size_y as f64)),
         ContextBuilder::new()
             .with_gl(GlRequest::GlThenGles {
                 opengl_version: (3, 3),
@@ -148,17 +149,18 @@ fn main() {
 
         depth_texture.swizzle_mask(Rgba::new(Swizzle::Red, Swizzle::Red, Swizzle::Red, Swizzle::One));
 
-        let mut default_framebuffer = FramebufferDefault::new(state.clone());
+        let mut default_framebuffer = FramebufferDefault::new(state.clone()).unwrap();
         events_loop.run_forever(|event| {
             match event {
                 Event::WindowEvent{event, ..} => match event {
-                    WindowEvent::Resized(size_x, size_y) => {
-                        window.context().resize(size_x, size_y);
+                    WindowEvent::Resized(logical_size) => {
+                        let physical_size = logical_size.to_physical(window.get_hidpi_factor());
+                        window.resize(physical_size);
                         let uniform = Uniforms {
                             offset: Vector2::new(0.0, 0.0),
                             tex: color_texture.as_dyn()
                         };
-                        render_state.viewport = OffsetBox::new2(0, 0, size_x, size_y);
+                        render_state.viewport = OffsetBox::new2(0, 0, physical_size.width as _, physical_size.height as _);
                         default_framebuffer.clear_depth(1.0);
                         default_framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0));
 
@@ -170,9 +172,9 @@ fn main() {
                         };
                         default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
 
-                        window.context().swap_buffers().unwrap();
+                        window.swap_buffers().unwrap();
                     }
-                    WindowEvent::Closed => return ControlFlow::Break,
+                    WindowEvent::CloseRequested => return ControlFlow::Break,
                     _ => ()
                 },
                 _ => ()

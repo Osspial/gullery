@@ -23,6 +23,7 @@ use cgmath_geometry::rect::{DimsBox, OffsetBox};
 use cgmath::*;
 
 use glutin::*;
+use glutin::dpi::LogicalSize;
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
@@ -42,9 +43,9 @@ struct Attachments<'a> {
 }
 
 fn main() {
-    let (size_x, size_y) = (512, 512);
+    let (size_x, size_y) = (512.0, 512.0);
     let headless =
-        HeadlessRendererBuilder::new(size_x, size_y)
+        ContextBuilder::new()
             .with_gl_profile(GlProfile::Core)
             .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3)))
             .build().unwrap();
