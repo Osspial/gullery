@@ -21,6 +21,7 @@ use cgmath_geometry::rect::{DimsBox, OffsetBox};
 use cgmath::*;
 
 use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuilder, ContextBuilder, GlWindow, GlRequest, ElementState, VirtualKeyCode};
+use glutin::dpi::LogicalSize;
 
 use std::{io, fs::File};
 use std::rc::Rc;
@@ -59,7 +60,7 @@ fn load_texture_from_file(path: &str, state: &Rc<ContextState>) -> Result<Textur
 fn main() {
     let mut events_loop = EventsLoop::new();
     let window = GlWindow::new(
-        WindowBuilder::new().with_dimensions(512, 512),
+        WindowBuilder::new().with_dimensions(LogicalSize::new(512.0, 512.0)),
         ContextBuilder::new()
             .with_gl(GlRequest::GlThenGles {
                 opengl_version: (3, 3),
@@ -114,14 +115,15 @@ fn main() {
         ..RenderState::default()
     };
 
-    let mut default_framebuffer = FramebufferDefault::new(state.clone());
+    let mut default_framebuffer = FramebufferDefault::new(state.clone()).unwrap();
 
     let anisotropy_values = [1.0, 2.0, 4.0, 8.0, 16.0];
     let mut anisotropy_index = 0;
 
     events_loop.run_forever(|event| {
         let mut redraw = |anisotropy_index| {
-            render_state.viewport = OffsetBox::new2(0, 0, window.get_inner_size().unwrap().0, window.get_inner_size().unwrap().1);
+            let physical_size = window.get_inner_size().unwrap().to_physical(window.get_hidpi_factor());
+            render_state.viewport = OffsetBox::new2(0, 0, physical_size.width as u32, physical_size.height as u32);
             default_framebuffer.clear_depth(1.0);
             default_framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0));
 
@@ -152,13 +154,12 @@ fn main() {
             uniform.offset.x = 0.5;
             draw_scaled_copies(uniform);
 
-            window.context().swap_buffers().unwrap();
+            window.swap_buffers().unwrap();
         };
 
         match event {
             Event::WindowEvent{event, ..} => match event {
-                WindowEvent::Resized(size_x, size_y) => {
-                    window.context().resize(size_x, size_y);
+                WindowEvent::Resized(_) => {
                     redraw(anisotropy_index);
                 }
                 WindowEvent::KeyboardInput{input, ..}
@@ -170,7 +171,7 @@ fn main() {
                     println!("Changed anisotropy to: {}", anisotropy_values[anisotropy_index]);
                     redraw(anisotropy_index)
                 }
-                WindowEvent::Closed => return ControlFlow::Break,
+                WindowEvent::CloseRequested => return ControlFlow::Break,
                 _ => ()
             },
             _ => ()

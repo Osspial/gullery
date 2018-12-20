@@ -23,7 +23,6 @@ use cgmath_geometry::rect::{DimsBox, OffsetBox};
 use cgmath::*;
 
 use glutin::*;
-use glutin::dpi::LogicalSize;
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
@@ -43,12 +42,15 @@ struct Attachments<'a> {
 }
 
 fn main() {
-    let (size_x, size_y) = (512.0, 512.0);
-    let headless =
+    let (size_x, size_y) = (512, 512);
+    let el = EventsLoop::new();
+    let headless = Context::new(
+        &el,
         ContextBuilder::new()
             .with_gl_profile(GlProfile::Core)
-            .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3)))
-            .build().unwrap();
+            .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3))),
+        true
+    ).unwrap();
     unsafe{ headless.make_current().unwrap() };
     let state = unsafe{ ContextState::new(|addr| headless.get_proc_address(addr)) };
 

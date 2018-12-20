@@ -130,7 +130,7 @@ impl ContextState {
 mod test_helper {
     use super::*;
     use vertex::{Vertex, VertexMemberRegistry};
-    use glutin::{HeadlessRendererBuilder, HeadlessContext, GlRequest, GlContext, Api};
+    use glutin::{ContextBuilder, Context, EventsLoop, GlRequest, GlContext, Api};
     use quickcheck::{Arbitrary, Gen};
     use cgmath::{Point2, Point3};
 
@@ -159,11 +159,18 @@ mod test_helper {
     }
 
     thread_local!{
-        static CONTEXT: HeadlessContext = {
-            let context = HeadlessRendererBuilder::new(256, 256)
-                .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3))).build().unwrap();
-            unsafe{ context.make_current().unwrap() };
-            context
+        static EVENT_LOOP: EventsLoop = EventsLoop::new();
+        static CONTEXT: Context = {
+            EVENT_LOOP.with(|el| {
+                let context = Context::new(
+                    &*el,
+                    ContextBuilder::new()
+                        .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3))),
+                    true
+                ).unwrap();
+                unsafe{ context.make_current().unwrap() };
+                context
+            })
         };
         pub static CONTEXT_STATE: Rc<ContextState> = CONTEXT.with(|context| unsafe {
             ContextState::new(|s| context.get_proc_address(s))
