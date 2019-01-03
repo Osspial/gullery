@@ -61,6 +61,8 @@ pub struct RawFramebufferTargetDraw {
     bound_fb: Cell<Option<Handle>>
 }
 
+/// The primitive rendering mode for the `draw` call. See [here](https://www.khronos.org/opengl/wiki/Primitive)
+/// for more information.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u32)]
 pub enum DrawMode {
@@ -231,8 +233,8 @@ impl<'a, F> RawBoundFramebufferDraw<'a, F>
     where F: RawFramebuffer
 {
     #[inline]
-    pub(crate) fn clear_color(&mut self, color: Rgba<f32>) {
-        unsafe{ self.gl.ClearBufferfv(gl::COLOR, 0, &color.r) }
+    pub(crate) fn clear_color_all(&mut self, color: Rgba<f32>, attachment: u8) {
+        unsafe{ self.gl.ClearBufferfv(gl::COLOR, attachment as _, &color.r) }
     }
 
     #[inline]

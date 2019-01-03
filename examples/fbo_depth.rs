@@ -105,7 +105,7 @@ fn main() {
             ..RenderState::default()
         };
         fbo_attached.clear_depth(1.0);
-        fbo_attached.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0));
+        fbo_attached.clear_color_all(Rgba::new(0.0, 0.0, 0.0, 1.0));
         fbo_attached.draw(DrawMode::Triangles, .., &vao, &program, (), render_state);
     }
 
@@ -162,7 +162,7 @@ fn main() {
                         };
                         render_state.viewport = OffsetBox::new2(0, 0, physical_size.width as _, physical_size.height as _);
                         default_framebuffer.clear_depth(1.0);
-                        default_framebuffer.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0));
+                        default_framebuffer.clear_color_all(Rgba::new(0.0, 0.0, 0.0, 1.0));
 
                         default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
 

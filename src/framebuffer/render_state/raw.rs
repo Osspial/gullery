@@ -45,6 +45,17 @@ pub struct BlendFuncs {
     pub dst_alpha: BlendFunc
 }
 
+impl Default for BlendFuncs {
+    fn default() -> BlendFuncs {
+        BlendFuncs {
+            src_rgb: BlendFunc::One,
+            dst_rgb: BlendFunc::Zero,
+            src_alpha: BlendFunc::One,
+            dst_alpha: BlendFunc::Zero,
+        }
+    }
+}
+
 bitflags!{
     pub struct ColorMask: u8 {
         const R = 1 << 0;

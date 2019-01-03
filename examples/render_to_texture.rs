@@ -96,17 +96,17 @@ fn main() {
         ..RenderState::default()
     };
     fbo_attached.clear_depth(1.0);
-    fbo_attached.clear_color(Rgba::new(0.0, 0.0, 0.0, 1.0));
+    fbo_attached.clear_color_all(Rgba::new(0.0, 0.0, 0.0, 1.0));
     fbo_attached.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
 
     let (width, height) = (size_x, size_y);
     let mut data_buffer = vec![SRgb::new(0, 0, 0); (width * height) as usize * 2];
-    fbo_attached.read_pixels_fbo(
+    fbo_attached.read_pixels_attachment(
         OffsetBox::new2(0, 0, width, height),
         &mut data_buffer[(width * height) as usize..],
         |a| &a.color
     );
-    fbo_attached.read_pixels_fbo(
+    fbo_attached.read_pixels_attachment(
         OffsetBox::new2(0, 0, width, height),
         &mut data_buffer[0..(width * height) as usize],
         |a| &a.color_inverted

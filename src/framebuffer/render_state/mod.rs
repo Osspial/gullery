@@ -22,7 +22,7 @@ pub use self::raw::{BlendFuncs, BlendFunc, CullFace, FrontFace, DepthStencilFunc
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RenderState {
-    pub blend: Option<BlendFuncs>,
+    pub blend: BlendFuncs,
     pub cull: Option<(CullFace, FrontFace)>,
     pub depth_clamp: bool,
     pub depth_test: Option<DepthStencilFunc>,
@@ -46,7 +46,7 @@ impl RenderState {
         let old_state = state.render_state.replace(self);
         let gl = &state.gl;
         if self.blend != old_state.blend {
-            raw::set_gl_cap(gl, Capability::Blend(self.blend));
+            raw::set_gl_cap(gl, Capability::Blend(Some(self.blend)));
         }
         if self.cull != old_state.cull {
             raw::set_gl_cap(gl, Capability::Cull(self.cull));
@@ -100,7 +100,7 @@ impl Default for RenderState {
     #[inline]
     fn default() -> RenderState {
         RenderState {
-            blend: None,
+            blend: BlendFuncs::default(),
             cull: None,
             depth_clamp: false,
             depth_test: None,

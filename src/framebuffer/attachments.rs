@@ -1,5 +1,5 @@
 use texture::{Texture, TextureType, MipSelector};
-use image_format::ImageFormatRenderable;
+use image_format::{FormatType, ImageFormatRenderable, FormatTypeTag};
 use framebuffer::Renderbuffer;
 use std::marker::PhantomData;
 use cgmath_geometry::Dimensionality;
@@ -28,6 +28,9 @@ pub trait AttachmentType: GLObject {
     }
 }
 
+/// A collection of `AttachmentTypes`. Should be derived.
+///
+/// TODO: EXPLAIN MORE.
 pub trait Attachments: Sized {
     type AHC: AttachmentHandleContainer;
     type Static: 'static + Attachments<AHC=Self::AHC>;
@@ -50,6 +53,33 @@ pub trait Attachments: Sized {
         let mut num = 0;
         Self::members(AMRNSImpl(MemberCounter::<Self>(&mut num, PhantomData)));
         num
+    }
+
+    fn color_attachments(&self, for_each: impl FnMut(u8)) {
+        struct AttachmentRefMatcher<'a, A: 'a, F: FnMut(u8)> {
+            color_index: u8,
+            for_each: F,
+            _marker: PhantomData<&'a A>
+        }
+        impl<'a, A: Attachments, F: FnMut(u8)> AttachmentsMemberRegistryNoSpecifics for AttachmentRefMatcher<'a, A, F> {
+            type Attachments = A;
+            fn add_member<At: AttachmentType>(&mut self, _: &str, _: impl FnOnce(&A) -> &At) {
+                let image_type = <At::Format as ImageFormatRenderable>::FormatType::FORMAT_TYPE;
+                if image_type == FormatTypeTag::Color {
+                    (self.for_each)(self.color_index);
+                }
+
+                if image_type == FormatTypeTag::Color {
+                    self.color_index += 1;
+                }
+            }
+        }
+
+        Self::members(AMRNSImpl(AttachmentRefMatcher {
+            color_index: 0,
+            for_each,
+            _marker: PhantomData
+        }));
     }
 }
 
