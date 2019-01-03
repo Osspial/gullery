@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Generic GPU data buffer.
+
 mod raw;
 
 pub(crate) use self::raw::RawBindTarget;
@@ -48,33 +50,13 @@ impl BufferBinds {
     }
 }
 
+/// The GPU data buffer type.
 pub struct Buffer<T: 'static + Copy> {
     raw: RawBuffer<T>,
     state: Rc<ContextState>
 }
 
 impl<T: 'static + Copy> Buffer<T> {
-    // This allocates with undefined data which can be unsafe.
-    // #[inline]
-    // pub fn with_size(usage: BufferUsage, size: usize, state: Rc<ContextState>) -> Buffer<T> {
-    //     let raw = {
-    //         let ContextState {
-    //             ref buffer_binds,
-    //             ref gl,
-    //             ..
-    //         } = *state;
-
-    //         let mut raw = RawBuffer::new(gl);
-    //         {
-    //             let mut bind = unsafe{ buffer_binds.copy_write.bind_mut(&mut raw, gl) };
-    //             bind.alloc_size(size, usage)
-    //         }
-    //         raw
-    //     };
-
-    //     Buffer{raw, state}
-    // }
-
     /// Create a new buffer and upload the provided data to the buffer.
     ///
     /// ## Panics
@@ -92,6 +74,34 @@ impl<T: 'static + Copy> Buffer<T> {
             {
                 let mut bind = unsafe{ buffer_binds.copy_write.bind_mut(&mut raw, gl) };
                 bind.alloc_upload(data, usage)
+            }
+            raw
+        };
+
+        Buffer{raw, state}
+    }
+
+    /// Creates a new buffer that can hold the specified number of elements.
+    ///
+    /// ## Safety
+    /// The data contained in the GPU buffer in unspecified, and reading the data before it has been
+    /// uploaded can potentially cause undefined behavior.
+    ///
+    /// ## Panics
+    /// Panics is GPU is out of memory.
+    #[inline]
+    pub unsafe fn with_size(usage: BufferUsage, size: usize, state: Rc<ContextState>) -> Buffer<T> {
+        let raw = {
+            let ContextState {
+                ref buffer_binds,
+                ref gl,
+                ..
+            } = *state;
+
+            let mut raw = RawBuffer::new(gl);
+            {
+                let mut bind = buffer_binds.copy_write.bind_mut(&mut raw, gl);
+                bind.alloc_size(size, usage)
             }
             raw
         };

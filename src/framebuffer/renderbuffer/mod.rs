@@ -44,6 +44,11 @@ impl RenderbufferTarget {
 }
 
 impl<I: ImageFormatRenderable> Renderbuffer<I> {
+    /// Create a new `RenderBuffer`.
+    ///
+    /// ## Parameters
+    /// * `dims`: The dimensions of the renderbuffer.
+    /// * `samples`: The number of samples to use for multisampling to use when rendering to the renderbuffer. TODO: ACCOUNT FOR GL_MAX_SAMPLES
     pub fn new(dims: DimsBox<D2, u32>, samples: u32, state: Rc<ContextState>) -> Renderbuffer<I>
         where I: ConcreteImageFormat
     {
@@ -66,11 +71,13 @@ impl<I: ImageFormatRenderable> Renderbuffer<I> {
         }
     }
 
+    /// The dimensions of the underlying renderbuffer.
     #[inline(always)]
     pub fn dims(&self) -> DimsBox<D2, u32> {
         self.dims
     }
 
+    /// The number of multisampling samples.
     #[inline(always)]
     pub fn samples(&self) -> u32 {
         self.samples

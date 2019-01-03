@@ -17,7 +17,7 @@ use {ContextState, Handle};
 use gl::{self, Gl};
 use gl::types::*;
 
-use std::mem;
+use std::{mem, ptr};
 use std::ops::{Deref, RangeBounds};
 use std::cell::Cell;
 use std::marker::PhantomData;
@@ -267,29 +267,29 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
         }
     }
 
-    // #[inline]
-    // pub(crate) fn alloc_size(&mut self, size: usize, usage: BufferUsage) {
-    //     assert!(size <= isize::max_value() as usize);
-    //     if mem::size_of::<T>() != 0 {
-    //         unsafe {self.gl.BufferData(
-    //             B::TARGET,
-    //             (size * mem::size_of::<T>()) as GLsizeiptr,
-    //             ptr::null_mut(),
-    //             usage.to_gl_enum()
-    //         )};
+    #[inline]
+    pub(crate) unsafe fn alloc_size(&mut self, size: usize, usage: BufferUsage) {
+        assert!(size <= isize::max_value() as usize);
+        if mem::size_of::<T>() != 0 {
+            self.gl.BufferData(
+                B::TARGET,
+                (size * mem::size_of::<T>()) as GLsizeiptr,
+                ptr::null_mut(),
+                usage.to_gl_enum()
+            );
 
-    //         let error = unsafe{ self.gl.GetError() };
-    //         if error == 0 {
-    //             self.buffer.size = size;
-    //         } else {
-    //             if error == gl::OUT_OF_MEMORY {
-    //                 panic!("OpenGL out of memory!");
-    //             } else {
-    //                 panic!("Unexpected OpenGL error: {}", error);
-    //             }
-    //         }
-    //     }
-    // }
+            let error = self.gl.GetError();
+            if error == 0 {
+                self.buffer.size = size;
+            } else {
+                if error == gl::OUT_OF_MEMORY {
+                    panic!("OpenGL out of memory!");
+                } else {
+                    panic!("Unexpected OpenGL error: {}", error);
+                }
+            }
+        }
+    }
 
     #[inline]
     pub(crate) fn alloc_upload(&mut self, data: &[T], usage: BufferUsage) {

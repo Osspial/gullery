@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Access, create, and draw to framebuffers.
+//!
+//! If you want to draw to a window, use the [`FramebufferDefault`] type. If you want to create an
+//! in-memory framebuffer for off-screen drawing, use a [`FramebufferObject`] and[`FramebufferObjectAttached`].
+
 pub mod attachments;
 pub mod render_state;
 mod raw;
@@ -94,6 +99,7 @@ impl<A, F> FramebufferObjectAttached<A, F>
     }
 }
 
+/// Exposes common framebuffer functionality.
 pub trait Framebuffer {
     type Attachments: Attachments<Static=Self::AttachmentsStatic>;
     type AttachmentsStatic: Attachments<AHC=<Self::Attachments as Attachments>::AHC> + 'static;
@@ -106,16 +112,23 @@ pub trait Framebuffer {
     #[doc(hidden)]
     fn raw_mut(&mut self) -> (&mut Self::Raw, AttachmentsRefMut<Self::Attachments>, &ContextState);
 
+    /// Clears the color of all attached color buffers to `color` to the specified value.
+    ///
+    /// For the default framebuffer, this clears the window associated with said framebuffer. If you
+    /// want to clear an individual color attachment, see [`clear_color_attachment`].
     #[inline]
-    fn clear_color(&mut self, color: Rgba<f32>) {
+    fn clear_color_all(&mut self, color: Rgba<f32>) {
         let (raw_mut, arm, state) = self.raw_mut();
         unsafe {
             let mut framebuffer_bind = state.framebuffer_targets.draw.bind(raw_mut, &state.gl);
             framebuffer_bind.set_attachments(arm.ahc, arm.attachments);
-            framebuffer_bind.clear_color(color);
+            arm.attachments.color_attachments(|attachment_index| {
+                framebuffer_bind.clear_color(color, attachment_index);
+            });
         }
     }
 
+    /// Clears the depth buffer attached to this framebuffer to the specified value.
     #[inline]
     fn clear_depth(&mut self, depth: f32) {
         let (raw_mut, arm, state) = self.raw_mut();
@@ -126,6 +139,7 @@ pub trait Framebuffer {
         }
     }
 
+    /// Clears the stencil buffer attached to this framebuffer to the specified value.
     #[inline]
     fn clear_stencil(&mut self, stencil: u32) {
         let (raw_mut, arm, state) = self.raw_mut();
@@ -136,79 +150,17 @@ pub trait Framebuffer {
         }
     }
 
-    #[inline]
-    fn read_pixels<C>(&mut self, read_rect: OffsetBox<D2, u32>, data: &mut [C])
-        where C: ImageFormatRenderable + ConcreteImageFormat,
-              Self::Attachments: FramebufferDefaultAttachments
-    {
-        let (raw, arm, state) = self.raw_mut();
-        unsafe {
-            let mut framebuffer_bind = state.framebuffer_targets.read.bind(raw, &state.gl);
-            framebuffer_bind.set_attachments(arm.ahc, arm.attachments);
-            framebuffer_bind.read_pixels(read_rect, data);
-        }
-    }
 
-    #[inline]
-    fn read_pixels_fbo<C, A>(
-        &mut self,
-        read_rect: OffsetBox<D2, u32>,
-        data: &mut [C],
-        get_attachment: impl FnOnce(&Self::Attachments) -> &A
-    )
-        where C: ImageFormatRenderable + ConcreteImageFormat,
-              Self::Attachments: FBOAttachments,
-              A: AttachmentType<Format=C>
-    {
-        struct AttachmentRefMatcher<'a, A: 'a> {
-            ptr: *const (),
-            valid: &'a mut bool,
-            color_index: &'a mut Option<u8>,
-            color_index_wip: u8,
-            attachments: &'a A
-        }
-        impl<'a, A: Attachments> AttachmentsMemberRegistryNoSpecifics for AttachmentRefMatcher<'a, A> {
-            type Attachments = A;
-            fn add_member<At: AttachmentType>(&mut self, _: &str, get_member: impl FnOnce(&A) -> &At) {
-                if !*self.valid {
-                    let image_type = <At::Format as ImageFormatRenderable>::FormatType::FORMAT_TYPE;
-                    if get_member(self.attachments) as *const _ as *const () == self.ptr {
-                        if image_type == FormatTypeTag::Color {
-                            *self.color_index = Some(self.color_index_wip);
-                        }
-                        *self.valid = true;
-                    }
-
-                    if image_type == FormatTypeTag::Color {
-                        self.color_index_wip += 1;
-                    }
-                }
-            }
-        }
-        let (raw, arm, state) = self.raw_mut();
-
-        let mut valid = false;
-        let mut color_index = None;
-        Self::Attachments::members(AMRNSImpl(AttachmentRefMatcher {
-            ptr: get_attachment(arm.attachments).resolve_reference(),
-            valid: &mut valid,
-            color_index: &mut color_index,
-            color_index_wip: 0,
-            attachments: arm.attachments
-        }));
-        if !valid {
-            panic!("get_attachment returned attachment that wasn't in bound Attachments")
-        }
-        unsafe {
-            let mut framebuffer_bind = state.framebuffer_targets.read.bind(raw, &state.gl);
-            if let Some(color_index) = color_index {
-                framebuffer_bind.read_color_attachment(color_index);
-            }
-            framebuffer_bind.set_attachments(arm.ahc, arm.attachments);
-            framebuffer_bind.read_pixels(read_rect, data);
-        }
-    }
-
+    /// Performs a single draw call.
+    ///
+    /// ## Parameters
+    /// * `mode`: The rendering primitive that the vertex array gets interpereted as. See the [`DrawMode`]
+    ///   documentation for more information.
+    /// * `range`: The range of vertices in the VAO that gets drawn. If the VAO has an index buffer, this is
+    ///   a range into that index array; otherwise, it's a range into the vertex buffer.
+    /// * `program`: The compiled program used to render the vertices.
+    /// * `uniform`: The uniforms used by the program. If the program has no uniforms, pass `()`.
+    /// * `render_state`: The state parameters used to control rendering.
     #[inline]
     fn draw<R, V, I, U>(
         &mut self,
@@ -258,6 +210,19 @@ impl FramebufferDefault {
             None
         }
     }
+
+    /// Reads pixels from the default framebuffer
+    #[inline]
+    pub fn read_pixels<C>(&mut self, read_rect: OffsetBox<D2, u32>, data: &mut [C])
+        where C: ImageFormatRenderable + ConcreteImageFormat
+    {
+        let (raw, arm, state) = self.raw_mut();
+        unsafe {
+            let mut framebuffer_bind = state.framebuffer_targets.read.bind(raw, &state.gl);
+            framebuffer_bind.set_attachments(arm.ahc, arm.attachments);
+            framebuffer_bind.read_pixels(read_rect, data);
+        }
+    }
 }
 
 impl<A: FBOAttachments> FramebufferObject<A> {
@@ -275,6 +240,94 @@ impl<A: FBOAttachments> FramebufferObject<A> {
             raw,
             handles: A::AHC::new_zeroed(),
             state
+        }
+    }
+}
+
+impl<A, F> FramebufferObjectAttached<A, F>
+    where A: FBOAttachments,
+          A::Static: FBOAttachments,
+          F: BorrowMut<FramebufferObject<A::Static>>
+{
+    fn map_attachment_to_index<At>(&self, attachment: &At) -> Option<u8>
+        where At: AttachmentType
+    {
+        struct AttachmentRefMatcher<'a, A: 'a> {
+            ptr: *const (),
+            valid: &'a mut bool,
+            color_index: &'a mut Option<u8>,
+            color_index_wip: u8,
+            attachments: &'a A
+        }
+        impl<'a, A: Attachments> AttachmentsMemberRegistryNoSpecifics for AttachmentRefMatcher<'a, A> {
+            type Attachments = A;
+            fn add_member<At: AttachmentType>(&mut self, _: &str, get_member: impl FnOnce(&A) -> &At) {
+                if !*self.valid {
+                    let image_type = <At::Format as ImageFormatRenderable>::FormatType::FORMAT_TYPE;
+                    if get_member(self.attachments) as *const _ as *const () == self.ptr {
+                        if image_type == FormatTypeTag::Color {
+                            *self.color_index = Some(self.color_index_wip);
+                        }
+                        *self.valid = true;
+                    }
+
+                    if image_type == FormatTypeTag::Color {
+                        self.color_index_wip += 1;
+                    }
+                }
+            }
+        }
+
+        let mut valid = false;
+        let mut color_index = None;
+        <Self as Framebuffer>::Attachments::members(AMRNSImpl(AttachmentRefMatcher {
+            ptr: attachment.resolve_reference(),
+            valid: &mut valid,
+            color_index: &mut color_index,
+            color_index_wip: 0,
+            attachments: &self.attachments
+        }));
+
+        if !valid {
+            panic!("get_attachment returned attachment that wasn't in bound Attachments")
+        }
+
+        color_index
+    }
+
+    #[inline]
+    pub fn read_pixels_attachment<C, At>(
+        &mut self,
+        read_rect: OffsetBox<D2, u32>,
+        data: &mut [C],
+        get_attachment: impl FnOnce(&<Self as Framebuffer>::Attachments) -> &At
+    )
+        where C: ImageFormatRenderable + ConcreteImageFormat,
+              At: AttachmentType<Format=C>
+    {
+        let color_index = self.map_attachment_to_index(get_attachment(&self.attachments));
+        let (raw, arm, state) = self.raw_mut();
+        unsafe {
+            let mut framebuffer_bind = state.framebuffer_targets.read.bind(raw, &state.gl);
+            if let Some(color_index) = color_index {
+                framebuffer_bind.read_color_attachment(color_index);
+            }
+            framebuffer_bind.set_attachments(arm.ahc, arm.attachments);
+            framebuffer_bind.read_pixels(read_rect, data);
+        }
+    }
+
+    pub fn clear_color_attachment<At: AttachmentType>(
+        &mut self,
+        color: Rgba<f32>,
+        get_attachment: impl FnOnce(&<Self as Framebuffer>::Attachments) -> &At
+    ) {
+        let color_index = self.map_attachment_to_index(get_attachment(&self.attachments)).expect("Provided attachment not color attachment");
+        let (raw_mut, arm, state) = self.raw_mut();
+        unsafe {
+            let mut framebuffer_bind = state.framebuffer_targets.draw.bind(raw_mut, &state.gl);
+            framebuffer_bind.set_attachments(arm.ahc, arm.attachments);
+            framebuffer_bind.clear_color(color, color_index);
         }
     }
 }
