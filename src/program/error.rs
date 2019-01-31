@@ -16,6 +16,7 @@
 
 use glsl::TypeTag;
 
+use std::io;
 use std::error::Error;
 use std::fmt::{self, Display};
 
@@ -83,6 +84,8 @@ impl Display for MismatchedTypeError {
     }
 }
 
+impl Error for ProgramError {}
+
 impl Display for ProgramError {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         use self::ProgramError::*;
@@ -122,5 +125,23 @@ impl Error for ShaderError {
 impl Error for LinkError {
     fn description(&self) -> &str {
         &self.0
+    }
+}
+
+impl From<ShaderError> for io::Error {
+    fn from(e: ShaderError) -> io::Error {
+        io::Error::new(io::ErrorKind::InvalidData, e)
+    }
+}
+
+impl From<LinkError> for io::Error {
+    fn from(e: LinkError) -> io::Error {
+        io::Error::new(io::ErrorKind::InvalidData, e)
+    }
+}
+
+impl From<ProgramError> for io::Error {
+    fn from(e: ProgramError) -> io::Error {
+        io::Error::new(io::ErrorKind::InvalidData, e)
     }
 }
