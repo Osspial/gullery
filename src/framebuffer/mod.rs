@@ -385,6 +385,16 @@ impl Framebuffer for FramebufferDefault {
             &self.state
         )
     }
+
+    #[inline]
+    fn clear_color_all(&mut self, color: Rgba<f32>) {
+        let (raw_mut, arm, state) = self.raw_mut();
+        unsafe {
+            let mut framebuffer_bind = state.framebuffer_targets.draw.bind(raw_mut, &state.gl);
+            framebuffer_bind.set_attachments(arm.ahc, arm.attachments);
+            framebuffer_bind.clear_color_all(color, 0);
+        }
+    }
 }
 
 impl<A, F> Framebuffer for FramebufferObjectAttached<A, F>
