@@ -19,6 +19,7 @@ use cgmath::{Vector1, Vector2, Vector3, Vector4, Point1, Point2, Point3, Matrix2
 use cgmath_geometry::Dimensionality;
 use glsl::{TypeTag, TransparentType};
 use texture::{ImageUnits, Texture, Sampler, TextureType};
+use image_format::{Red, Rg, Rgb, Rgba};
 
 pub struct TextureUniformBinder<'a> {
     pub(crate) image_units: &'a ImageUnits,
@@ -147,6 +148,37 @@ impl_glsl_type_uniform!{
     Point1<i32>, (p, loc, gl) => gl.Uniform1i(loc, p.x),
     Point2<i32>, (p, loc, gl) => gl.Uniform2i(loc, p.x, p.y),
     Point3<i32>, (p, loc, gl) => gl.Uniform3i(loc, p.x, p.y, p.z),
+
+    Rgba<f32>, (c, loc, gl) => gl.Uniform4f(loc, c.r, c.g, c.b, c.a),
+    Rgba<u8>, (c, loc, gl) => gl.Uniform4f(loc, c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0, c.a as f32 / 255.0),
+    Rgba<u16>, (c, loc, gl) => gl.Uniform4f(loc, c.r as f32 / 65536.0, c.g as f32 / 65536.0, c.b as f32 / 65536.0, c.a as f32 / 65536.0),
+    Rgba<u32>, (c, loc, gl) => gl.Uniform4f(loc,
+        (c.r as f64 / u32::max_value() as f64) as f32,
+        (c.g as f64 / u32::max_value() as f64) as f32,
+        (c.b as f64 / u32::max_value() as f64) as f32,
+        (c.a as f64 / u32::max_value() as f64) as f32,
+    ),
+    Rgb<f32>, (c, loc, gl) => gl.Uniform3f(loc, c.r, c.g, c.b),
+    Rgb<u8>, (c, loc, gl) => gl.Uniform3f(loc, c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0),
+    Rgb<u16>, (c, loc, gl) => gl.Uniform3f(loc, c.r as f32 / 65536.0, c.g as f32 / 65536.0, c.b as f32 / 65536.0),
+    Rgb<u32>, (c, loc, gl) => gl.Uniform3f(loc,
+        (c.r as f64 / u32::max_value() as f64) as f32,
+        (c.g as f64 / u32::max_value() as f64) as f32,
+        (c.b as f64 / u32::max_value() as f64) as f32,
+    ),
+    Rg<f32>, (c, loc, gl) => gl.Uniform2f(loc, c.r, c.g),
+    Rg<u8>, (c, loc, gl) => gl.Uniform2f(loc, c.r as f32 / 255.0, c.g as f32 / 255.0),
+    Rg<u16>, (c, loc, gl) => gl.Uniform2f(loc, c.r as f32 / 65536.0, c.g as f32 / 65536.0),
+    Rg<u32>, (c, loc, gl) => gl.Uniform2f(loc,
+        (c.r as f64 / u32::max_value() as f64) as f32,
+        (c.g as f64 / u32::max_value() as f64) as f32,
+    ),
+    Red<f32>, (c, loc, gl) => gl.Uniform1f(loc, c.r),
+    Red<u8>, (c, loc, gl) => gl.Uniform1f(loc, c.r as f32 / 255.0),
+    Red<u16>, (c, loc, gl) => gl.Uniform1f(loc, c.r as f32 / 65536.0),
+    Red<u32>, (c, loc, gl) => gl.Uniform1f(loc,
+        (c.r as f64 / u32::max_value() as f64) as f32,
+    ),
 }
 
 macro_rules! impl_ulc_array {
