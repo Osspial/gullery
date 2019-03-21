@@ -29,6 +29,8 @@ pub(crate) struct RenderbufferTarget(RawRenderbufferTarget);
 ///
 /// It may be faster to render to this than render to a [`Texture`]. However, this cannot be
 /// resampled by a shader - if that's necessary, a [`Texture`] should be used.
+///
+/// [`Texture`]: ../texture/struct.Texture.html
 pub struct Renderbuffer<I: ImageFormatRenderable> {
     raw: RawRenderbuffer,
     samples: u32,

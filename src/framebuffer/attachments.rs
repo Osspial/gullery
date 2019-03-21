@@ -1,3 +1,19 @@
+// Copyright 2018 Osspial
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Framebuffer attachment traits.
+
 use texture::{Texture, TextureType, MipSelector};
 use image_format::{FormatType, ImageFormatRenderable, FormatTypeTag};
 use framebuffer::Renderbuffer;
@@ -5,8 +21,11 @@ use std::marker::PhantomData;
 use cgmath_geometry::Dimensionality;
 use {Handle, GLObject};
 
+/// A Rust type that can be used as a [`FramebufferObject`] attachment.
+///
+/// This is automatically implemented for all `&mut impl AttachmentType`s, which allows you to pass
+/// attachment types by reference.
 pub trait AttachmentType: GLObject {
-    const TARGET_TYPE: AttachmentTargetType;
     type Format: ?Sized + ImageFormatRenderable;
     type MipSelector: MipSelector;
 
@@ -28,9 +47,12 @@ pub trait AttachmentType: GLObject {
     }
 }
 
-/// A collection of `AttachmentTypes`. Should be derived.
+/// A collection of `AttachmentType`s. Should be derived.
 ///
-/// TODO: EXPLAIN MORE.
+/// This is used to associate the following with a [`FramebufferObject`]:
+/// - Color outputs, for shaders
+/// - Depth attachments, for the depth test
+/// - Stencil attachments, for the stencil test
 pub trait Attachments: Sized {
     type AHC: AttachmentHandleContainer;
     type Static: 'static + Attachments<AHC=Self::AHC>;
@@ -83,19 +105,17 @@ pub trait Attachments: Sized {
     }
 }
 
-pub unsafe trait FBOAttachments: Attachments {}
-pub unsafe trait FramebufferDefaultAttachments: Attachments {}
-
+/// Container of raw OpenGL attachment handles.
+///
+/// Can generally be ignored by the end user. Is used as optimization for reducing the number
+/// of state-change calls to OpenGL.
 pub trait AttachmentHandleContainer: AsRef<[Option<Handle>]> + AsMut<[Option<Handle>]> {
     fn new_zeroed() -> Self;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum AttachmentTargetType {
-    Renderbuffer,
-    Texture
-}
-
+/// Mechanism for listing all attachments on an `Attachments` struct.
+///
+/// Gets called into by `Attachments::members`.
 pub trait AttachmentsMemberRegistry {
     type Attachments: Attachments;
     fn add_renderbuffer<I: ImageFormatRenderable>(
@@ -163,10 +183,8 @@ impl Attachments for () {
     fn members<R>(_reg: R)
         where R: AttachmentsMemberRegistry<Attachments=Self> {}
 }
-unsafe impl FramebufferDefaultAttachments for () {}
 
 impl<I: ImageFormatRenderable> AttachmentType for Renderbuffer<I> {
-    const TARGET_TYPE: AttachmentTargetType = AttachmentTargetType::Renderbuffer;
     type Format = I;
     type MipSelector = ();
 
@@ -182,7 +200,6 @@ impl<D, T> AttachmentType for Texture<D, T>
           T: TextureType<D>,
           T::Format: ImageFormatRenderable
 {
-    const TARGET_TYPE: AttachmentTargetType = AttachmentTargetType::Texture;
     type Format = T::Format;
     type MipSelector = T::MipSelector;
 
@@ -194,7 +211,6 @@ impl<D, T> AttachmentType for Texture<D, T>
 }
 
 impl<'a, A: 'a + AttachmentType> AttachmentType for &'a mut A {
-    const TARGET_TYPE: AttachmentTargetType = A::TARGET_TYPE;
     type Format = A::Format;
     type MipSelector = A::MipSelector;
 

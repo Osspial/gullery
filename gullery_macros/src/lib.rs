@@ -192,9 +192,6 @@ fn impl_attachments(derive_input: &DeriveInput) -> Tokens {
                 const #dummy_const: () = {
                     extern crate gullery as _gullery;
 
-                    #[automatically_derived]
-                    unsafe impl #impl_generics _gullery::framebuffer::attachments::FBOAttachments for #ident #ty_generics #where_clause {}
-
                     impl #impl_generics #ident #ty_generics #where_clause {
                         /// Check to see that we have at no more than one depth attachment type. If we do,
                         /// we fail to compile.

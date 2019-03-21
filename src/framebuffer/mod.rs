@@ -16,6 +16,12 @@
 //!
 //! If you want to draw to a window, use the [`FramebufferDefault`] type. If you want to create an
 //! in-memory framebuffer for off-screen drawing, use a [`FramebufferObject`] and[`FramebufferObjectAttached`].
+//!
+//! [`FramebufferDefault`]: ./struct.FramebufferDefault.html
+//! [`FramebufferObject`]: ./struct.FramebufferObject.html
+//! [`FramebufferObjectAttached`]: ./struct.FramebufferObjectAttached.html
+//! [`Renderbuffer`]: ./struct.Renderbuffer.html
+//! [`ImageFormatRenderable`]: ../image_format/trait.ImageFormatRenderable.html
 
 pub mod attachments;
 pub mod render_state;
@@ -58,15 +64,17 @@ pub struct FramebufferDefault {
     state: Rc<ContextState>
 }
 
-/// An off-screen framebuffer.
+/// An off-screen render-target collection.
 ///
 /// Note that this just creates the object to which rendering attachments are attached - you still
 /// need to allocate storage that the GPU can write to. This can be done by creating either a
-/// [`Renderbuffer`] or a [`Texture`] with a [renderable image format]. That storage is than
-/// attached to a `FramebufferObject` by populating the [`FramebufferObjectAttached`] struct with
-/// this `FramebufferObject` and an [`Attachments`] struct that references your desired render
-/// targets.
-pub struct FramebufferObject<A: 'static + FBOAttachments> {
+/// [`Renderbuffer`] or a [`Texture`] with a [renderable image format][`ImageFormatRenderable`].
+/// That storage is then attached to a [`FramebufferObject`] by populating the
+/// [`FramebufferObjectAttached`] struct with this [`FramebufferObject`] and an [`Attachments`]
+/// struct that references your desired render targets.
+///
+/// [`Texture`]: ../texture/struct.Texture.html
+pub struct FramebufferObject<A: 'static + Attachments> {
     raw: RawFramebufferObject,
     handles: A::AHC,
     state: Rc<ContextState>
@@ -74,8 +82,8 @@ pub struct FramebufferObject<A: 'static + FBOAttachments> {
 
 /// An off-screen framebuffer paired with a set of render targets.
 pub struct FramebufferObjectAttached<A, F=FramebufferObject<<A as Attachments>::Static>>
-    where A: FBOAttachments,
-          A::Static: FBOAttachments,
+    where A: Attachments,
+          A::Static: Attachments,
           F: BorrowMut<FramebufferObject<A::Static>>
 {
     pub fbo: F,
@@ -89,8 +97,8 @@ pub struct AttachmentsRefMut<'a, A: 'a + Attachments> {
 }
 
 impl<A, F> FramebufferObjectAttached<A, F>
-    where A: FBOAttachments,
-          A::Static: FBOAttachments,
+    where A: Attachments,
+          A::Static: Attachments,
           F: BorrowMut<FramebufferObject<A::Static>>
 {
     #[inline(always)]
@@ -116,6 +124,8 @@ pub trait Framebuffer {
     ///
     /// For the default framebuffer, this clears the window associated with said framebuffer. If you
     /// want to clear an individual color attachment, see [`clear_color_attachment`].
+    ///
+    /// [`clear_color_attachment`]: ./struct.FramebufferObjectAttached.html#method.clear_color_attachment
     #[inline]
     fn clear_color_all(&mut self, color: Rgba<f32>) {
         let (raw_mut, arm, state) = self.raw_mut();
@@ -225,7 +235,7 @@ impl FramebufferDefault {
     }
 }
 
-impl<A: FBOAttachments> FramebufferObject<A> {
+impl<A: Attachments> FramebufferObject<A> {
     pub fn new(state: Rc<ContextState>) -> FramebufferObject<A> {
         let mut raw = RawFramebufferObject::new(&state.gl);
         let mut draw_buffers = [0; 32];
@@ -245,8 +255,8 @@ impl<A: FBOAttachments> FramebufferObject<A> {
 }
 
 impl<A, F> FramebufferObjectAttached<A, F>
-    where A: FBOAttachments,
-          A::Static: FBOAttachments,
+    where A: Attachments,
+          A::Static: Attachments,
           F: BorrowMut<FramebufferObject<A::Static>>
 {
     fn map_attachment_to_index<At>(&self, attachment: &At) -> Option<u8>
@@ -332,7 +342,7 @@ impl<A, F> FramebufferObjectAttached<A, F>
     }
 }
 
-impl<A: FBOAttachments> Drop for FramebufferObject<A> {
+impl<A: Attachments> Drop for FramebufferObject<A> {
     fn drop(&mut self) {
         let mut fbo = unsafe{ mem::uninitialized() };
         mem::swap(&mut fbo, &mut self.raw);
@@ -398,8 +408,8 @@ impl Framebuffer for FramebufferDefault {
 }
 
 impl<A, F> Framebuffer for FramebufferObjectAttached<A, F>
-    where A: FBOAttachments,
-          A::Static: FBOAttachments,
+    where A: Attachments,
+          A::Static: Attachments,
           F: BorrowMut<FramebufferObject<A::Static>>
 {
     type Attachments = A;
