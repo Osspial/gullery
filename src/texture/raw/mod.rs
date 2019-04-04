@@ -609,7 +609,7 @@ impl<'a, D, T> RawBoundTextureMut<'a, D, T>
           T: ?Sized + TextureType<D>
 {
     #[inline]
-    pub fn swizzle_mask(&mut self, r: Swizzle, g: Swizzle, b: Swizzle, a: Swizzle) {
+    pub fn swizzle_read(&mut self, r: Swizzle, g: Swizzle, b: Swizzle, a: Swizzle) {
         let mask = [
             GLenum::from(r) as i32,
             GLenum::from(g) as i32,

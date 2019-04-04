@@ -147,7 +147,7 @@ fn main() {
             ..RenderState::default()
         };
 
-        depth_texture.swizzle_mask(Rgba::new(Swizzle::Red, Swizzle::Red, Swizzle::Red, Swizzle::One));
+        depth_texture.read_swizzle(Rgba::new(Swizzle::Red, Swizzle::Red, Swizzle::Red, Swizzle::One));
 
         let mut default_framebuffer = FramebufferDefault::new(state.clone()).unwrap();
         events_loop.run_forever(|event| {

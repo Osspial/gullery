@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Textures and texture samplers.
+
 #[macro_use]
 pub mod sample_parameters;
 mod raw;
@@ -40,6 +42,8 @@ pub use self::raw::{
 use cgmath_geometry::{Dimensionality, D1, D2, D3};
 
 
+/// OpenGL Texture object.
+// This is repr C in order to guarantee that the `to_dyn` casts work.
 #[repr(C)]
 pub struct Texture<D, T>
     where D: Dimensionality<u32>,
@@ -111,7 +115,12 @@ impl<D, T> Texture<D, T>
           T: TextureType<D>,
           T::Format: ConcreteImageFormat
 {
-    pub fn new(dims: T::Dims, mips: T::MipSelector, state: Rc<ContextState>) -> Result<Texture<D, T>, TexCreateError<D, T>> {
+    /// Creates a new texture with the given number of mipmaps, without uploading any data to the
+    /// GPU.
+    ///
+    /// The exact data in the texture is unspecified, and shouldn't be relied on to be any specific
+    /// value.
+    pub fn new(dims: T::Dims, mip_levels: T::MipSelector, state: Rc<ContextState>) -> Result<Texture<D, T>, TexCreateError<D, T>> {
         let max_size = match T::IS_ARRAY {
             false => T::Dims::max_size(&state),
             true => T::Dims::max_size_array(&state).expect("Tried to create Array texture with nonarray dims type")
@@ -130,7 +139,7 @@ impl<D, T> Texture<D, T>
         {
             let last_unit = state.image_units.0.num_units() - 1;
             let mut bind = unsafe{ state.image_units.0.bind_texture_mut(last_unit, &mut raw, &state.gl) };
-            for level in mips.iter_less() {
+            for level in mip_levels.iter_less() {
                 bind.alloc_image::<!>(level, None);
             }
         }
@@ -141,7 +150,13 @@ impl<D, T> Texture<D, T>
         })
     }
 
-    pub fn with_images<'a, I, J>(dims: T::Dims, images: J, state: Rc<ContextState>) -> Result<Texture<D, T>, TexCreateError<D, T>>
+    /// Creates a new texture with the given images.
+    ///
+    /// Each image in the `image_mips` iterator is assigned to a mipmap level. As such, each image
+    /// must be half the size rounded down on an axis compared to the previous image, with the
+    /// minimal size on a given axis being `1`. For example, `[32x8, 16x4, 8x2, 4x1, 2x1, 1x1]`
+    /// would be a valid set of image sizes, but `[16x8, 16x4, 8x2, 4x1, 2x1, 1x1]` would not.
+    pub fn with_images<'a, I, J>(dims: T::Dims, image_mips: J, state: Rc<ContextState>) -> Result<Texture<D, T>, TexCreateError<D, T>>
         where T: TextureType<D, MipSelector=u8>,
               I: Image<'a, D, T>,
               J: IntoIterator<Item=I>
@@ -167,7 +182,7 @@ impl<D, T> Texture<D, T>
             let last_unit = state.image_units.0.num_units() - 1;
             let mut bind = unsafe{ state.image_units.0.bind_texture_mut(last_unit, &mut raw, &state.gl) };
 
-            for (level, image) in images.into_iter().enumerate() {
+            for (level, image) in image_mips.into_iter().enumerate() {
                 bind.alloc_image(level as u8, Some(image));
             }
 
@@ -183,12 +198,12 @@ impl<D, T> Texture<D, T>
     }
 
     #[inline]
-    pub fn sub_image<'a, I>(&mut self, level: T::MipSelector, offset: <T::Dims as Dims>::Offset, sub_dims: T::Dims, image: I)
+    pub fn sub_image<'a, I>(&mut self, mip_level: T::MipSelector, offset: <T::Dims as Dims>::Offset, sub_dims: T::Dims, image: I)
         where I: Image<'a, D, T>
     {
         let last_unit = self.state.image_units.0.num_units() - 1;
         let mut bind = unsafe{ self.state.image_units.0.bind_texture_mut(last_unit, &mut self.raw, &self.state.gl) };
-        bind.sub_image(level, offset, sub_dims, image);
+        bind.sub_image(mip_level, offset, sub_dims, image);
     }
 }
 
@@ -196,35 +211,118 @@ impl<D, T> Texture<D, T>
     where D: Dimensionality<u32>,
           T: ?Sized + TextureType<D>,
 {
+    /// The number of mipmap levels the texture has.
     #[inline]
     pub fn num_mips(&self) -> u8 {
         self.raw.num_mips()
     }
 
+    /// The dimensions of the texture.
     #[inline]
     pub fn dims(&self) -> T::Dims {
         self.raw.dims()
     }
 
+    /// Sets the swizzle parameters for when a shader reads from a texture.
+    ///
+    /// Swizzling lets you change what values a shader reads from a particular texture channel without
+    /// actually changing the texture data or the shader. To illustrate, let's imagine you had a 4-bit
+    /// 2x2 single-channel image with the following values:
+    ///
+    /// ```text
+    /// 0 5
+    /// A F
+    /// ```
+    ///
+    /// No matter how many channels the source image has, shaders will *always* read four-channel RGBA
+    /// values from textures. In this case, when a shader reads our single-channel image, the default
+    /// behavior is to read the single channel as the red channel, and any other (missing) color
+    /// channel as `0`. This would result in a red image getting shown to the user when read from the
+    /// shader:
+    ///
+    /// ```text
+    /// rgba rgba
+    /// 000F 500F
+    /// A00F F00F
+    /// ```
+    ///
+    /// However, single-channel images are often used for non-red images - as alpha masks or grayscale
+    /// images, for example. One could modify the shader to re-assign color channels on the GPU, but
+    /// in some circumstances it can be easier to set swizzle parameters for the texture, such as when
+    /// the shader is also being used with multi-channel textures.
+    ///
+    /// ## Examples
+    ///
+    /// These example assume we're using the above single-channel image.
+    ///
+    /// If you want to read a single-channel image as grayscale, you can set the swizzle parameters to
+    /// `Rgba::new(Swizzle::Red, Swizzle::Red, Swizzle::Red, Swizzle::Alpha)`. That will result in the
+    /// shader reading out the following values:
+    ///
+    /// ```text
+    /// rgba rgba
+    /// 000F 555F
+    /// AAAF FFFF
+    /// ```
+    ///
+    /// Alternatively, if you want to read a single-channel image as an alpha mask, you can set the
+    /// swizzle parameters to `Rgba::new(Swizzle::One, Swizzle::One, Swizzle::One, Swizzle::Red)`. That
+    /// will result in the shader reading out the following values:
+    ///
+    /// ```text
+    /// rgba rgba
+    /// FFF0 FFF5
+    /// FFFA FFFF
+    /// ```
     #[inline]
-    pub fn swizzle_mask(&mut self, mask: Rgba<Swizzle>) {
+    pub fn swizzle_read(&mut self, mask: Rgba<Swizzle>) {
         let last_unit = self.state.image_units.0.num_units() - 1;
         let mut bind = unsafe{ self.state.image_units.0.bind_texture_mut(last_unit, &mut self.raw, &self.state.gl) };
-        bind.swizzle_mask(mask.r, mask.g, mask.b, mask.a);
+        bind.swizzle_read(mask.r, mask.g, mask.b, mask.a);
     }
 
+    /// Returns a reference to this texture with the concrete texture type erased.
+    ///
+    /// Ideally this function wouldn't be necessary, and you'd be able to do this:
+    ///
+    /// ```
+    /// let texture: Texture<D2, Rgba> = /* create texture */;
+    /// let texture_dyn = &texture as &Texture<D2, dyn ImageFormat<_>>;
+    /// ```
+    ///
+    /// However, `CoreceUnsized` is not currently stable so we can't.
     #[inline]
     pub fn as_dyn(&self) -> &Texture<D, T::Dyn> {
         assert_eq!(mem::size_of::<Texture<D, T>>(), mem::size_of::<Texture<D, T::Dyn>>());
         unsafe{ &*(self as *const Texture<D, T> as *const Texture<D, T::Dyn>) }
     }
 
+    /// Returns a mutable reference to this texture with the concrete texture type erased.
+    ///
+    /// Ideally this function wouldn't be necessary, and you'd be able to do this:
+    ///
+    /// ```
+    /// let texture: Texture<D2, Rgba> = /* create texture */;
+    /// let texture_dyn = &mut texture as &mut Texture<D2, dyn ImageFormat<_>>;
+    /// ```
+    ///
+    /// However, `CoreceUnsized` is not currently stable so we can't.
     #[inline]
     pub fn as_dyn_mut(&mut self) -> &mut Texture<D, T::Dyn> {
         assert_eq!(mem::size_of::<Texture<D, T>>(), mem::size_of::<Texture<D, T::Dyn>>());
         unsafe{ &mut *(self as *mut Texture<D, T> as *mut Texture<D, T::Dyn>) }
     }
 
+    /// Returns a texture with the concrete texture type erased.
+    ///
+    /// Ideally this function wouldn't be necessary, and you'd be able to do this:
+    ///
+    /// ```
+    /// let texture: Texture<D2, Rgba> = /* create texture */;
+    /// let texture_dyn = texture as Texture<D2, dyn ImageFormat<_>>;
+    /// ```
+    ///
+    /// However, `CoreceUnsized` is not currently stable so we can't.
     #[inline]
     pub fn into_dyn(self) -> Texture<D, T::Dyn> {
         assert_eq!(mem::size_of::<Texture<D, T>>(), mem::size_of::<Texture<D, T::Dyn>>());
@@ -233,6 +331,17 @@ impl<D, T> Texture<D, T>
         tex
     }
 
+    /// Returns a reference to this texture with the concrete texture type erased, that's usable as
+    /// a render target.
+    ///
+    /// Ideally this function wouldn't be necessary, and you'd be able to do this:
+    ///
+    /// ```
+    /// let texture: Texture<D2, Rgba> = /* create texture */;
+    /// let texture_dyn = &texture as &Texture<D2, dyn ImageFormatRenderable<_>>;
+    /// ```
+    ///
+    /// However, `CoreceUnsized` is not currently stable so we can't.
     #[inline]
     pub fn as_dyn_renderable(&self) -> &Texture<D, T::DynRenderable>
         where T: TextureTypeRenderable<D>
@@ -241,6 +350,17 @@ impl<D, T> Texture<D, T>
         unsafe{ &*(self as *const Texture<D, T> as *const Texture<D, T::DynRenderable>) }
     }
 
+    /// Returns a mutable renderable reference to this texture with the concrete texture type erased,
+    /// that's usable as a render target.
+    ///
+    /// Ideally this function wouldn't be necessary, and you'd be able to do this:
+    ///
+    /// ```
+    /// let texture: Texture<D2, Rgba> = /* create texture */;
+    /// let texture_dyn = &mut texture as &Texture<D2, dyn ImageFormatRenderable<_>>;
+    /// ```
+    ///
+    /// However, `CoreceUnsized` is not currently stable so we can't.
     #[inline]
     pub fn as_dyn_renderable_mut(&mut self) -> &mut Texture<D, T::DynRenderable>
         where T: TextureTypeRenderable<D>
@@ -249,6 +369,17 @@ impl<D, T> Texture<D, T>
         unsafe{ &mut *(self as *mut Texture<D, T> as *mut Texture<D, T::DynRenderable>) }
     }
 
+    /// Returns a renderable texture with the concrete texture type erased, that's usable as a render
+    /// target.
+    ///
+    /// Ideally this function wouldn't be necessary, and you'd be able to do this:
+    ///
+    /// ```
+    /// let texture: Texture<D2, Rgba> = /* create texture */;
+    /// let texture_dyn = texture as Texture<D2, dyn ImageFormatRenderable<_>>;
+    /// ```
+    ///
+    /// However, `CoreceUnsized` is not currently stable so we can't.
     #[inline]
     pub fn into_dyn_renderable(self) -> Texture<D, T::DynRenderable>
         where T: TextureTypeRenderable<D>

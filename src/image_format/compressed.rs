@@ -22,7 +22,7 @@
 //! data can be tricky to figure out if you don't know where you're supposed to look. If you're
 //! just getting started with graphics programming the [NVIDIA Texture Compression tools][nvidia]
 //! let you compress raw image data to several GPU formats which gullery can use with the types
-//! in this module. These generate DDS files, which can either e loaded manually or with the DDS
+//! in this module. These generate DDS files, which can either be loaded manually or with the DDS
 //! crate of your choice.
 //!
 //! [nvidia]: https://developer.nvidia.com/gpu-accelerated-texture-compression

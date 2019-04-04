@@ -4,11 +4,17 @@ use image_format::Rgba;
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Swizzle {
+    /// The red channel of the image.
     Red,
+    /// The green channel of the image, or `0` if it has no green channel.
     Green,
+    /// The blue channel of the image, or `0` if it has no green channel.
     Blue,
+    /// The alpha channel of the image, or `1` if it has no green channel.
     Alpha,
+    /// Always `0`.
     Zero,
+    /// Always `1`.
     One,
 }
 
