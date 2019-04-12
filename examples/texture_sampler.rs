@@ -96,7 +96,7 @@ fn main() {
     ], state.clone());
     let vao = VertexArrayObject::new(vertex_buffer, Some(index_buffer));
     println!("vao created");
-    let ferris_normal_texture = load_texture_from_file("./examples/textures/ferris.png", &state).unwrap();
+    let ferris_normal_texture = load_texture_from_file("./examples/textures/ferris_normal.png", &state).unwrap();
     let ferris_happy_texture = load_texture_from_file("./examples/textures/ferris_happy.png", &state).unwrap();
     let mut sampler = Sampler::new(state.clone());
     sampler.sample_parameters.filter_mag = FilterMag::Nearest;

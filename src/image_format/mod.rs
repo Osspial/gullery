@@ -43,14 +43,14 @@ macro_rules! impl_slice_conversions {
         #[inline(always)]
         pub fn slice_from_raw(raw: &[$ty]) -> &[Self] {
             let size = Self::size();
-            assert_eq!(0, raw.len() % size);
+            assert_eq!(0, raw.len() % size, "raw slice length not multiple of {}", size);
             unsafe{ ::std::slice::from_raw_parts(raw.as_ptr() as *const Self, raw.len() / size) }
         }
 
         #[inline(always)]
         pub fn slice_from_raw_mut(raw: &mut [$ty]) -> &mut [Self] {
             let size = Self::size();
-            assert_eq!(0, raw.len() % size);
+            assert_eq!(0, raw.len() % size, "raw slice length not multiple of {}", size);
             unsafe{ ::std::slice::from_raw_parts_mut(raw.as_mut_ptr() as *mut Self, raw.len() / size) }
         }
 

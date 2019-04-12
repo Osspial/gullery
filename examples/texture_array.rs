@@ -87,15 +87,19 @@ fn main() {
     ], state.clone());
     let vao = VertexArrayObject::new(vertex_buffer, Some(index_buffer));
     println!("vao created");
-    let (ferris_happy_image, ferris_happy_dims) = load_image_from_file("./examples/textures/ferris_happy.png").unwrap();
+    let (ferris_normal_image, ferris_normal_dims) = load_image_from_file("./examples/textures/ferris_normal.png").unwrap();
     let (ferris_gesture_image, ferris_gesture_dims) = load_image_from_file("./examples/textures/ferris_gesture.png").unwrap();
+    let (ferris_happy_image, ferris_happy_dims) = load_image_from_file("./examples/textures/ferris_happy.png").unwrap();
     assert_eq!(ferris_happy_dims, ferris_gesture_dims);
-    let mut image_combined = ferris_happy_image.clone();
+    assert_eq!(ferris_happy_dims, ferris_normal_dims);
+    let mut image_combined = Vec::new();
+    image_combined.extend_from_slice(&ferris_normal_image);
     image_combined.extend_from_slice(&ferris_gesture_image);
+    image_combined.extend_from_slice(&ferris_happy_image);
 
     println!("texture loaded");
     let ferris_texture: Texture<D2, ArrayTex<SRgba>> = Texture::with_images(
-        DimsBox::new3(ferris_happy_dims.width(), ferris_happy_dims.height(), 2),
+        DimsBox::new3(ferris_happy_dims.width(), ferris_happy_dims.height(), 3),
         Some(SRgba::slice_from_raw(&image_combined)),
         state.clone()
     ).unwrap();

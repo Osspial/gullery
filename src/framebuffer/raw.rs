@@ -202,7 +202,8 @@ impl<'a, F> RawBoundFramebufferRead<'a, F>
     pub(crate) fn read_pixels<C: ImageFormatRenderable + ConcreteImageFormat>(&self, read_rect: OffsetBox<D2, u32>, data: &mut [C]) {
         // TODO: STENCIL AND DEPTH SUPPORT
         // TODO: GL_PIXEL_PACK_BUFFER SUPPORT
-        assert_eq!((read_rect.width() * read_rect.height()) as usize, data.len());
+        let read_len = (read_rect.width() * read_rect.height()) as usize;
+        assert_eq!(read_len, data.len(), "expected buffer of length {}, but got buffer of length {}", read_len, data.len());
         assert!(read_rect.origin.x as i32 >= 0);
         assert!(read_rect.origin.y as i32 >= 0);
         assert!(read_rect.width() as i32 >= 0);

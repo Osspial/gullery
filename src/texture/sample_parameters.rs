@@ -1,6 +1,7 @@
 use gl::{self, types::*};
 use image_format::Rgba;
 
+/// Value read from texture, when swizzled.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Swizzle {
@@ -18,45 +19,100 @@ pub enum Swizzle {
     One,
 }
 
+/// The function used to sample from a minified texture.
+///
+/// Corresponds to `GL_TEXTURE_MIN_FILTER`.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FilterMin {
+    /// Use nearest-neighbor filtering.
     Nearest,
+    /// Weighted average of the four nearest texels.
     Linear,
+    /// Choose the mipmap that most closely matches the texture's on-screen size, and perform
+    /// [`Nearest`] filtering on that mipmap.
+    ///
+    /// [`Nearest`]: ./enum.FilterMin.html#variant.Nearest
     NearestMipNearest,
+    /// Choose the mipmap that most closely matches the texture's on-screen size, and perform
+    /// [`Linear`] filtering on that mipmap.
+    ///
+    /// [`Linear`]: ./enum.FilterMin.html#variant.Linear
     LinearMipNearest,
+    /// **Default value.** Choose the two mipmaps that are closest to the texture's on-screen
+    /// size, perform [`Nearest`] filtering on each mipmap, then take the weighted average of the
+    /// two mipmaps.
+    ///
+    /// [`Nearest`]: ./enum.FilterMin.html#variant.Nearest
     NearestMipLinear,
-    LinearMipLinear
+    /// Choose the two mipmaps that are closest to the texture's on-screen size, perform [`Linear`]
+    /// filtering on each mipmap, then take the weighted average of the two mipmaps.
+    ///
+    /// [`Linear`]: ./enum.FilterMin.html#variant.Linear
+    LinearMipLinear,
 }
 
+/// The function used to sample from a magnified texture.
+///
+/// Corresponds to `GL_TEXTURE_MAG_FILTER`.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FilterMag {
+    /// Use nearest-neighbor filtering.
     Nearest,
-    Linear
+    /// **Default value.** Weighted average of the four nearest texels.
+    Linear,
 }
 
+/// The sampling behavior used for coordinates that fall outside of the `0.0..=1.0` range.
+///
+/// Corresponds to `GL_TEXTURE_WRAP_{axis}`, where `{axis}` is the `s`, `t`, or `r` axis in
+/// [`TextureWrap`].
+///
+/// All example images are based off of this base image:
+///
+/// ![special thanks to @carols10cents for this plush](https://i.imgur.com/1HEpS2Z.png)
+///
+/// [`TextureWrap`]: ./struct.TextureWrap.html
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TextureWrapAxis {
+    /// Tile the underyling texture:
+    ///
+    /// ![](https://i.imgur.com/zZqkS3k.png)
     Repeat,
+    /// Tiles the underyling image, mirroring the image on each tile:
+    ///
+    /// ![](https://i.imgur.com/VUzgqiR.png)
     RepeatMirrored,
+    /// Samples the edge pixel of the image:
+    ///
+    /// ![](https://i.imgur.com/aU56aWT.png)
     ClampToEdge,
     // ClampToBorder,
 }
 
+/// Specifies the texture's wrapping behavior on each of its axes.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TextureWrap {
+    /// Wrap behavior along the texture's horizontal axis.
     pub s: TextureWrapAxis,
+    /// Wrap behavior along the texture's vertical axis.
     pub t: TextureWrapAxis,
-    pub r: TextureWrapAxis
+    /// Wrap behavior along the texture's depth axis.
+    pub r: TextureWrapAxis,
 }
 
+/// Collection of parameters that control how a texture gets sampled.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SampleParameters {
+    /// The texture's minification filter.
     pub filter_min: FilterMin,
+    /// The texture's magnification filter.
     pub filter_mag: FilterMag,
+    /// The maximum number of samples used for [anisotropic filtering](https://en.wikipedia.org/wiki/Anisotropic_filtering).
     pub anisotropy_max: f32,
+    /// The texture's wrapping behavior on each axis.
     pub texture_wrap: TextureWrap,
     pub lod_min: f32,
     pub lod_max: f32,
@@ -67,7 +123,7 @@ pub struct SampleParameters {
 
 impl Default for FilterMin {
     #[inline(always)]
-    fn default() -> FilterMin {FilterMin::Linear}
+    fn default() -> FilterMin {FilterMin::NearestMipLinear}
 }
 
 impl Default for FilterMag {

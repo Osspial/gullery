@@ -76,16 +76,16 @@ fn main() {
     println!("vao created");
     let (ferris_image, ferris_dims) = {
         use std::fs::File;
-        let decoder = png::Decoder::new(File::open("./examples/textures/ferris.png").unwrap());
+        let decoder = png::Decoder::new(File::open("./examples/textures/ferris_plush.png").unwrap());
         let (info, mut reader) = decoder.read_info().unwrap();
         let mut buf = vec![0; info.buffer_size()];
         reader.next_frame(&mut buf).unwrap();
         (buf, DimsBox::new2(info.width, info.height))
     };
     println!("texture loaded");
-    let ferris_texture: Texture<D2, SRgba> = Texture::with_images(
+    let ferris_texture: Texture<D2, SRgb> = Texture::with_images(
         ferris_dims,
-        Some(SRgba::slice_from_raw(&ferris_image)),
+        Some(SRgb::slice_from_raw(&ferris_image)),
         state.clone()
     ).unwrap();
     println!("texture uploaded");
