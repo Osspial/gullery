@@ -403,9 +403,11 @@ pub trait ParameterUploader {
                 self.int(gl::TEXTURE_WRAP_T, GLenum::from(texture_wrap.t) as i32);
                 self.int(gl::TEXTURE_WRAP_R, GLenum::from(texture_wrap.r) as i32);
             };
-            lod_min => self.float(gl::TEXTURE_MIN_LOD, lod_min);
-            lod_max => self.float(gl::TEXTURE_MAX_LOD, lod_max);
-            lod_bias => self.float(gl::TEXTURE_LOD_BIAS, lod_bias);
+            lod => {
+                self.float(gl::TEXTURE_MIN_LOD, lod.min);
+                self.float(gl::TEXTURE_MAX_LOD, lod.max);
+                self.float(gl::TEXTURE_LOD_BIAS, lod.bias);
+            };
         }
         old_parameters_cell.set(parameters);
     }

@@ -92,7 +92,7 @@ pub enum TextureWrapAxis {
     // ClampToBorder,
 }
 
-/// Specifies the texture's wrapping behavior on each of its axes.
+/// The texture's wrapping behavior on each of its axes.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TextureWrap {
     /// Wrap behavior along the texture's horizontal axis.
@@ -101,6 +101,28 @@ pub struct TextureWrap {
     pub t: TextureWrapAxis,
     /// Wrap behavior along the texture's depth axis.
     pub r: TextureWrapAxis,
+}
+
+/// The texture's LOD sampling parameters.
+///
+/// # LOD sampling
+/// When a texture with multiple LODs gets rendered by the GPU, the GPU needs to calculate which
+/// LODs to sample from when outputting the final image. The LOD sample parameter controls that
+/// calculation^1. `0.0` samples the 0th LOD, `1.0` samples the 1st LOD, etc. When the sample
+/// value is fractional (e.g. `0.4` or `0.75`), the GPU must choose which LODs get sampled to get
+/// the final color value. The exact process depends on the `FilterMin` value. The values in this
+/// struct modify the final sample value that gets computed.
+///
+/// <sup>*This is calculated in an implementation-defined way, but generally correlates with the texture's size on screen.</sup>
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Lod {
+    /// A bias that gets added to the LOD sample parameter. This gets applied before the range
+    /// bounding from `min` and `max` gets applied.
+    pub bias: f32,
+    /// The minimum value for the LOD sample parameter.
+    pub min: f32,
+    /// The maximum value for the LOD sample parameter.
+    pub max: f32,
 }
 
 /// Collection of parameters that control how a texture gets sampled.
@@ -114,9 +136,7 @@ pub struct SampleParameters {
     pub anisotropy_max: f32,
     /// The texture's wrapping behavior on each axis.
     pub texture_wrap: TextureWrap,
-    pub lod_min: f32,
-    pub lod_max: f32,
-    pub lod_bias: f32,
+    pub lod: Lod,
     // pub border_color: Option<Rgba<f32>>,
     // TODO: GL_TEXTURE_COMPARE_MODE
 }
@@ -142,11 +162,20 @@ impl Default for SampleParameters {
         SampleParameters {
             filter_min: FilterMin::default(),
             filter_mag: FilterMag::default(),
-            lod_min: -1000.0,
-            lod_max: 1000.0,
-            lod_bias: 0.0,
+            lod: Lod::default(),
             anisotropy_max: 1.0,
             texture_wrap: TextureWrap::default()
+        }
+    }
+}
+
+impl Default for Lod {
+    #[inline(always)]
+    fn default() -> Lod {
+        Lod {
+            min: -1000.0,
+            max: 1000.0,
+            bias: 0.0,
         }
     }
 }

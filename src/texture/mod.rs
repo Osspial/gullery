@@ -63,7 +63,7 @@ pub struct Sampler {
 
 pub struct SampledTexture<'a, D, T>
     where D: Dimensionality<u32>,
-          T: TextureType<D>,
+          T: ?Sized + TextureType<D>,
 {
     pub sampler: &'a Sampler,
     pub texture: &'a Texture<D, T>
@@ -504,7 +504,7 @@ texture_type_uniform!{
 
 unsafe impl<'a, D, T> UniformType for SampledTexture<'a, D, T>
     where D: Dimensionality<u32>,
-          T: TextureType<D>,
+          T: ?Sized + TextureType<D>,
           &'a Texture<D, T>: UniformType
 {
     #[inline]
@@ -554,7 +554,7 @@ impl<D, T> fmt::Display for TexCreateError<D, T>
 
 impl<'a, D, T> Clone for SampledTexture<'a, D, T>
     where D: Dimensionality<u32>,
-          T: TextureType<D>,
+          T: ?Sized + TextureType<D>,
 {
     fn clone(&self) -> Self {
         SampledTexture {
@@ -566,4 +566,4 @@ impl<'a, D, T> Clone for SampledTexture<'a, D, T>
 
 impl<'a, D, T> Copy for SampledTexture<'a, D, T>
     where D: Dimensionality<u32>,
-          T: TextureType<D> {}
+          T: ?Sized + TextureType<D> {}
