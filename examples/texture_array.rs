@@ -14,7 +14,7 @@ use gullery::framebuffer::{*, render_state::*};
 use gullery::program::*;
 use gullery::image_format::*;
 use gullery::texture::*;
-use gullery::texture::types::ArrayTex;
+use gullery::texture::types::{CubemapImage, CubemapTex};
 use gullery::vertex::VertexArrayObject;
 
 use cgmath_geometry::{cgmath, D2};
@@ -30,13 +30,12 @@ use glutin::dpi::LogicalSize;
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
-    pos: Vector2<f32>,
-    tex_coord: Vector2<u16>,
+    pos: Vector3<f32>,
 }
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: &'a Texture<D2, ArrayTex<ImageFormat<ScalarType=GLSLFloat>>>,
+    tex: &'a Texture<D2, CubemapTex<ImageFormat<ScalarType=GLSLFloat>>>,
     array_index: u32
 }
 
@@ -87,20 +86,30 @@ fn main() {
     ], state.clone());
     let vao = VertexArrayObject::new(vertex_buffer, Some(index_buffer));
     println!("vao created");
-    let (ferris_normal_image, ferris_normal_dims) = load_image_from_file("./examples/textures/ferris_normal.png").unwrap();
-    let (ferris_gesture_image, ferris_gesture_dims) = load_image_from_file("./examples/textures/ferris_gesture.png").unwrap();
-    let (ferris_happy_image, ferris_happy_dims) = load_image_from_file("./examples/textures/ferris_happy.png").unwrap();
-    assert_eq!(ferris_happy_dims, ferris_gesture_dims);
-    assert_eq!(ferris_happy_dims, ferris_normal_dims);
-    let mut image_combined = Vec::new();
-    image_combined.extend_from_slice(&ferris_normal_image);
-    image_combined.extend_from_slice(&ferris_gesture_image);
-    image_combined.extend_from_slice(&ferris_happy_image);
+    let (pos_x, pos_x_dims) = load_image_from_file("./examples/textures/cubemap/pos_x.png").unwrap();
+    let (pos_y, pos_y_dims) = load_image_from_file("./examples/textures/cubemap/pos_y.png").unwrap();
+    let (pos_z, pos_z_dims) = load_image_from_file("./examples/textures/cubemap/pos_z.png").unwrap();
+    let (neg_x, neg_x_dims) = load_image_from_file("./examples/textures/cubemap/neg_x.png").unwrap();
+    let (neg_y, neg_y_dims) = load_image_from_file("./examples/textures/cubemap/neg_y.png").unwrap();
+    let (neg_z, neg_z_dims) = load_image_from_file("./examples/textures/cubemap/neg_z.png").unwrap();
+    assert_eq!(pos_x_dims.width(), pos_x_dims.height());
+    assert_eq!(pos_x_dims, pos_y_dims);
+    assert_eq!(pos_y_dims, pos_z_dims);
+    assert_eq!(pos_z_dims, neg_x_dims);
+    assert_eq!(neg_x_dims, neg_y_dims);
+    assert_eq!(neg_y_dims, neg_z_dims);
 
     println!("texture loaded");
-    let ferris_texture: Texture<D2, ArrayTex<SRgba>> = Texture::with_images(
-        DimsBox::new3(ferris_happy_dims.width(), ferris_happy_dims.height(), 3),
-        Some(SRgba::slice_from_raw(&image_combined)),
+    let ferris_texture: Texture<D2, CubemapTex<SRgb>> = Texture::with_images(
+        DimsSquare::new(pos_x_dims.width()),
+        Some(CubemapImage {
+            pos_x: SRgb::slice_from_raw(&pos_x),
+            pos_y: SRgb::slice_from_raw(&pos_y),
+            pos_z: SRgb::slice_from_raw(&pos_z),
+            neg_x: SRgb::slice_from_raw(&neg_x),
+            neg_y: SRgb::slice_from_raw(&neg_y),
+            neg_z: SRgb::slice_from_raw(&neg_z),
+        }),
         state.clone()
     ).unwrap();
     println!("texture uploaded");
