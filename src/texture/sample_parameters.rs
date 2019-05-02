@@ -1,3 +1,5 @@
+//! Parameters used to control how a texture gets sampled by shaders.
+
 use gl::{self, types::*};
 use image_format::Rgba;
 
@@ -136,6 +138,7 @@ pub struct SampleParameters {
     pub anisotropy_max: f32,
     /// The texture's wrapping behavior on each axis.
     pub texture_wrap: TextureWrap,
+    /// The texture's LOD sampling parameters.
     pub lod: Lod,
     // pub border_color: Option<Rgba<f32>>,
     // TODO: GL_TEXTURE_COMPARE_MODE

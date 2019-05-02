@@ -87,30 +87,6 @@ pub struct RawBoundTextureMut<'a, D, T>
     gl: &'a Gl
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct CubeImage<'a, I: ImageFormat> {
-    pub pos_x: &'a [I],
-    pub neg_x: &'a [I],
-    pub pos_y: &'a [I],
-    pub neg_y: &'a [I],
-    pub pos_z: &'a [I],
-    pub neg_z: &'a [I]
-}
-
-impl<'a, I: ImageFormat> Clone for CubeImage<'a, I> {
-    fn clone(&self) -> CubeImage<'a, I> {
-        CubeImage {
-            pos_x: self.pos_x,
-            neg_x: self.neg_x,
-            pos_y: self.pos_y,
-            neg_y: self.neg_y,
-            pos_z: self.pos_z,
-            neg_z: self.neg_z,
-        }
-    }
-}
-impl<'a, I: ImageFormat> Copy for CubeImage<'a, I> {}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DimsTag {
     One(DimsBox<D1, u32>),
@@ -826,27 +802,6 @@ impl From<DimsBox<D3, u32>> for DimsTag {
     fn from(dims: DimsBox<D3, u32>) -> DimsTag {
         DimsTag::Three(dims)
     }
-}
-
-impl<'a, I> Image<'a, D2, types::CubemapTex<I>> for CubeImage<'a, I>
-    where I: ImageFormat
-{
-    fn variants<F: FnMut(GLenum, &'a [I])>(self, mut for_each: F) {
-        for_each(gl::TEXTURE_CUBE_MAP_POSITIVE_X, self.pos_x);
-        for_each(gl::TEXTURE_CUBE_MAP_NEGATIVE_X, self.neg_x);
-        for_each(gl::TEXTURE_CUBE_MAP_POSITIVE_Y, self.pos_y);
-        for_each(gl::TEXTURE_CUBE_MAP_NEGATIVE_Y, self.neg_y);
-        for_each(gl::TEXTURE_CUBE_MAP_POSITIVE_Z, self.pos_z);
-        for_each(gl::TEXTURE_CUBE_MAP_NEGATIVE_Z, self.neg_z);
-    }
-    fn variants_static<F: FnMut(GLenum)>(mut for_each: F) {
-        for_each(gl::TEXTURE_CUBE_MAP_POSITIVE_X);
-        for_each(gl::TEXTURE_CUBE_MAP_NEGATIVE_X);
-        for_each(gl::TEXTURE_CUBE_MAP_POSITIVE_Y);
-        for_each(gl::TEXTURE_CUBE_MAP_NEGATIVE_Y);
-        for_each(gl::TEXTURE_CUBE_MAP_POSITIVE_Z);
-        for_each(gl::TEXTURE_CUBE_MAP_NEGATIVE_Z);
-   }
 }
 impl<'a, D, T> Image<'a, D, T> for &'a [T::Format]
     where D: Dimensionality<u32>,

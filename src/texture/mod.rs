@@ -36,7 +36,7 @@ use std::error::Error;
 
 pub use self::raw::{
     types, Dims, DimsSquare, DimsTag, MipSelector, Image, TextureType,
-    CubeImage, TextureTypeSingleImage, TextureTypeRenderable
+    TextureTypeSingleImage, TextureTypeRenderable
 };
 
 use cgmath_geometry::{Dimensionality, D1, D2, D3};
@@ -285,8 +285,8 @@ impl<D, T> Texture<D, T>
     ///
     /// Ideally this function wouldn't be necessary, and you'd be able to do this:
     ///
-    /// ```
-    /// let texture: Texture<D2, Rgba> = /* create texture */;
+    /// ```ignore
+    /// let texture: Texture<D2, Rgba> = Texture::new(DimsBox::new2(512, 512), 1, context_state.clone());
     /// let texture_dyn = &texture as &Texture<D2, dyn ImageFormat<_>>;
     /// ```
     ///
@@ -301,7 +301,7 @@ impl<D, T> Texture<D, T>
     ///
     /// Ideally this function wouldn't be necessary, and you'd be able to do this:
     ///
-    /// ```
+    /// ```ignore
     /// let texture: Texture<D2, Rgba> = /* create texture */;
     /// let texture_dyn = &mut texture as &mut Texture<D2, dyn ImageFormat<_>>;
     /// ```
@@ -317,7 +317,7 @@ impl<D, T> Texture<D, T>
     ///
     /// Ideally this function wouldn't be necessary, and you'd be able to do this:
     ///
-    /// ```
+    /// ```ignore
     /// let texture: Texture<D2, Rgba> = /* create texture */;
     /// let texture_dyn = texture as Texture<D2, dyn ImageFormat<_>>;
     /// ```
@@ -336,7 +336,7 @@ impl<D, T> Texture<D, T>
     ///
     /// Ideally this function wouldn't be necessary, and you'd be able to do this:
     ///
-    /// ```
+    /// ```ignore
     /// let texture: Texture<D2, Rgba> = /* create texture */;
     /// let texture_dyn = &texture as &Texture<D2, dyn ImageFormatRenderable<_>>;
     /// ```
@@ -355,7 +355,7 @@ impl<D, T> Texture<D, T>
     ///
     /// Ideally this function wouldn't be necessary, and you'd be able to do this:
     ///
-    /// ```
+    /// ```ignore
     /// let texture: Texture<D2, Rgba> = /* create texture */;
     /// let texture_dyn = &mut texture as &Texture<D2, dyn ImageFormatRenderable<_>>;
     /// ```
@@ -374,7 +374,7 @@ impl<D, T> Texture<D, T>
     ///
     /// Ideally this function wouldn't be necessary, and you'd be able to do this:
     ///
-    /// ```
+    /// ```ignore
     /// let texture: Texture<D2, Rgba> = /* create texture */;
     /// let texture_dyn = texture as Texture<D2, dyn ImageFormatRenderable<_>>;
     /// ```
