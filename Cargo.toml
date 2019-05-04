@@ -15,7 +15,7 @@ glutin = "0.19"
 quickcheck = "0.7"
 gullery_macros = { path = "./gullery_macros" }
 png = "0.13"
-dds-rs = "0.7"
+ddsfile = "0.2"
 
 [workspace]
 members = ["./gullery_bindings", "./gullery_macros"]

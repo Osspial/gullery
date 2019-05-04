@@ -12,7 +12,7 @@ use gullery::glsl::GLSLFloat;
 use gullery::buffer::*;
 use gullery::framebuffer::{*, render_state::*};
 use gullery::program::*;
-use gullery::image_format::{ImageFormat, SRgb, Rgba, FormatAttributes, ConcreteImageFormat, compressed::DXT1};
+use gullery::image_format::{ImageFormat, SRgb, Rgba, compressed::DXT1};
 use gullery::texture::*;
 use gullery::texture::types::{CubemapImage, CubemapTex};
 use gullery::vertex::VertexArrayObject;
@@ -20,8 +20,7 @@ use gullery::vertex::VertexArrayObject;
 use cgmath_geometry::{cgmath, D2};
 use cgmath_geometry::rect::{DimsBox, OffsetBox};
 
-use std::mem;
-use std::io::{self, Read, BufReader};
+use std::io::BufReader;
 use std::fs::File;
 
 use cgmath::*;
@@ -42,21 +41,12 @@ struct Uniforms<'a> {
 
 fn load_image_from_file(path: &str) -> (Vec<u8>, DimsBox<D2, u32>) {
     let mut file = BufReader::new(File::open(path).unwrap());
-    let dds_header = dds::DDS::parse_header(&mut file).unwrap();
-    assert_eq!(b"DXT1", &dds_header.fourcc);
-    println!("{:#?}", dds_header);
-
-    let pixels_per_block = match DXT1::<SRgb>::FORMAT {
-        FormatAttributes::Compressed{pixels_per_block, ..} => pixels_per_block,
-        _ => unreachable!()
-    };
-    let mut buf = vec![0; (dds_header.width * dds_header.height) as usize / pixels_per_block * mem::size_of::<DXT1<SRgb>>()];
-    file.read_exact(&mut buf).unwrap();
-    (buf, DimsBox::new2(dds_header.width, dds_header.height))
+    let dds = ddsfile::Dds::read(&mut file).unwrap();
+    let buf_len = dds.header.linear_size.unwrap() as usize;
+    (dds.data[..buf_len].to_vec(), DimsBox::new2(dds.header.width, dds.header.height))
 }
 
 fn main() {
-    std::panic::set_hook(Box::new(|p| {println!("{:?}", p);;std::thread::sleep_ms(5000)}));
     let mut events_loop = EventsLoop::new();
     let window = GlWindow::new(
         WindowBuilder::new().with_dimensions(LogicalSize::new(512.0, 512.0)),
@@ -166,15 +156,15 @@ fn main() {
     let mut default_framebuffer = FramebufferDefault::new(state.clone()).unwrap();
     let mut rotation = Euler::new(Deg(0.0), Deg(0.0), Deg(0.0));
 
-    let mut redraw = |rotation| {
+    let mut redraw = |rotation, aspect_ratio| {
         let physical_size = window.get_inner_size().unwrap().to_physical(window.get_hidpi_factor());
         render_state.viewport = OffsetBox::new2(0, 0, physical_size.width as u32, physical_size.height as u32);
         let scale = 1.0 / (fov.to_radians() / 2.0).tan();
         let perspective_matrix = Matrix4::new(
-                scale, 0.0  , 0.0                                      , 0.0,
-                0.0  , scale, 0.0                                      , 0.0,
-                0.0  , 0.0  , (z_near + z_far) / (z_near - z_far)      , -1.0,
-                0.0  , 0.0  , (2.0 * z_far * z_near) / (z_near - z_far), 0.0
+                scale / aspect_ratio, 0.0  , 0.0                                      , 0.0,
+                0.0                 , scale, 0.0                                      , 0.0,
+                0.0                 , 0.0  , (z_near + z_far) / (z_near - z_far)      , -1.0,
+                0.0                 , 0.0  , (2.0 * z_far * z_near) / (z_near - z_far), 0.0
             );
         let uniform = Uniforms {
             tex: ferris_texture.as_dyn(),
@@ -187,11 +177,13 @@ fn main() {
         window.swap_buffers().unwrap();
     };
 
+    let mut aspect_ratio = 1.0;
     events_loop.run_forever(|event| {
         match event {
             Event::WindowEvent{event, ..} => match event {
-                WindowEvent::Resized(_) => {
-                    redraw(rotation);
+                WindowEvent::Resized(d) => {
+                    aspect_ratio = (d.width / d.height) as f32;
+                    redraw(rotation, aspect_ratio);
                 },
                 WindowEvent::KeyboardInput{input, ..}
                     if input.state == ElementState::Pressed
@@ -203,7 +195,7 @@ fn main() {
                         Some(VirtualKeyCode::S) => rotation.x.0 += 1.0,
                         _ => (),
                     }
-                    redraw(rotation);
+                    redraw(rotation, aspect_ratio);
                 },
 
                 WindowEvent::CloseRequested => return ControlFlow::Break,

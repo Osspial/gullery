@@ -3,7 +3,6 @@ extern crate gullery;
 extern crate gullery_macros;
 extern crate cgmath_geometry;
 extern crate glutin;
-extern crate dds;
 
 extern crate num_traits;
 
@@ -76,16 +75,13 @@ fn main() {
     println!("vao created");
     let (image, dims) = {
         use std::fs::File;
-        use std::io::{Read, BufReader};
+        use std::io::BufReader;
 
         let mut file = BufReader::new(File::open("./examples/textures/rg.dds").unwrap());
-        let dds_header = dds::DDS::parse_header(&mut file).unwrap();
-        assert_eq!(b"ATI2", &dds_header.fourcc);
-        println!("{:#?}", dds_header);
-
-        let mut buf = vec![0; (dds_header.width * dds_header.height) as usize];
-        file.read_exact(&mut buf).unwrap();
-        (buf, DimsBox::new2(dds_header.width, dds_header.height))
+        let dds = ddsfile::Dds::read(&mut file).unwrap();
+        let buf_len = dds.header.linear_size.unwrap() as usize;
+        assert_eq!(Some(ddsfile::FourCC(ddsfile::FourCC::ATI2)), dds.header.spf.fourcc);
+        (dds.data[..buf_len].to_vec(), DimsBox::new2(dds.header.width, dds.header.height))
     };
     println!("texture loaded");
     let texture = Texture::with_images(
