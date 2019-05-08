@@ -432,8 +432,6 @@ impl<'a, D, T> RawBoundTextureMut<'a, D, T>
                 }
             }
 
-            let num_pixels_expected = (width * height * depth) as usize;
-
             let upload_data = |gl: &Gl, image_bind, data, data_len| {
                 match T::Format::FORMAT {
                     FormatAttributes::Uncompressed{internal_format, pixel_format, pixel_type} => {
@@ -489,19 +487,16 @@ impl<'a, D, T> RawBoundTextureMut<'a, D, T>
                 }
             };
 
-            let pixels_per_unit = match T::Format::FORMAT {
-                FormatAttributes::Uncompressed{..} => 1,
-                FormatAttributes::Compressed{pixels_per_block, ..} => pixels_per_block
-            };
+            let num_blocks_expected = T::Format::blocks_for_dims(DimsBox::new3(width as u32, height as u32, depth as u32));
 
             match image {
                 Some(image_data) => image_data.variants(|image_bind, data| {
-                    let num_pixels = data.len() * pixels_per_unit;
-                    if num_pixels == num_pixels_expected {
+                    let num_blocks = data.len();
+                    if num_blocks == num_blocks_expected {
                         let data_bytes_len = data.len() * mem::size_of::<T::Format>();
                         upload_data(self.gl, image_bind, data.as_ptr() as *const GLvoid, data_bytes_len as GLsizei);
                     } else {
-                        panic!("Mismatched image size; expected {} pixels, found {} pixels", num_pixels_expected, num_pixels);
+                        panic!("Mismatched image size; expected {} blocks, found {} blocks", num_blocks_expected, num_blocks);
                     }
                 }),
                 None => I::variants_static(|image_bind| upload_data(self.gl, image_bind, ptr::null(), 0))

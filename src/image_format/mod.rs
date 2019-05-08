@@ -76,6 +76,7 @@ use gl::types::*;
 use glsl::*;
 
 use cgmath::{Vector1, Vector2, Vector3, Vector4};
+use cgmath_geometry::{D3, rect::DimsBox};
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -106,17 +107,17 @@ pub enum FormatAttributes {
         /// The *underyling type* for the uploaded pixel data.
         ///
         /// This indicates what primitive (e.g. `u8`, `f32`) the format uses to upload pixel data.
-        pixel_type: GLenum
+        pixel_type: GLenum,
     },
     /// Attributes of a compressed image format.
     Compressed {
         /// The format used to store and upload pixel data.
         internal_format: GLenum,
-        /// The number of pixels in a single block of pixel data.
+        /// The pixel dimensions of a single block of data.
         ///
         /// Gullery's compressed formats expose a single instance of a struct as a block of pixel
         /// data.
-        pixels_per_block: usize
+        block_dims: DimsBox<D3, u32>,
     }
 }
 
@@ -128,8 +129,24 @@ pub unsafe trait ImageFormat: 'static {
 pub unsafe trait ImageFormatRenderable: ImageFormat {
     type FormatType: FormatType;
 }
+
+fn next_multiple_of(u: u32, m: u32) -> u32 {
+    if u == 0 {
+        0
+    } else {
+        (u - 1) + (m - ((u - 1) % m))
+    }
+}
+
 pub unsafe trait ConcreteImageFormat: ImageFormat + Copy {
     const FORMAT: FormatAttributes;
+    fn blocks_for_dims(dims: DimsBox<D3, u32>) -> usize {
+        let (x_mult, y_mult, z_mult) = match Self::FORMAT {
+            FormatAttributes::Uncompressed{..} => (1, 1, 1),
+            FormatAttributes::Compressed{block_dims, ..} => (block_dims.dims.x, block_dims.dims.y, block_dims.dims.z)
+        };
+        ((next_multiple_of(dims.dims.x, x_mult) * next_multiple_of(dims.dims.y, y_mult) * next_multiple_of(dims.dims.z, z_mult)) / (x_mult * y_mult * z_mult)) as usize
+    }
 }
 
 /// Marker trait used to indicate if a format is a color, depth, or stencil format.
