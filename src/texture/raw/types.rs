@@ -33,7 +33,7 @@ use cgmath_geometry::Dimensionality;
 /// ```rust
 /// # extern crate cgmath_geometry;
 /// # extern crate glutin;
-/// # use gullery::{ContextState, image_format::Rgb, texture::{Texture, types::ArrayTex}};
+/// # use gullery::{ContextState, image_format::SRgb, texture::{Texture, types::ArrayTex}};
 /// # use glutin::*;
 /// # use cgmath_geometry::{D2, rect::DimsBox};
 /// #   let el = EventsLoop::new();
@@ -51,9 +51,9 @@ use cgmath_geometry::Dimensionality;
 /// const TEXTURE_HEIGHT: usize = 128;
 ///
 /// // Create solid-color images for each individual image in the texture array.
-/// let red_image = [Rgb::new(255, 0, 0); TEXTURE_WIDTH * TEXTURE_HEIGHT];
-/// let green_image = [Rgb::new(0, 255, 0); TEXTURE_WIDTH * TEXTURE_HEIGHT];
-/// let blue_image = [Rgb::new(0, 0, 255); TEXTURE_WIDTH * TEXTURE_HEIGHT];
+/// let red_image = [SRgb::new(255, 0, 0); TEXTURE_WIDTH * TEXTURE_HEIGHT];
+/// let green_image = [SRgb::new(0, 255, 0); TEXTURE_WIDTH * TEXTURE_HEIGHT];
+/// let blue_image = [SRgb::new(0, 0, 255); TEXTURE_WIDTH * TEXTURE_HEIGHT];
 ///
 /// // Combine the above images into a single, contiguous buffer in memory.
 /// let mut combined_image = Vec::new();
@@ -66,20 +66,90 @@ use cgmath_geometry::Dimensionality;
 ///
 /// // Upload the images to the GPU. Notice how we pass 3D dimensions, instead of 2D dimensions -
 /// // the third parameter is the number of textures in the array.
-/// let array_texture: Texture<D2, ArrayTex<Rgb>> = Texture::with_images(
+/// let array_texture: Texture<D2, ArrayTex<SRgb>> = Texture::with_images(
 ///     DimsBox::new3(TEXTURE_WIDTH as u32, TEXTURE_HEIGHT as u32, num_images),
 ///     Some(&combined_image[..]),
 ///     context_state.clone()
 /// ).unwrap();
 /// ```
+///
+/// ## GLSL
+/// To use this texture type in GLSL, use either a `sampler1DArray` or `sampler2DArray` uniform,
+/// for 1D and 2D array texture respectively.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ArrayTex<C>(PhantomData<*const C>)
     where C: ?Sized;
 
+/// Stores six images, each of which representing a face of a cube.
+///
+/// Refer to the `texture_cubemap` example for full working code using this. Each mipmap in this
+/// texture must be uploaded through the [`CubemapImage`] `struct`, which allows you to upload all
+/// six faces of the cube at once. Each face must be a perfect square; this constraint is enforced
+/// on the type level with the [`DimsSquare`] type.
+///
+/// ```
+/// # extern crate cgmath_geometry;
+/// # extern crate glutin;
+/// # use gullery::{ContextState, image_format::SRgb, texture::{Texture, DimsSquare, types::{CubemapTex, CubemapImage}}};
+/// # use glutin::*;
+/// # use std::iter;
+/// # use cgmath_geometry::{D2, rect::DimsBox};
+/// #   let el = EventsLoop::new();
+/// # let headless = Context::new(
+/// #     &el,
+/// #     ContextBuilder::new()
+/// #         .with_gl_profile(GlProfile::Core)
+/// #         .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3))),
+/// #     true
+/// # ).unwrap();
+/// # unsafe{ headless.make_current().unwrap() };
+/// # let context_state = unsafe{ ContextState::new(|addr| headless.get_proc_address(addr)) };
+///
+/// const TEXTURE_SIDE: usize = 256;
+///
+/// let bright_red = SRgb::new(255, 0, 0);
+/// let bright_blue = SRgb::new(0, 255, 0);
+/// let bright_green = SRgb::new(0, 0, 255);
+/// let dark_red = SRgb::new(128, 0, 0);
+/// let dark_blue = SRgb::new(0, 128, 0);
+/// let dark_green = SRgb::new(0, 0, 128);
+///
+/// let pos_x = [bright_red; TEXTURE_SIDE * TEXTURE_SIDE];
+/// let pos_y = [bright_green; TEXTURE_SIDE * TEXTURE_SIDE];
+/// let pos_z = [bright_blue; TEXTURE_SIDE * TEXTURE_SIDE];
+/// let neg_x = [dark_red; TEXTURE_SIDE * TEXTURE_SIDE];
+/// let neg_y = [dark_green; TEXTURE_SIDE * TEXTURE_SIDE];
+/// let neg_z = [dark_blue; TEXTURE_SIDE * TEXTURE_SIDE];
+///
+/// let image = CubemapImage {
+///     pos_x: &pos_x,
+///     pos_y: &pos_y,
+///     pos_z: &pos_z,
+///     neg_x: &neg_x,
+///     neg_y: &neg_y,
+///     neg_z: &neg_z,
+/// };
+///
+/// let cubemap_texture: Texture<D2, CubemapTex<SRgb>> = Texture::with_images(
+///     DimsSquare::new(TEXTURE_SIDE as u32),
+///     iter::once(image),
+///     context_state.clone()
+/// ).unwrap();
+/// ```
+///
+/// ## GLSL
+/// To use this in GLSL, use a `samplerCube` uniform.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CubemapTex<C>(PhantomData<*const C>)
     where C: ?Sized + ImageFormat;
 
+/// A 2D rectangular texture that contains no mipmaps.
+///
+/// ## GLSL
+/// To use this in GLSL, use a `sampler2DRect` uniform. Note that the texture sampling functions
+/// for this type use *non-normalized* texture coordinate, not normalized texture coordinates. This
+/// means that sampling a `32x64` texture with `texture({rectTexture}, vec2(0.5, 0.5))` will sample
+/// halfway between the `(0, 0)` and `(1, 1)` pixels, instead of halfway into the texture.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RectTex<C>(PhantomData<*const C>)
     where C: ?Sized + ImageFormat;
@@ -92,6 +162,7 @@ pub struct MultisampleTex<C>(PhantomData<*const C>)
     where C: ?Sized + ImageFormat;
 
 
+/// A single mipmap level on a [`CubemapTex`].
 #[derive(Debug, PartialEq, Eq)]
 pub struct CubemapImage<'a, I: ImageFormat> {
     pub pos_x: &'a [I],
@@ -99,7 +170,7 @@ pub struct CubemapImage<'a, I: ImageFormat> {
     pub pos_y: &'a [I],
     pub neg_y: &'a [I],
     pub pos_z: &'a [I],
-    pub neg_z: &'a [I]
+    pub neg_z: &'a [I],
 }
 
 impl<'a, I: ImageFormat> Clone for CubemapImage<'a, I> {

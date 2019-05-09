@@ -30,7 +30,8 @@ use glutin::dpi::LogicalSize;
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
-    pos: Vector3<f32>,
+    pos: Vector2<f32>,
+    tex_coord: Vector2<u16>
 }
 
 #[derive(Clone, Copy, Uniforms)]

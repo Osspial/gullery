@@ -139,7 +139,7 @@ fn main() {
         neg_y: &neg_y_mips[i],
         neg_z: &neg_z_mips[i],
     });
-    let ferris_texture: Texture<D2, CubemapTex<DXT1<SRgb>>> = Texture::with_images(
+    let cubemap_texture: Texture<D2, CubemapTex<DXT1<SRgb>>> = Texture::with_images(
         DimsSquare::new(pos_x_dims.width()),
         mips,
         state.clone()
@@ -191,7 +191,7 @@ fn main() {
             )
         } ;
         let uniform = Uniforms {
-            tex: ferris_texture.as_dyn(),
+            tex: cubemap_texture.as_dyn(),
             matrix: perspective_matrix * Matrix4::from(Matrix3::from(Basis3::from(Quaternion::from(rotation)))),
         };
         default_framebuffer.clear_depth(1.0);
