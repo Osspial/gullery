@@ -196,6 +196,7 @@ unsafe impl<C> TextureType<D1> for ArrayTex<C>
     where C: ?Sized + ImageFormat
 {
     type MipSelector = u8;
+    type Samples = ();
     type Format = C;
     type Dims = DimsBox<D2, u32>;
 
@@ -208,6 +209,7 @@ unsafe impl<C> TextureType<D2> for ArrayTex<C>
     where C: ?Sized + ImageFormat
 {
     type MipSelector = u8;
+    type Samples = ();
     type Format = C;
     type Dims = DimsBox<D3, u32>;
 
@@ -224,6 +226,7 @@ unsafe impl<C> TextureType<D1> for C
     where C: ?Sized + ImageFormat
 {
     type MipSelector = u8;
+    type Samples = ();
     type Format = C;
     type Dims = DimsBox<D1, u32>;
 
@@ -240,6 +243,7 @@ unsafe impl<C> TextureType<D2> for C
     where C: ?Sized + ImageFormat
 {
     type MipSelector = u8;
+    type Samples = ();
     type Format = C;
     type Dims = DimsBox<D2, u32>;
 
@@ -256,6 +260,7 @@ unsafe impl<C> TextureType<D3> for C
     where C: ?Sized + ImageFormat
 {
     type MipSelector = u8;
+    type Samples = ();
     type Format = C;
     type Dims = DimsBox<D3, u32>;
 
@@ -273,6 +278,7 @@ unsafe impl<C> TextureType<D2> for CubemapTex<C>
     where C: ?Sized + ImageFormat
 {
     type MipSelector = u8;
+    type Samples = ();
     type Format = C;
     type Dims = DimsSquare;
 
@@ -292,6 +298,7 @@ unsafe impl<C> TextureType<D2> for RectTex<C>
     where C: ?Sized + ImageFormat
 {
     type MipSelector = ();
+    type Samples = ();
     type Format = C;
     type Dims = DimsBox<D2, u32>;
 
@@ -324,6 +331,7 @@ unsafe impl<C> TextureType<D2> for MultisampleTex<C>
     where C: ?Sized + ImageFormat
 {
     type MipSelector = ();
+    type Samples = u8;
     type Format = C;
     type Dims = DimsBox<D2, u32>;
 
@@ -340,6 +348,7 @@ unsafe impl<C> TextureType<D2> for ArrayTex<MultisampleTex<C>>
     where C: ?Sized + ImageFormat
 {
     type MipSelector = ();
+    type Samples = u8;
     type Format = C;
     type Dims = DimsBox<D3, u32>;
 

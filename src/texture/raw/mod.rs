@@ -111,6 +111,7 @@ pub trait Dims: 'static + Into<DimsTag> + Copy {
 
 pub unsafe trait TextureType<D: Dimensionality<u32>>: 'static {
     type MipSelector: MipSelector;
+    type Samples: Samples;
     type Format: ?Sized + ImageFormat;
     type Dims: Dims;
 
@@ -145,6 +146,17 @@ pub trait Image<'a, D, T>: Copy + Sized
 {
     fn variants<F: FnMut(GLenum, &'a [T::Format])>(self, for_each: F);
     fn variants_static<F: FnMut(GLenum)>(for_each: F);
+}
+pub trait Samples: Copy {
+    fn samples(self) -> Option<GLsizei>;
+}
+
+impl Samples for () {
+    fn samples(self) -> Option<GLsizei> {None}
+}
+
+impl Samples for u8 {
+    fn samples(self) -> Option<GLsizei> {Some(self as GLsizei)}
 }
 
 
