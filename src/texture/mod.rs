@@ -35,8 +35,8 @@ use std::cell::Cell;
 use std::error::Error;
 
 pub use self::raw::{
-    types, Dims, DimsSquare, DimsTag, MipSelector, Image, TextureType,
-    TextureTypeSingleImage, TextureTypeRenderable
+    types, Dims, DimsSquare, MipSelector, Image, TextureType,
+    TextureTypeBasicImage, TextureTypeRenderable
 };
 
 use cgmath_geometry::{Dimensionality, D1, D2, D3};
@@ -70,7 +70,7 @@ pub struct SampledTexture<'a, D, T>
 }
 
 #[derive(Debug, Clone)]
-pub enum TexCreateError<D, T>
+pub enum TextureCreateError<D, T>
     where D: Dimensionality<u32>,
           T: TextureType<D>
 {
@@ -115,32 +115,41 @@ impl<D, T> Texture<D, T>
           T: TextureType<D>,
           T::Format: ConcreteImageFormat
 {
+    fn check_max_size(dims: T::Dims, state: &ContextState) -> Result<(), TextureCreateError<D, T>> {
+        let max_size = T::max_size(&state);
+        let (max_width, max_height, max_depth) = (max_size.width(), max_size.height(), max_size.depth());
+        let (width, height, depth) = (dims.width(), dims.height(), dims.depth());
+
+        if max_width < width || max_height < height || max_depth < depth {
+            Err(TextureCreateError::DimsExceedMax{
+                requested: dims,
+                max: max_size
+            })
+        } else {
+            Ok(())
+        }
+    }
+
     /// Creates a new texture with the given number of mipmaps, without uploading any data to the
     /// GPU.
     ///
     /// The exact data in the texture is unspecified, and shouldn't be relied on to be any specific
     /// value.
-    pub fn new(dims: T::Dims, mip_levels: T::MipSelector, state: Rc<ContextState>) -> Result<Texture<D, T>, TexCreateError<D, T>> {
-        let max_size = match T::IS_ARRAY {
-            false => T::Dims::max_size(&state),
-            true => T::Dims::max_size_array(&state).expect("Tried to create Array texture with nonarray dims type")
-        };
-        let (max_width, max_height, max_depth) = max_size.into().to_tuple();
-        let (width, height, depth) = dims.into().to_tuple();
-
-        if max_width < width || max_height < height || max_depth < depth {
-            return Err(TexCreateError::DimsExceedMax{
-                requested: dims,
-                max: max_size
-            });
-        }
+    pub fn with_mip_count(dims: T::Dims, mip_count: u8, state: Rc<ContextState>) -> Result<Texture<D, T>, TextureCreateError<D, T>>
+        where T: TextureType<D, MipSelector=u8, Samples=()>
+    {
+        Self::check_max_size(dims, &state)?;
 
         let mut raw = RawTexture::new(dims, &state.gl);
         {
             let last_unit = state.image_units.0.num_units() - 1;
             let mut bind = unsafe{ state.image_units.0.bind_texture_mut(last_unit, &mut raw, &state.gl) };
-            for level in mip_levels.iter_less() {
-                bind.alloc_image::<!>(level, None);
+            for level in mip_count.iter_less() {
+                bind.alloc_image::<!>(level, (), None);
+            }
+
+            if mip_count == 0 {
+                panic!("mip_count must be greater than 0");
             }
         }
 
@@ -156,38 +165,26 @@ impl<D, T> Texture<D, T>
     /// must be half the size rounded down on an axis compared to the previous image, with the
     /// minimal size on a given axis being `1`. For example, `[32x8, 16x4, 8x2, 4x1, 2x1, 1x1]`
     /// would be a valid set of image sizes, but `[16x8, 16x4, 8x2, 4x1, 2x1, 1x1]` would not.
-    pub fn with_images<'a, I, J>(dims: T::Dims, image_mips: J, state: Rc<ContextState>) -> Result<Texture<D, T>, TexCreateError<D, T>>
-        where T: TextureType<D, MipSelector=u8>,
+    pub fn with_images<'a, I, J>(dims: T::Dims, image_mips: J, state: Rc<ContextState>) -> Result<Texture<D, T>, TextureCreateError<D, T>>
+        where T: TextureType<D, MipSelector=u8, Samples=()>,
               I: Image<'a, D, T>,
               J: IntoIterator<Item=I>
     {
-        let max_size = T::Dims::max_size(&state);
-        let (max_width, max_height, max_depth) = max_size.into().to_tuple();
-        let (width, height, depth) = dims.into().to_tuple();
-
-        if max_width < width || max_height < height || max_depth < depth {
-            return Err(TexCreateError::DimsExceedMax{
-                requested: dims,
-                max: max_size
-            });
-        }
+        Self::check_max_size(dims, &state)?;
 
         let mut raw = RawTexture::new(dims, &state.gl);
         {
             // We use the last texture unit to make sure that a program never accidentally uses a texture bound
-            // during modification.
-            //
-            // (If you're reading this source code because your program is accidentally using a texture because
-            // it's using the last texture, congratulations! You have waaay to many texture. Scale it back yo)
+            // during modification. We should probably make sure programs never accidentally use that unit.
             let last_unit = state.image_units.0.num_units() - 1;
             let mut bind = unsafe{ state.image_units.0.bind_texture_mut(last_unit, &mut raw, &state.gl) };
 
             for (level, image) in image_mips.into_iter().enumerate() {
-                bind.alloc_image(level as u8, Some(image));
+                bind.alloc_image(level as u8, (), Some(image));
             }
 
             if bind.raw_tex().num_mips() == 0 {
-                bind.alloc_image::<!>(0, None);
+                panic!("image_mips iterator must contain at least one image");
             }
         }
 
@@ -196,6 +193,55 @@ impl<D, T> Texture<D, T>
             state,
         })
     }
+
+    pub fn with_image<'a, I>(dims: T::Dims, image: I, state: Rc<ContextState>) -> Result<Texture<D, T>, TextureCreateError<D, T>>
+        where T: TextureType<D, Samples=()>,
+              I: Image<'a, D, T>
+    {
+        Self::check_max_size(dims, &state)?;
+
+        let mut raw = RawTexture::new(dims, &state.gl);
+        {
+            let last_unit = state.image_units.0.num_units() - 1;
+            let mut bind = unsafe{ state.image_units.0.bind_texture_mut(last_unit, &mut raw, &state.gl) };
+
+            bind.alloc_image(T::MipSelector::base(), (), Some(image));
+        }
+
+        Ok(Texture {
+            raw,
+            state,
+        })
+    }
+
+    pub fn with_sample_count<'a>(dims: T::Dims, samples: u8, state: Rc<ContextState>) -> Result<Texture<D, T>, TextureCreateError<D, T>>
+        where T: TextureType<D, MipSelector=(), Samples=u8>,
+    {
+        Self::check_max_size(dims, &state)?;
+
+        let mut raw = RawTexture::new(dims, &state.gl);
+        {
+            let last_unit = state.image_units.0.num_units() - 1;
+            let mut bind = unsafe{ state.image_units.0.bind_texture_mut(last_unit, &mut raw, &state.gl) };
+
+            bind.alloc_image::<!>((), samples, None);
+        }
+
+        Ok(Texture {
+            raw,
+            state,
+        })
+    }
+
+    // You may notice that there's no function for creating a texture with both mipmaps and samples.
+    // That's because, to my (Osspial's) knowledge, there are no texture formats in OpenGL Core nor
+    // any of its extensions that use both simultaneously, and I don't want to clutter the public
+    // API.
+    //
+    // Full disclaimer: the only reason I say "to my knowledge" is because I can't be assed to read
+    // through all the extensions to find a counter-example. If you're hacking on Gullery and have
+    // found a texture format that uses both mipmap levels and sample counts, feel free to open a PR
+    // with a link to the offending texture format that adds the required functions.
 
     #[inline]
     pub fn sub_image<'a, I>(&mut self, mip_level: T::MipSelector, offset: <T::Dims as Dims>::Offset, sub_dims: T::Dims, image: I)
@@ -468,6 +514,7 @@ macro_rules! texture_type_uniform {
     )*) => {$(
         unsafe impl<'a, C> UniformType for &'a Texture<$d, $texture_type>
             where C: ?Sized + ImageFormat,
+                  $texture_type: TextureType<$d>
         {
             #[inline]
             fn uniform_tag() -> TypeTag {
@@ -519,33 +566,32 @@ unsafe impl<'a, D, T> UniformType for SampledTexture<'a, D, T>
 }
 
 
-impl<D, T> From<TexCreateError<D, T>> for io::Error
+impl<D, T> From<TextureCreateError<D, T>> for io::Error
     where D: Dimensionality<u32>,
           T: TextureType<D>,
-          TexCreateError<D, T>: Send + Sync + fmt::Debug
+          TextureCreateError<D, T>: Send + Sync + fmt::Debug + fmt::Display
 {
-    fn from(err: TexCreateError<D, T>) -> io::Error {
+    fn from(err: TextureCreateError<D, T>) -> io::Error {
         io::Error::new(io::ErrorKind::Other, err)
     }
 }
 
-impl<D: Dimensionality<u32>, T: TextureType<D>> Error for TexCreateError<D, T>
-    where TexCreateError<D, T>: fmt::Debug {}
+impl<D: Dimensionality<u32>, T: TextureType<D>> Error for TextureCreateError<D, T>
+    where TextureCreateError<D, T>: fmt::Debug + fmt::Display {}
 
-impl<D, T> fmt::Display for TexCreateError<D, T>
+impl<D, T> fmt::Display for TextureCreateError<D, T>
     where D: Dimensionality<u32>,
-          T: TextureType<D>
+          T: TextureType<D>,
+          T::Dims: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
-            TexCreateError::DimsExceedMax{requested, max} =>
+            TextureCreateError::DimsExceedMax{requested, max} =>
                 write!(
                     f,
-                    "requested dimensions ({}x{}) exceed OpenGL implementation's maximum dimensions ({}x{})",
-                    requested.width(),
-                    requested.height(),
-                    max.width(),
-                    max.height()
+                    "requested dimensions {} exceed OpenGL implementation's maximum dimensions {}",
+                    requested,
+                    max,
                 )
         }
     }

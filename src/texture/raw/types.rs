@@ -19,6 +19,7 @@
 //! set the `T` parameter to `SpecialTex<{ImageFormat}>`
 
 use super::*;
+use glsl::ScalarType;
 use cgmath_geometry::Dimensionality;
 
 /// Stores multiple logical textures in a single texture object.
@@ -42,7 +43,7 @@ use cgmath_geometry::Dimensionality;
 /// #     ContextBuilder::new()
 /// #         .with_gl_profile(GlProfile::Core)
 /// #         .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3))),
-/// #     true
+/// #     false
 /// # ).unwrap();
 /// # unsafe{ headless.make_current().unwrap() };
 /// # let context_state = unsafe{ ContextState::new(|addr| headless.get_proc_address(addr)) };
@@ -51,9 +52,9 @@ use cgmath_geometry::Dimensionality;
 /// const TEXTURE_HEIGHT: usize = 128;
 ///
 /// // Create solid-color images for each individual image in the texture array.
-/// let red_image = [SRgb::new(255, 0, 0); TEXTURE_WIDTH * TEXTURE_HEIGHT];
-/// let green_image = [SRgb::new(0, 255, 0); TEXTURE_WIDTH * TEXTURE_HEIGHT];
-/// let blue_image = [SRgb::new(0, 0, 255); TEXTURE_WIDTH * TEXTURE_HEIGHT];
+/// let red_image = vec![SRgb::new(255, 0, 0); TEXTURE_WIDTH * TEXTURE_HEIGHT];
+/// let green_image = vec![SRgb::new(0, 255, 0); TEXTURE_WIDTH * TEXTURE_HEIGHT];
+/// let blue_image = vec![SRgb::new(0, 0, 255); TEXTURE_WIDTH * TEXTURE_HEIGHT];
 ///
 /// // Combine the above images into a single, contiguous buffer in memory.
 /// let mut combined_image = Vec::new();
@@ -66,9 +67,9 @@ use cgmath_geometry::Dimensionality;
 ///
 /// // Upload the images to the GPU. Notice how we pass 3D dimensions, instead of 2D dimensions -
 /// // the third parameter is the number of textures in the array.
-/// let array_texture: Texture<D2, ArrayTex<SRgb>> = Texture::with_images(
+/// let array_texture: Texture<D2, ArrayTex<SRgb>> = Texture::with_image(
 ///     DimsBox::new3(TEXTURE_WIDTH as u32, TEXTURE_HEIGHT as u32, num_images),
-///     Some(&combined_image[..]),
+///     &combined_image[..],
 ///     context_state.clone()
 /// ).unwrap();
 /// ```
@@ -100,7 +101,7 @@ pub struct ArrayTex<C>(PhantomData<*const C>)
 /// #     ContextBuilder::new()
 /// #         .with_gl_profile(GlProfile::Core)
 /// #         .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3))),
-/// #     true
+/// #     false
 /// # ).unwrap();
 /// # unsafe{ headless.make_current().unwrap() };
 /// # let context_state = unsafe{ ContextState::new(|addr| headless.get_proc_address(addr)) };
@@ -114,12 +115,12 @@ pub struct ArrayTex<C>(PhantomData<*const C>)
 /// let dark_blue = SRgb::new(0, 128, 0);
 /// let dark_green = SRgb::new(0, 0, 128);
 ///
-/// let pos_x = [bright_red; TEXTURE_SIDE * TEXTURE_SIDE];
-/// let pos_y = [bright_green; TEXTURE_SIDE * TEXTURE_SIDE];
-/// let pos_z = [bright_blue; TEXTURE_SIDE * TEXTURE_SIDE];
-/// let neg_x = [dark_red; TEXTURE_SIDE * TEXTURE_SIDE];
-/// let neg_y = [dark_green; TEXTURE_SIDE * TEXTURE_SIDE];
-/// let neg_z = [dark_blue; TEXTURE_SIDE * TEXTURE_SIDE];
+/// let pos_x = vec![bright_red; TEXTURE_SIDE * TEXTURE_SIDE];
+/// let pos_y = vec![bright_green; TEXTURE_SIDE * TEXTURE_SIDE];
+/// let pos_z = vec![bright_blue; TEXTURE_SIDE * TEXTURE_SIDE];
+/// let neg_x = vec![dark_red; TEXTURE_SIDE * TEXTURE_SIDE];
+/// let neg_y = vec![dark_green; TEXTURE_SIDE * TEXTURE_SIDE];
+/// let neg_z = vec![dark_blue; TEXTURE_SIDE * TEXTURE_SIDE];
 ///
 /// let image = CubemapImage {
 ///     pos_x: &pos_x,
@@ -130,9 +131,9 @@ pub struct ArrayTex<C>(PhantomData<*const C>)
 ///     neg_z: &neg_z,
 /// };
 ///
-/// let cubemap_texture: Texture<D2, CubemapTex<SRgb>> = Texture::with_images(
+/// let cubemap_texture: Texture<D2, CubemapTex<SRgb>> = Texture::with_image(
 ///     DimsSquare::new(TEXTURE_SIDE as u32),
-///     iter::once(image),
+///     image,
 ///     context_state.clone()
 /// ).unwrap();
 /// ```
@@ -188,7 +189,9 @@ impl<'a, I: ImageFormat> Clone for CubemapImage<'a, I> {
 impl<'a, I: ImageFormat> Copy for CubemapImage<'a, I> {}
 
 
-unsafe impl<D, C> TextureTypeSingleImage<D> for ArrayTex<C>
+// TRAIT IMPLEMENTATIONS FOR ArrayTex
+
+unsafe impl<D, C> TextureTypeBasicImage<D> for ArrayTex<C>
     where C: ?Sized + ImageFormat,
           D: Dimensionality<u32>,
           ArrayTex<C>: TextureType<D> {}
@@ -196,27 +199,91 @@ unsafe impl<C> TextureType<D1> for ArrayTex<C>
     where C: ?Sized + ImageFormat
 {
     type MipSelector = u8;
+    type Samples = ();
     type Format = C;
     type Dims = DimsBox<D2, u32>;
 
     type Dyn = ArrayTex<ImageFormat<ScalarType=C::ScalarType>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_1D_ARRAY;
-    const IS_ARRAY: bool = true;
+    fn max_size(state: &ContextState) -> Self::Dims {Self::Dims::max_size_array(state)}
+    fn mip_dims(dims: Self::Dims, level: Self::MipSelector) -> Self::Dims {dims.mip_dims_array(level.to_glint())}
+    unsafe fn alloc_image(
+        gl: &Gl,
+        image_bind: GLenum,
+        mip_dims: Self::Dims,
+        mip_level: Self::MipSelector,
+        _samples: (),
+        data_ptr: *const GLvoid,
+        data_len: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat
+    {
+        let mip_level = mip_level.to_glint();
+
+        alloc_image_2d(gl, image_bind, mip_dims, mip_level, data_ptr, data_len, Self::Format::FORMAT);
+    }
+    unsafe fn sub_image(
+        gl: &Gl,
+        image_bind: GLenum,
+        sub_offset: <Self::Dims as Dims>::Offset,
+        sub_dims: Self::Dims,
+        mip_level: Self::MipSelector,
+        data_ptr: *const GLvoid,
+        data_len: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat
+    {
+        sub_image_2d(gl, image_bind, sub_offset, sub_dims, mip_level.to_glint(), data_ptr, data_len, Self::Format::FORMAT);
+    }
 }
 unsafe impl<C> TextureType<D2> for ArrayTex<C>
     where C: ?Sized + ImageFormat
 {
     type MipSelector = u8;
+    type Samples = ();
     type Format = C;
     type Dims = DimsBox<D3, u32>;
 
     type Dyn = ArrayTex<ImageFormat<ScalarType=C::ScalarType>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_2D_ARRAY;
-    const IS_ARRAY: bool = true;
+    fn max_size(state: &ContextState) -> Self::Dims {Self::Dims::max_size_array(state)}
+    fn mip_dims(dims: Self::Dims, level: Self::MipSelector) -> Self::Dims {dims.mip_dims_array(level.to_glint())}
+    unsafe fn alloc_image(
+        gl: &Gl,
+        image_bind: GLenum,
+        mip_dims: Self::Dims,
+        mip_level: Self::MipSelector,
+        _samples: (),
+        data_ptr: *const GLvoid,
+        data_len: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat
+    {
+        let mip_level = mip_level.to_glint();
+
+        alloc_image_3d(gl, image_bind, mip_dims, mip_level, data_ptr, data_len, Self::Format::FORMAT);
+    }
+    unsafe fn sub_image(
+        gl: &Gl,
+        image_bind: GLenum,
+        sub_offset: <Self::Dims as Dims>::Offset,
+        sub_dims: Self::Dims,
+        mip_level: Self::MipSelector,
+        data_ptr: *const GLvoid,
+        data_len: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat
+    {
+        sub_image_3d(gl, image_bind, sub_offset, sub_dims, mip_level.to_glint(), data_ptr, data_len, Self::Format::FORMAT);
+    }
 }
-unsafe impl<D, C> TextureTypeSingleImage<D> for C
+
+
+// TRAIT IMPLEMENTATIONS FOR BASIC TEXTURES
+
+unsafe impl<D, C> TextureTypeBasicImage<D> for C
     where C: ?Sized + ImageFormat,
           D: Dimensionality<u32>,
           C: TextureType<D> {}
@@ -224,12 +291,43 @@ unsafe impl<C> TextureType<D1> for C
     where C: ?Sized + ImageFormat
 {
     type MipSelector = u8;
+    type Samples = ();
     type Format = C;
     type Dims = DimsBox<D1, u32>;
 
     type Dyn = ImageFormat<ScalarType=C::ScalarType>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_1D;
+    fn max_size(state: &ContextState) -> Self::Dims {Self::Dims::max_size(state)}
+    fn mip_dims(dims: Self::Dims, level: Self::MipSelector) -> Self::Dims {dims.mip_dims(level.to_glint())}
+    unsafe fn alloc_image(
+        gl: &Gl,
+        image_bind: GLenum,
+        mip_dims: Self::Dims,
+        mip_level: Self::MipSelector,
+        _samples: (),
+        data_ptr: *const GLvoid,
+        data_len: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat
+    {
+        let mip_level = mip_level.to_glint();
+
+        alloc_image_1d(gl, image_bind, mip_dims, mip_level, data_ptr, data_len, Self::Format::FORMAT);
+    }
+    unsafe fn sub_image(
+        gl: &Gl,
+        image_bind: GLenum,
+        sub_offset: <Self::Dims as Dims>::Offset,
+        sub_dims: Self::Dims,
+        mip_level: Self::MipSelector,
+        data_ptr: *const GLvoid,
+        data_len: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat
+    {
+        sub_image_1d(gl, image_bind, sub_offset, sub_dims, mip_level.to_glint(), data_ptr, data_len, Self::Format::FORMAT);
+    }
 }
 unsafe impl<C> TextureTypeRenderable<D1> for C
     where C: ?Sized + ImageFormatRenderable
@@ -240,12 +338,43 @@ unsafe impl<C> TextureType<D2> for C
     where C: ?Sized + ImageFormat
 {
     type MipSelector = u8;
+    type Samples = ();
     type Format = C;
     type Dims = DimsBox<D2, u32>;
 
     type Dyn = ImageFormat<ScalarType=C::ScalarType>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_2D;
+    fn max_size(state: &ContextState) -> Self::Dims {Self::Dims::max_size(state)}
+    fn mip_dims(dims: Self::Dims, level: Self::MipSelector) -> Self::Dims {dims.mip_dims(level.to_glint())}
+    unsafe fn alloc_image(
+        gl: &Gl,
+        image_bind: GLenum,
+        mip_dims: Self::Dims,
+        mip_level: Self::MipSelector,
+        _samples: (),
+        data_ptr: *const GLvoid,
+        data_len: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat
+    {
+        let mip_level = mip_level.to_glint();
+
+        alloc_image_2d(gl, image_bind, mip_dims, mip_level, data_ptr, data_len, Self::Format::FORMAT);
+    }
+    unsafe fn sub_image(
+        gl: &Gl,
+        image_bind: GLenum,
+        sub_offset: <Self::Dims as Dims>::Offset,
+        sub_dims: Self::Dims,
+        mip_level: Self::MipSelector,
+        data_ptr: *const GLvoid,
+        data_len: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat
+    {
+        sub_image_2d(gl, image_bind, sub_offset, sub_dims, mip_level.to_glint(), data_ptr, data_len, Self::Format::FORMAT);
+    }
 }
 unsafe impl<C> TextureTypeRenderable<D2> for C
     where C: ?Sized + ImageFormatRenderable
@@ -256,12 +385,43 @@ unsafe impl<C> TextureType<D3> for C
     where C: ?Sized + ImageFormat
 {
     type MipSelector = u8;
+    type Samples = ();
     type Format = C;
     type Dims = DimsBox<D3, u32>;
 
     type Dyn = ImageFormat<ScalarType=C::ScalarType>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_3D;
+    fn max_size(state: &ContextState) -> Self::Dims {Self::Dims::max_size(state)}
+    fn mip_dims(dims: Self::Dims, level: Self::MipSelector) -> Self::Dims {dims.mip_dims(level.to_glint())}
+    unsafe fn alloc_image(
+        gl: &Gl,
+        image_bind: GLenum,
+        mip_dims: Self::Dims,
+        mip_level: Self::MipSelector,
+        _samples: (),
+        data_ptr: *const GLvoid,
+        data_len: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat
+    {
+        let mip_level = mip_level.to_glint();
+
+        alloc_image_3d(gl, image_bind, mip_dims, mip_level, data_ptr, data_len, Self::Format::FORMAT);
+    }
+    unsafe fn sub_image(
+        gl: &Gl,
+        image_bind: GLenum,
+        sub_offset: <Self::Dims as Dims>::Offset,
+        sub_dims: Self::Dims,
+        mip_level: Self::MipSelector,
+        data_ptr: *const GLvoid,
+        data_len: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat
+    {
+        sub_image_3d(gl, image_bind, sub_offset, sub_dims, mip_level.to_glint(), data_ptr, data_len, Self::Format::FORMAT);
+    }
 }
 unsafe impl<C> TextureTypeRenderable<D3> for C
     where C: ?Sized + ImageFormatRenderable
@@ -273,12 +433,45 @@ unsafe impl<C> TextureType<D2> for CubemapTex<C>
     where C: ?Sized + ImageFormat
 {
     type MipSelector = u8;
+    type Samples = ();
     type Format = C;
     type Dims = DimsSquare;
 
     type Dyn = CubemapTex<ImageFormat<ScalarType=C::ScalarType>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_CUBE_MAP;
+    fn max_size(state: &ContextState) -> Self::Dims {Self::Dims::max_size(state)}
+    fn mip_dims(dims: Self::Dims, level: Self::MipSelector) -> Self::Dims {dims.mip_dims(level.to_glint())}
+    unsafe fn alloc_image(
+        gl: &Gl,
+        image_bind: GLenum,
+        mip_dims: Self::Dims,
+        mip_level: Self::MipSelector,
+        _samples: (),
+        data_ptr: *const GLvoid,
+        data_len: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat
+    {
+        let mip_level = mip_level.to_glint();
+        let mip_dims = DimsBox::new2(mip_dims.side, mip_dims.side);
+
+        alloc_image_2d(gl, image_bind, mip_dims, mip_level, data_ptr, data_len, Self::Format::FORMAT);
+    }
+    unsafe fn sub_image(
+        gl: &Gl,
+        image_bind: GLenum,
+        sub_offset: <Self::Dims as Dims>::Offset,
+        sub_dims: Self::Dims,
+        mip_level: Self::MipSelector,
+        data_ptr: *const GLvoid,
+        data_len: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat
+    {
+        let sub_dims = DimsBox::new2(sub_dims.side, sub_dims.side);
+        sub_image_2d(gl, image_bind, sub_offset, sub_dims, mip_level.to_glint(), data_ptr, data_len, Self::Format::FORMAT);
+    }
 }
 unsafe impl<C> TextureTypeRenderable<D2> for CubemapTex<C>
     where C: ?Sized + ImageFormatRenderable
@@ -286,18 +479,52 @@ unsafe impl<C> TextureTypeRenderable<D2> for CubemapTex<C>
     type DynRenderable = CubemapTex<ImageFormatRenderable<ScalarType=C::ScalarType, FormatType=C::FormatType>>;
 }
 
-unsafe impl<C> TextureTypeSingleImage<D2> for RectTex<C>
+
+// TRAIT IMPLEMENTATIONS FOR RectTex
+
+unsafe impl<C> TextureTypeBasicImage<D2> for RectTex<C>
     where C: ?Sized + ImageFormat {}
 unsafe impl<C> TextureType<D2> for RectTex<C>
     where C: ?Sized + ImageFormat
 {
     type MipSelector = ();
+    type Samples = ();
     type Format = C;
     type Dims = DimsBox<D2, u32>;
 
     type Dyn = RectTex<ImageFormat<ScalarType=C::ScalarType>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_RECTANGLE;
+    fn max_size(state: &ContextState) -> Self::Dims {Self::Dims::max_size(state)}
+    fn mip_dims(dims: Self::Dims, level: Self::MipSelector) -> Self::Dims {dims.mip_dims(level.to_glint())}
+    unsafe fn alloc_image(
+        gl: &Gl,
+        image_bind: GLenum,
+        mip_dims: Self::Dims,
+        mip_level: Self::MipSelector,
+        _samples: (),
+        data_ptr: *const GLvoid,
+        data_len: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat
+    {
+        let mip_level = mip_level.to_glint();
+
+        alloc_image_2d(gl, image_bind, mip_dims, mip_level, data_ptr, data_len, Self::Format::FORMAT);
+    }
+    unsafe fn sub_image(
+        gl: &Gl,
+        image_bind: GLenum,
+        sub_offset: <Self::Dims as Dims>::Offset,
+        sub_dims: Self::Dims,
+        mip_level: Self::MipSelector,
+        data_ptr: *const GLvoid,
+        data_len: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat
+    {
+        sub_image_2d(gl, image_bind, sub_offset, sub_dims, mip_level.to_glint(), data_ptr, data_len, Self::Format::FORMAT);
+    }
 }
 unsafe impl<C> TextureTypeRenderable<D2> for RectTex<C>
     where C: ?Sized + ImageFormatRenderable
@@ -318,18 +545,105 @@ unsafe impl<C> TextureTypeRenderable<D2> for RectTex<C>
 //
 // }
 
-unsafe impl<C> TextureTypeSingleImage<D2> for MultisampleTex<C>
-    where C: ?Sized + ImageFormat {}
-unsafe impl<C> TextureType<D2> for MultisampleTex<C>
-    where C: ?Sized + ImageFormat
+
+// TRAIT IMPLEMENTATIONS FOR MultisampleTex
+
+unsafe impl<S> TextureType<D2> for MultisampleTex<ImageFormat<ScalarType=S>>
+    where S: 'static + ScalarType
 {
     type MipSelector = ();
+    type Samples = u8;
+    type Format = ImageFormat<ScalarType=S>;
+    type Dims = DimsBox<D2, u32>;
+
+    type Dyn = MultisampleTex<ImageFormat<ScalarType=S>>;
+
+    const BIND_TARGET: GLenum = gl::TEXTURE_2D_MULTISAMPLE;
+    fn max_size(state: &ContextState) -> Self::Dims {Self::Dims::max_size(state)}
+    fn mip_dims(dims: Self::Dims, level: Self::MipSelector) -> Self::Dims {dims.mip_dims(level.to_glint())}
+    unsafe fn alloc_image(
+        _: &Gl,
+        _: GLenum,
+        _: Self::Dims,
+        _: (),
+        _: u8,
+        _: *const GLvoid,
+        _: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat
+    {
+        unreachable!()
+    }
+
+    unsafe fn sub_image(
+        _: &Gl,
+        _: GLenum,
+        _: <Self::Dims as Dims>::Offset,
+        _: Self::Dims,
+        _: Self::MipSelector,
+        _: *const GLvoid,
+        _: GLsizei
+    )
+    {
+        unreachable!()
+    }
+}
+unsafe impl<C> TextureType<D2> for MultisampleTex<C>
+    where C: ?Sized + ImageFormatRenderable
+{
+    type MipSelector = ();
+    type Samples = u8;
     type Format = C;
     type Dims = DimsBox<D2, u32>;
 
     type Dyn = MultisampleTex<ImageFormat<ScalarType=C::ScalarType>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_2D_MULTISAMPLE;
+    fn max_size(state: &ContextState) -> Self::Dims {Self::Dims::max_size(state)}
+    fn mip_dims(dims: Self::Dims, level: Self::MipSelector) -> Self::Dims {dims.mip_dims(level.to_glint())}
+    unsafe fn alloc_image(
+        gl: &Gl,
+        image_bind: GLenum,
+        mip_dims: Self::Dims,
+        _mip_level: (),
+        samples: u8,
+        data_ptr: *const GLvoid,
+        data_len: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat
+    {
+        assert_eq!(data_ptr, ptr::null());
+        assert_eq!(data_len, 0);
+        match Self::Format::FORMAT {
+            FormatAttributes::Uncompressed{internal_format, ..} => {
+                gl.TexImage2DMultisample(
+                    image_bind, samples as GLsizei, internal_format as GLenum,
+                    mip_dims.width() as GLsizei,
+                    mip_dims.height() as GLsizei,
+                    0,
+                )
+            },
+            FormatAttributes::Compressed{..} => panic!("Compressed textures cannot be rendered to")
+        }
+    }
+
+    /// This function should never be called, as the operation is impossible for `MultisampleTex`.
+    /// The current implementation panics unconditionally.
+    unsafe fn sub_image(
+        _: &Gl,
+        _: GLenum,
+        _: <Self::Dims as Dims>::Offset,
+        _: Self::Dims,
+        _: Self::MipSelector,
+        _: *const GLvoid,
+        _: GLsizei
+    )
+    {
+        panic!("MultisampleTex cannot have data uploaded from CPU; must be rendered by GPU. \
+                Honestly I'm kinda impressed that you even managed to to call this function. That \
+                should never happen in gullery's normal operation, because type-checking should \
+                prevent it.");
+    }
 }
 unsafe impl<C> TextureTypeRenderable<D2> for MultisampleTex<C>
     where C: ?Sized + ImageFormatRenderable
@@ -340,13 +654,56 @@ unsafe impl<C> TextureType<D2> for ArrayTex<MultisampleTex<C>>
     where C: ?Sized + ImageFormat
 {
     type MipSelector = ();
+    type Samples = u8;
     type Format = C;
     type Dims = DimsBox<D3, u32>;
 
     type Dyn = ArrayTex<MultisampleTex<ImageFormat<ScalarType=C::ScalarType>>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_2D_MULTISAMPLE_ARRAY;
-    const IS_ARRAY: bool = true;
+    fn max_size(state: &ContextState) -> Self::Dims {Self::Dims::max_size(state)}
+    fn mip_dims(dims: Self::Dims, level: Self::MipSelector) -> Self::Dims {dims.mip_dims(level.to_glint())}
+    unsafe fn alloc_image(
+        gl: &Gl,
+        image_bind: GLenum,
+        mip_dims: Self::Dims,
+        _mip_level: (),
+        samples: u8,
+        data_ptr: *const GLvoid,
+        data_len: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat
+    {
+        assert_eq!(data_ptr, ptr::null());
+        assert_eq!(data_len, 0);
+        match Self::Format::FORMAT {
+            FormatAttributes::Uncompressed{internal_format, ..} => {
+                gl.TexImage3DMultisample(
+                    image_bind, samples as GLsizei, internal_format as GLenum,
+                    mip_dims.width() as GLsizei,
+                    mip_dims.height() as GLsizei,
+                    mip_dims.depth() as GLsizei,
+                    0,
+                )
+            },
+            FormatAttributes::Compressed{..} => panic!("Compressed textures cannot be rendered to")
+        }
+    }
+
+    /// This function should never be called, as the operation is impossible for `MultisampleTex`.
+    /// The current implementation panics unconditionally.
+    unsafe fn sub_image(
+        _: &Gl,
+        _: GLenum,
+        _: <Self::Dims as Dims>::Offset,
+        _: Self::Dims,
+        _: Self::MipSelector,
+        _: *const GLvoid,
+        _: GLsizei
+    )
+    {
+        panic!("MultisampleTex cannot have data uploaded from CPU; must be rendered by GPU.");
+    }
 }
 
 impl<'a, I> Image<'a, D2, types::CubemapTex<I>> for CubemapImage<'a, I>
@@ -368,4 +725,208 @@ impl<'a, I> Image<'a, D2, types::CubemapTex<I>> for CubemapImage<'a, I>
         for_each(gl::TEXTURE_CUBE_MAP_POSITIVE_Z);
         for_each(gl::TEXTURE_CUBE_MAP_NEGATIVE_Z);
    }
+}
+
+unsafe fn alloc_image_1d(
+    gl: &Gl,
+    image_bind: GLenum,
+    mip_dims: DimsBox<D1, u32>,
+    mip_level: GLint,
+    data_ptr: *const GLvoid,
+    data_len: GLsizei,
+    format: FormatAttributes,
+) {
+    match format {
+        FormatAttributes::Uncompressed{internal_format, pixel_format, pixel_type} => {
+            gl.TexImage1D(
+                image_bind, mip_level, internal_format as GLint,
+                mip_dims.width() as GLsizei,
+                0, pixel_format, pixel_type, data_ptr
+            )
+        },
+        FormatAttributes::Compressed{internal_format, ..} => {
+            gl.CompressedTexImage1D(
+                image_bind, mip_level, internal_format,
+                mip_dims.width() as GLsizei,
+                0, data_len, data_ptr
+            )
+        }
+    }
+}
+
+unsafe fn alloc_image_2d(
+    gl: &Gl,
+    image_bind: GLenum,
+    mip_dims: DimsBox<D2, u32>,
+    mip_level: GLint,
+    data_ptr: *const GLvoid,
+    data_len: GLsizei,
+    format: FormatAttributes,
+) {
+    match format {
+        FormatAttributes::Uncompressed{internal_format, pixel_format, pixel_type} => {
+            gl.TexImage2D(
+                image_bind, mip_level, internal_format as GLint,
+                mip_dims.width() as GLsizei,
+                mip_dims.height() as GLsizei,
+                0, pixel_format, pixel_type, data_ptr
+            )
+        },
+        FormatAttributes::Compressed{internal_format, ..} => {
+            gl.CompressedTexImage2D(
+                image_bind, mip_level, internal_format,
+                mip_dims.width() as GLsizei,
+                mip_dims.height() as GLsizei,
+                0, data_len, data_ptr
+            )
+        }
+    }
+}
+
+unsafe fn alloc_image_3d(
+    gl: &Gl,
+    image_bind: GLenum,
+    mip_dims: DimsBox<D3, u32>,
+    mip_level: GLint,
+    data_ptr: *const GLvoid,
+    data_len: GLsizei,
+    format: FormatAttributes,
+) {
+    match format {
+        FormatAttributes::Uncompressed{internal_format, pixel_format, pixel_type} => {
+            gl.TexImage3D(
+                image_bind, mip_level, internal_format as GLint,
+                mip_dims.width() as GLsizei,
+                mip_dims.height() as GLsizei,
+                mip_dims.depth() as GLsizei,
+                0, pixel_format, pixel_type, data_ptr
+            )
+        },
+        FormatAttributes::Compressed{internal_format, ..} => {
+            gl.CompressedTexImage3D(
+                image_bind, mip_level, internal_format,
+                mip_dims.width() as GLsizei,
+                mip_dims.height() as GLsizei,
+                mip_dims.depth() as GLsizei,
+                0, data_len, data_ptr
+            )
+        }
+    }
+}
+
+unsafe fn sub_image_1d(
+    gl: &Gl,
+    image_bind: GLenum,
+    sub_offset: Vector1<u32>,
+    sub_dims: DimsBox<D1, u32>,
+    mip_level: GLint,
+    data_ptr: *const GLvoid,
+    data_len: GLsizei,
+    format: FormatAttributes,
+) {
+    match format {
+        FormatAttributes::Uncompressed{pixel_format, pixel_type, ..} => {
+            gl.TexSubImage1D(
+                image_bind, mip_level,
+                sub_offset.x as GLint,
+                sub_dims.width() as GLsizei,
+                pixel_format, pixel_type, data_ptr
+            )
+        },
+        FormatAttributes::Compressed{internal_format, block_dims} => {
+            assert_eq!(sub_offset.x % block_dims.width(), 0);
+            assert_eq!(sub_dims.width() % block_dims.width(), 0);
+
+            gl.CompressedTexSubImage1D(
+                image_bind, mip_level,
+                sub_offset.x as GLint,
+                sub_dims.width() as GLsizei,
+                internal_format, data_len, data_ptr
+            )
+        }
+    }
+}
+
+unsafe fn sub_image_2d(
+    gl: &Gl,
+    image_bind: GLenum,
+    sub_offset: Vector2<u32>,
+    sub_dims: DimsBox<D2, u32>,
+    mip_level: GLint,
+    data_ptr: *const GLvoid,
+    data_len: GLsizei,
+    format: FormatAttributes,
+) {
+    match format {
+        FormatAttributes::Uncompressed{pixel_format, pixel_type, ..} => {
+            gl.TexSubImage2D(
+                image_bind, mip_level,
+                sub_offset.x as GLint,
+                sub_offset.y as GLint,
+                sub_dims.width() as GLsizei,
+                sub_dims.height() as GLsizei,
+                pixel_format, pixel_type, data_ptr
+            )
+        },
+        FormatAttributes::Compressed{internal_format, block_dims} => {
+            assert_eq!(sub_offset.x % block_dims.width(), 0);
+            assert_eq!(sub_offset.y % block_dims.height(), 0);
+            assert_eq!(sub_dims.width() % block_dims.width(), 0);
+            assert_eq!(sub_dims.height() % block_dims.height(), 0);
+
+            gl.CompressedTexSubImage2D(
+                image_bind, mip_level,
+                sub_offset.x as GLint,
+                sub_offset.y as GLint,
+                sub_dims.width() as GLsizei,
+                sub_dims.height() as GLsizei,
+                internal_format, data_len, data_ptr
+            )
+        }
+    }
+}
+
+unsafe fn sub_image_3d(
+    gl: &Gl,
+    image_bind: GLenum,
+    sub_offset: Vector3<u32>,
+    sub_dims: DimsBox<D3, u32>,
+    mip_level: GLint,
+    data_ptr: *const GLvoid,
+    data_len: GLsizei,
+    format: FormatAttributes,
+) {
+    match format {
+        FormatAttributes::Uncompressed{pixel_format, pixel_type, ..} => {
+            gl.TexSubImage3D(
+                image_bind, mip_level,
+                sub_offset.x as GLint,
+                sub_offset.y as GLint,
+                sub_offset.z as GLint,
+                sub_dims.width() as GLsizei,
+                sub_dims.height() as GLsizei,
+                sub_dims.depth() as GLsizei,
+                pixel_format, pixel_type, data_ptr
+            )
+        },
+        FormatAttributes::Compressed{internal_format, block_dims} => {
+            assert_eq!(sub_offset.x % block_dims.width(), 0);
+            assert_eq!(sub_offset.y % block_dims.height(), 0);
+            assert_eq!(sub_offset.z % block_dims.depth(), 0);
+            assert_eq!(sub_dims.width() % block_dims.width(), 0);
+            assert_eq!(sub_dims.height() % block_dims.height(), 0);
+            assert_eq!(sub_dims.depth() % block_dims.depth(), 0);
+
+            gl.CompressedTexSubImage3D(
+                image_bind, mip_level,
+                sub_offset.x as GLint,
+                sub_offset.y as GLint,
+                sub_offset.z as GLint,
+                sub_dims.width() as GLsizei,
+                sub_dims.height() as GLsizei,
+                sub_dims.depth() as GLsizei,
+                internal_format, data_len, data_ptr
+            )
+        }
+    }
 }

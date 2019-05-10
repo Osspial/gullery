@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use texture::{Texture, TextureType, DimsTag, MipSelector};
+use texture::{Texture, TextureType, MipSelector};
 use cgmath_geometry::{Dimensionality, D2};
 use cgmath_geometry::rect::{OffsetBox, GeoBox};
 use gl::{self, Gl};
@@ -386,26 +386,13 @@ pub unsafe trait RawBoundFramebuffer {
                     }
 
                     unsafe {
-                        // TODO: HANDLE CUBEMAP TEXTURES
-                        match texture.dims().into() {
-                            DimsTag::One(_) =>
-                                self.gl.FramebufferTexture1D(
-                                    self.target,
-                                    attachment,
-                                    T::BIND_TARGET,
-                                    handle.get(),
-                                    texture_level.to_glint()
-                                ),
-                            DimsTag::Two(_) =>
-                                self.gl.FramebufferTexture2D(
-                                    self.target,
-                                    attachment,
-                                    T::BIND_TARGET,
-                                    handle.get(),
-                                    texture_level.to_glint()
-                                ),
-                            DimsTag::Three(_) => unimplemented!()
-                        }
+                        // TODO: HANDLE LAYERED TEXTURES
+                        self.gl.FramebufferTexture(
+                            self.target,
+                            attachment,
+                            handle.get(),
+                            texture_level.to_glint()
+                        );
                         assert_eq!(0, self.gl.GetError());
                     }
                 }

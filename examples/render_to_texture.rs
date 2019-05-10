@@ -49,7 +49,7 @@ fn main() {
         ContextBuilder::new()
             .with_gl_profile(GlProfile::Core)
             .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3))),
-        true
+        false
     ).unwrap();
     unsafe{ headless.make_current().unwrap() };
     let state = unsafe{ ContextState::new(|addr| headless.get_proc_address(addr)) };
@@ -78,12 +78,12 @@ fn main() {
         println!("Warning: {}", w);
     }
 
-    let mut texture = Texture::new(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap();
+    let mut texture = Texture::with_mip_count(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap();
     let mut fbo_attached = FramebufferObjectAttached {
         fbo: FramebufferObject::new(state.clone()),
         attachments: Attachments {
             color: &mut texture,
-            color_inverted: Texture::new(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap(),
+            color_inverted: Texture::with_mip_count(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap(),
         }
     };
 

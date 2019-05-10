@@ -66,8 +66,8 @@ fn main() {
     unsafe{ window.context().make_current().unwrap() };
     let state = unsafe{ ContextState::new(|addr| window.context().get_proc_address(addr)) };
 
-    let mut color_texture = Texture::new(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap();
-    let mut depth_texture = Texture::new(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap();
+    let mut color_texture = Texture::with_mip_count(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap();
+    let mut depth_texture = Texture::with_mip_count(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap();
 
     {
         let vertex_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[

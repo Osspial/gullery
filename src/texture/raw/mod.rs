@@ -88,43 +88,63 @@ pub struct RawBoundTextureMut<'a, D, T>
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DimsTag {
-    One(DimsBox<D1, u32>),
-    Two(DimsBox<D2, u32>),
-    Three(DimsBox<D3, u32>)
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DimsSquare {
     pub side: u32
 }
 
-pub trait Dims: 'static + Into<DimsTag> + Copy {
-    type Offset: Index<usize, Output=u32>;
+pub trait Dims: 'static + Copy {
+    type Offset: Copy + Index<usize, Output=u32>;
     fn width(self) -> u32;
     fn height(self) -> u32;
     fn depth(self) -> u32;
     fn num_pixels(self) -> u32;
     fn max_size(state: &ContextState) -> Self;
-    fn max_size_array(_state: &ContextState) -> Option<Self> {None}
+    fn mip_dims(self, mip_level: GLint) -> Self;
+}
+
+pub trait DimsArray: Dims {
+    fn max_size_array(state: &ContextState) -> Self;
+    fn mip_dims_array(self, mip_level: GLint) -> Self;
 }
 
 pub unsafe trait TextureType<D: Dimensionality<u32>>: 'static {
-    type MipSelector: MipSelector;
-    type Format: ?Sized + ImageFormat;
     type Dims: Dims;
+    type MipSelector: MipSelector;
+    type Samples: Samples;
+    type Format: ?Sized + ImageFormat;
 
     type Dyn: ?Sized + TextureType<D, MipSelector=Self::MipSelector>;
 
     const BIND_TARGET: GLenum;
-    const IS_ARRAY: bool = false;
+    fn max_size(state: &ContextState) -> Self::Dims;
+    fn mip_dims(dims: Self::Dims, level: Self::MipSelector) -> Self::Dims;
+    unsafe fn alloc_image(
+        gl: &Gl,
+        image_bind: GLenum,
+        mip_dims: Self::Dims,
+        mip_level: Self::MipSelector,
+        samples: Self::Samples,
+        data_ptr: *const GLvoid,
+        data_len: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat;
+    unsafe fn sub_image(
+        gl: &Gl,
+        image_bind: GLenum,
+        sub_offset: <Self::Dims as Dims>::Offset,
+        sub_dims: Self::Dims,
+        mip_level: Self::MipSelector,
+        data_ptr: *const GLvoid,
+        data_len: GLsizei
+    )
+        where Self::Format: ConcreteImageFormat;
 }
 
 pub unsafe trait TextureTypeRenderable<D: Dimensionality<u32>>: TextureType<D> {
     type DynRenderable: ?Sized + TextureType<D, MipSelector=Self::MipSelector>;
 }
 
-pub unsafe trait TextureTypeSingleImage<D: Dimensionality<u32>>: TextureType<D> {}
+pub unsafe trait TextureTypeBasicImage<D: Dimensionality<u32>>: TextureType<D> {}
 
 // pub unsafe trait ArrayTextureType: TextureType {
 //     const ARRAY_BIND_TARGET: GLenum;
@@ -145,6 +165,17 @@ pub trait Image<'a, D, T>: Copy + Sized
 {
     fn variants<F: FnMut(GLenum, &'a [T::Format])>(self, for_each: F);
     fn variants_static<F: FnMut(GLenum)>(for_each: F);
+}
+pub trait Samples: Copy {
+    fn samples(self) -> Option<GLsizei>;
+}
+
+impl Samples for () {
+    fn samples(self) -> Option<GLsizei> {None}
+}
+
+impl Samples for u8 {
+    fn samples(self) -> Option<GLsizei> {Some(self as GLsizei)}
 }
 
 
@@ -393,7 +424,7 @@ impl<'a, D, T> RawBoundTextureMut<'a, D, T>
     where D: Dimensionality<u32>,
           T: TextureType<D>
 {
-    pub fn alloc_image<'b, I>(&mut self, level: T::MipSelector, image: Option<I>)
+    pub fn alloc_image<'b, I>(&mut self, level: T::MipSelector, samples: T::Samples, image: Option<I>)
         where I: Image<'b, D, T>,
               T::Format: ConcreteImageFormat
     {
@@ -405,103 +436,21 @@ impl<'a, D, T> RawBoundTextureMut<'a, D, T>
                 self.gl.TexParameteri(T::BIND_TARGET, gl::TEXTURE_MAX_LEVEL, mip_level);
             }
 
-
-
-            let dims_exponent = mip_level as u32;
-            let (width, height, depth): (GLsizei, GLsizei, GLsizei);
-            let dim_divisor = 2u32.pow(dims_exponent);
-            match T::IS_ARRAY {
-                false => {
-                    let (base_width, base_height, base_depth) = self.tex.dims.into().to_tuple();
-                    width = (base_width / dim_divisor).max(1) as GLsizei;
-                    height = (base_height / dim_divisor).max(1) as GLsizei;
-                    depth = (base_depth / dim_divisor).max(1) as GLsizei;
-                },
-                true => match self.tex.dims.into() {
-                    DimsTag::One(_) => panic!("1D Array texture doesn't make sense"),
-                    DimsTag::Two(dims) => {
-                        width = (dims.width() / dim_divisor).max(1) as GLsizei;
-                        height = dims.height() as GLsizei;
-                        depth = 1;
-                    },
-                    DimsTag::Three(dims) => {
-                        width = (dims.width() / dim_divisor).max(1) as GLsizei;
-                        height = (dims.height() / dim_divisor).max(1) as GLsizei;
-                        depth = dims.depth() as GLsizei;
-                    }
-                }
-            }
-
-            let upload_data = |gl: &Gl, image_bind, data, data_len| {
-                match T::Format::FORMAT {
-                    FormatAttributes::Uncompressed{internal_format, pixel_format, pixel_type} => {
-                        match self.tex.dims.into() {
-                            DimsTag::One(_) =>
-                                gl.TexImage1D(
-                                    image_bind, mip_level, internal_format as GLint,
-                                    width,
-                                    0, pixel_format, pixel_type, data as *const GLvoid
-                                ),
-                            DimsTag::Two(_) =>
-                                gl.TexImage2D(
-                                    image_bind, mip_level, internal_format as GLint,
-                                    width,
-                                    height,
-                                    0, pixel_format, pixel_type, data as *const GLvoid
-                                ),
-                            DimsTag::Three(_) =>
-                                gl.TexImage3D(
-                                    image_bind, mip_level, internal_format as GLint,
-                                    width,
-                                    height,
-                                    depth,
-                                    0, pixel_format, pixel_type, data as *const GLvoid
-                                ),
-                        }
-                    },
-                    FormatAttributes::Compressed{internal_format, ..} => {
-                        match self.tex.dims.into() {
-                            DimsTag::One(_) =>
-                                gl.CompressedTexImage1D(
-                                    image_bind, mip_level, internal_format,
-                                    width,
-                                    0, data_len, data as *const GLvoid
-                                ),
-                            DimsTag::Two(_) =>
-                                gl.CompressedTexImage2D(
-                                    image_bind, mip_level, internal_format,
-                                    width,
-                                    height,
-                                    0, data_len, data as *const GLvoid
-                                ),
-                            DimsTag::Three(_) =>
-                                gl.CompressedTexImage3D(
-                                    image_bind, mip_level, internal_format,
-                                    width,
-                                    height,
-                                    depth,
-                                    0, data_len, data as *const GLvoid
-                                ),
-                        }
-                    }
-                }
-            };
-
-            let num_blocks_expected = T::Format::blocks_for_dims(DimsBox::new3(width as u32, height as u32, depth as u32));
+            let mip_dims = T::mip_dims(self.tex.dims(), level);
+            let num_blocks_expected = T::Format::blocks_for_dims(DimsBox::new3(mip_dims.width(), mip_dims.height(), mip_dims.depth()));
 
             match image {
                 Some(image_data) => image_data.variants(|image_bind, data| {
                     let num_blocks = data.len();
                     if num_blocks == num_blocks_expected {
                         let data_bytes_len = data.len() * mem::size_of::<T::Format>();
-                        upload_data(self.gl, image_bind, data.as_ptr() as *const GLvoid, data_bytes_len as GLsizei);
+                        T::alloc_image(self.gl, image_bind, mip_dims, level, samples, data.as_ptr() as *const GLvoid, data_bytes_len as GLsizei);
                     } else {
                         panic!("Mismatched image size; expected {} blocks, found {} blocks", num_blocks_expected, num_blocks);
                     }
                 }),
-                None => I::variants_static(|image_bind| upload_data(self.gl, image_bind, ptr::null(), 0))
+                None => I::variants_static(|image_bind| T::alloc_image(self.gl, image_bind, mip_dims, level, samples, ptr::null(), 0))
             }
-
 
             assert_eq!(0, self.gl.GetError());
         }
@@ -517,62 +466,28 @@ impl<'a, D, T> RawBoundTextureMut<'a, D, T>
         where I: Image<'b, D, T>,
               T::Format: ConcreteImageFormat
     {
-        use self::DimsTag::*;
-
-        image.variants(|_, data| {
-            let num_pixels = data.len() as u32;
-            if num_pixels != sub_dims.num_pixels() {
-                panic!("expected {} pixels, found {} pixels", sub_dims.num_pixels(), num_pixels);
-            }
-        });
-
-        assert!((level.to_glint() as u8) < self.tex.num_mips());
-        match (self.tex.dims.into(), sub_dims.into()) {
-            (One(tex_dims), One(sub_dims)) => {
-                assert!(sub_dims.width() + offset[0] <= tex_dims.width());
-            },
-            (Two(tex_dims), Two(sub_dims)) => {
-                assert!(sub_dims.width() + offset[0] <= tex_dims.width());
-                assert!(sub_dims.height() + offset[1] <= tex_dims.height());
-            },
-            (Three(tex_dims), Three(sub_dims)) => {
-                assert!(sub_dims.width() + offset[0] <= tex_dims.width());
-                assert!(sub_dims.height() + offset[1] <= tex_dims.height());
-                assert!(sub_dims.depth() + offset[2] <= tex_dims.depth());
-            },
-            _ => unreachable!()
-        }
-
         unsafe {
-            match T::Format::FORMAT {
-                FormatAttributes::Uncompressed{pixel_format, pixel_type, ..} => match sub_dims.into() {
-                    One(dims) => image.variants(|image_bind, data| self.gl.TexSubImage1D(
-                        image_bind, level.to_glint(),
-                        offset[0] as GLint,
-                        dims.width() as GLsizei,
-                        pixel_format, pixel_type, data.as_ptr() as *const GLvoid
-                    )),
-                    Two(dims) => image.variants(|image_bind, data| self.gl.TexSubImage2D(
-                        image_bind, level.to_glint(),
-                        offset[0] as GLint,
-                        offset[1] as GLint,
-                        dims.width() as GLsizei,
-                        dims.height() as GLsizei,
-                        pixel_format, pixel_type, data.as_ptr() as *const GLvoid
-                    )),
-                    Three(dims) => image.variants(|image_bind, data| self.gl.TexSubImage3D(
-                        image_bind, level.to_glint(),
-                        offset[0] as GLint,
-                        offset[1] as GLint,
-                        offset[2] as GLint,
-                        dims.width() as GLsizei,
-                        dims.height() as GLsizei,
-                        dims.depth() as GLsizei,
-                        pixel_format, pixel_type, data.as_ptr() as *const GLvoid
-                    ))
-                },
-                FormatAttributes::Compressed{..} => unimplemented!()
+            let mip_level = level.to_glint();
+
+            if mip_level >= self.tex.num_mips() as GLint {
+                self.tex.num_mips = level.try_increment();
+                self.gl.TexParameteri(T::BIND_TARGET, gl::TEXTURE_MAX_LEVEL, mip_level);
             }
+
+            let dims = self.tex.dims();
+            let num_blocks_expected = T::Format::blocks_for_dims(DimsBox::new3(dims.width(), dims.height(), dims.depth()));
+
+            image.variants(|image_bind, data| {
+                let num_blocks = data.len();
+                if num_blocks == num_blocks_expected {
+                    let data_bytes_len = data.len() * mem::size_of::<T::Format>();
+                    T::sub_image(self.gl, image_bind, offset, sub_dims, level, data.as_ptr() as *const GLvoid, data_bytes_len as GLsizei);
+                } else {
+                    panic!("Mismatched image size; expected {} blocks, found {} blocks", num_blocks_expected, num_blocks);
+                }
+            });
+
+            assert_eq!(0, self.gl.GetError());
         }
     }
 }
@@ -672,16 +587,6 @@ impl DimsSquare {
         DimsSquare{ side }
     }
 }
-impl DimsTag {
-    #[inline]
-    pub fn to_tuple(self) -> (u32, u32, u32) {
-        match self {
-            DimsTag::One(dims) => (dims.width(), 1, 1),
-            DimsTag::Two(dims) => (dims.width(), dims.height(), 1),
-            DimsTag::Three(dims) => (dims.width(), dims.height(), dims.depth())
-        }
-    }
-}
 
 impl Dims for DimsBox<D1, u32> {
     type Offset = Vector1<u32>;
@@ -701,7 +606,12 @@ impl Dims for DimsBox<D1, u32> {
             DimsBox::new1(size as u32)
         }
     }
+    fn mip_dims(self, mip_level: GLint) -> Self {
+        let dim_divisor = 2u32.pow(mip_level as u32);
+        DimsBox::new1(self.width() / dim_divisor)
+    }
 }
+
 impl Dims for DimsBox<D2, u32> {
     type Offset = Vector2<u32>;
     #[inline] fn width(self) -> u32 {GeoBox::width(&self)}
@@ -719,16 +629,27 @@ impl Dims for DimsBox<D2, u32> {
             DimsBox::new2(size as u32, size as u32)
         }
     }
+    fn mip_dims(self, mip_level: GLint) -> Self {
+        let dim_divisor = 2u32.pow(mip_level as u32);
+        DimsBox::new2(self.width() / dim_divisor, self.height() / dim_divisor)
+    }
+}
+impl DimsArray for DimsBox<D2, u32> {
     #[inline]
-    fn max_size_array(state: &ContextState) -> Option<DimsBox<D2, u32>> {
+    fn max_size_array(state: &ContextState) -> DimsBox<D2, u32> {
         unsafe {
             let (mut size, mut array_size) = (0, 0);
             state.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
             state.gl.GetIntegerv(gl::MAX_ARRAY_TEXTURE_LAYERS, &mut array_size);
-            Some(DimsBox::new2(size as u32, array_size as u32))
+            DimsBox::new2(size as u32, array_size as u32)
         }
     }
+    fn mip_dims_array(self, mip_level: GLint) -> DimsBox<D2, u32> {
+        let dim_divisor = 2u32.pow(mip_level as u32);
+        DimsBox::new2(self.width() / dim_divisor, self.height())
+    }
 }
+
 impl Dims for DimsSquare {
     type Offset = Vector2<u32>;
     #[inline] fn width(self) -> u32 {self.side}
@@ -745,6 +666,10 @@ impl Dims for DimsSquare {
             state.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
             DimsSquare::new(size as u32)
         }
+    }
+    fn mip_dims(self, mip_level: GLint) -> Self {
+        let dim_divisor = 2u32.pow(mip_level as u32);
+        DimsSquare::new(self.side / dim_divisor)
     }
 }
 impl Dims for DimsBox<D3, u32> {
@@ -764,43 +689,29 @@ impl Dims for DimsBox<D3, u32> {
             DimsBox::new3(size as u32, size as u32, size as u32)
         }
     }
+    fn mip_dims(self, mip_level: GLint) -> Self {
+        let dim_divisor = 2u32.pow(mip_level as u32);
+        DimsBox::new3(self.width() / dim_divisor, self.height() / dim_divisor, self.depth() / dim_divisor)
+    }
+}
+impl DimsArray for DimsBox<D3, u32> {
     #[inline]
-    fn max_size_array(state: &ContextState) -> Option<DimsBox<D3, u32>> {
+    fn max_size_array(state: &ContextState) -> DimsBox<D3, u32> {
         unsafe {
             let (mut size, mut array_size) = (0, 0);
             state.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
             state.gl.GetIntegerv(gl::MAX_ARRAY_TEXTURE_LAYERS, &mut array_size);
-            Some(DimsBox::new3(size as u32, size as u32, array_size as u32))
+            DimsBox::new3(size as u32, size as u32, array_size as u32)
         }
     }
-}
-impl From<DimsBox<D1, u32>> for DimsTag {
-    #[inline]
-    fn from(dims: DimsBox<D1, u32>) -> DimsTag {
-        DimsTag::One(dims)
-    }
-}
-impl From<DimsBox<D2, u32>> for DimsTag {
-    #[inline]
-    fn from(dims: DimsBox<D2, u32>) -> DimsTag {
-        DimsTag::Two(dims)
-    }
-}
-impl From<DimsSquare> for DimsTag {
-    #[inline]
-    fn from(dims: DimsSquare) -> DimsTag {
-        DimsTag::Two(DimsBox::new2(dims.side, dims.side))
-    }
-}
-impl From<DimsBox<D3, u32>> for DimsTag {
-    #[inline]
-    fn from(dims: DimsBox<D3, u32>) -> DimsTag {
-        DimsTag::Three(dims)
+    fn mip_dims_array(self, mip_level: GLint) -> Self {
+        let dim_divisor = 2u32.pow(mip_level as u32);
+        DimsBox::new3(self.width() / dim_divisor, self.height() / dim_divisor, self.depth())
     }
 }
 impl<'a, D, T> Image<'a, D, T> for &'a [T::Format]
     where D: Dimensionality<u32>,
-          T: TextureTypeSingleImage<D>,
+          T: TextureTypeBasicImage<D>,
           T::Format: Sized
 {
     fn variants<F: FnMut(GLenum, &'a [T::Format])>(self, mut for_each: F) {
