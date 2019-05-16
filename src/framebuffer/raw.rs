@@ -234,7 +234,7 @@ impl<'a, F> RawBoundFramebufferDraw<'a, F>
     where F: RawFramebuffer
 {
     #[inline]
-    pub(crate) fn clear_color_all(&mut self, color: Rgba<f32>, attachment: u8) {
+    pub(crate) fn clear_color_attachment(&mut self, color: Rgba<f32>, attachment: u8) {
         unsafe{ self.gl.ClearBufferfv(gl::COLOR, attachment as _, &color.r) }
     }
 

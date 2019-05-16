@@ -133,7 +133,7 @@ pub trait Framebuffer {
             let mut framebuffer_bind = state.framebuffer_targets.draw.bind(raw_mut, &state.gl);
             framebuffer_bind.set_attachments(arm.ahc, arm.attachments);
             arm.attachments.color_attachments(|attachment_index| {
-                framebuffer_bind.clear_color_all(color, attachment_index);
+                framebuffer_bind.clear_color_attachment(color, attachment_index);
             });
         }
     }
@@ -337,7 +337,7 @@ impl<A, F> FramebufferObjectAttached<A, F>
         unsafe {
             let mut framebuffer_bind = state.framebuffer_targets.draw.bind(raw_mut, &state.gl);
             framebuffer_bind.set_attachments(arm.ahc, arm.attachments);
-            framebuffer_bind.clear_color_all(color, color_index);
+            framebuffer_bind.clear_color_attachment(color, color_index);
         }
     }
 }
@@ -402,7 +402,7 @@ impl Framebuffer for FramebufferDefault {
         unsafe {
             let mut framebuffer_bind = state.framebuffer_targets.draw.bind(raw_mut, &state.gl);
             framebuffer_bind.set_attachments(arm.ahc, arm.attachments);
-            framebuffer_bind.clear_color_all(color, 0);
+            framebuffer_bind.clear_color_attachment(color, 0);
         }
     }
 }
