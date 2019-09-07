@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use ContextState;
-use Handle;
+use crate::{ContextState, Handle};
 
-use gl::{self, types::*, Gl};
+use crate::gl::{self, types::*, Gl};
 
 use std::{
     cell::Cell,
@@ -199,12 +198,10 @@ impl<T: Copy> RawBuffer<T> {
         self.handle
     }
 
-    pub(crate) fn delete(self, state: &ContextState) {
-        unsafe {
-            if mem::size_of::<T>() != 0 {
-                state.buffer_binds.unbind(&self, &state.gl);
-                state.gl.DeleteBuffers(1, &self.handle.get());
-            }
+    pub(crate) unsafe fn delete(&mut self, state: &ContextState) {
+        if mem::size_of::<T>() != 0 {
+            state.buffer_binds.unbind(&self, &state.gl);
+            state.gl.DeleteBuffers(1, &self.handle.get());
         }
     }
 }
@@ -241,8 +238,8 @@ where
         R: RangeBounds<usize>,
     {
         if mem::size_of::<T>() != 0 {
-            let read_offset = ::bound_to_num_start(self_range.start_bound(), 0);
-            let read_end = ::bound_to_num_end(self_range.end_bound(), self.buffer.size);
+            let read_offset = crate::bound_to_num_start(self_range.start_bound(), 0);
+            let read_end = crate::bound_to_num_end(self_range.end_bound(), self.buffer.size);
             assert!(read_end <= isize::max_value() as usize);
 
             let size = read_offset.checked_sub(read_end).expect(&format!(

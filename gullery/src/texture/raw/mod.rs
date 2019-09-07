@@ -14,11 +14,15 @@
 
 pub mod types;
 
-use gl::{self, types::*, Gl};
-use Handle;
+use crate::{
+    gl::{self, types::*, Gl},
+    Handle,
+};
 
-use image_format::{ConcreteImageFormat, FormatAttributes, ImageFormat, ImageFormatRenderable};
-use ContextState;
+use crate::{
+    image_format::{ConcreteImageFormat, FormatAttributes, ImageFormat, ImageFormatRenderable},
+    ContextState,
+};
 
 use std::{
     cell::Cell,
@@ -30,7 +34,7 @@ use std::{
 };
 
 use super::sample_parameters::*;
-use cgmath::{Vector1, Vector2, Vector3};
+use crate::cgmath::{Vector1, Vector2, Vector3};
 use cgmath_geometry::{
     rect::{DimsBox, GeoBox},
     Dimensionality, D1, D2, D3,
@@ -232,14 +236,12 @@ where
         self.handle
     }
 
-    pub fn delete(self, state: &ContextState) {
-        unsafe {
-            state.gl.DeleteTextures(1, &self.handle.get());
-            state
-                .image_units
-                .0
-                .unbind_texture(self.handle, T::BIND_TARGET, &state.gl);
-        }
+    pub unsafe fn delete(&mut self, state: &ContextState) {
+        state.gl.DeleteTextures(1, &self.handle.get());
+        state
+            .image_units
+            .0
+            .unbind_texture(self.handle, T::BIND_TARGET, &state.gl);
     }
 }
 
@@ -262,14 +264,12 @@ impl RawSampler {
         self.handle
     }
 
-    pub fn delete(self, state: &ContextState) {
-        unsafe {
-            state.gl.DeleteSamplers(1, &self.handle.get());
-            state
-                .image_units
-                .0
-                .unbind_sampler_from_all(self.handle, &state.gl);
-        }
+    pub unsafe fn delete(&mut self, state: &ContextState) {
+        state.gl.DeleteSamplers(1, &self.handle.get());
+        state
+            .image_units
+            .0
+            .unbind_sampler_from_all(self.handle, &state.gl);
     }
 }
 

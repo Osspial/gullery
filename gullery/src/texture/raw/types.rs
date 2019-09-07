@@ -19,8 +19,8 @@
 //! set the `T` parameter to `SpecialTex<{ImageFormat}>`
 
 use super::*;
+use crate::glsl::ScalarType;
 use cgmath_geometry::Dimensionality;
-use glsl::ScalarType;
 
 /// Stores multiple logical textures in a single texture object.
 ///
@@ -209,7 +209,7 @@ where
     type Format = C;
     type Dims = DimsBox<D2, u32>;
 
-    type Dyn = ArrayTex<ImageFormat<ScalarType = C::ScalarType>>;
+    type Dyn = ArrayTex<dyn ImageFormat<ScalarType = C::ScalarType>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_1D_ARRAY;
     fn max_size(state: &ContextState) -> Self::Dims {
@@ -273,7 +273,7 @@ where
     type Format = C;
     type Dims = DimsBox<D3, u32>;
 
-    type Dyn = ArrayTex<ImageFormat<ScalarType = C::ScalarType>>;
+    type Dyn = ArrayTex<dyn ImageFormat<ScalarType = C::ScalarType>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_2D_ARRAY;
     fn max_size(state: &ContextState) -> Self::Dims {
@@ -347,7 +347,7 @@ where
     type Format = C;
     type Dims = DimsBox<D1, u32>;
 
-    type Dyn = ImageFormat<ScalarType = C::ScalarType>;
+    type Dyn = dyn ImageFormat<ScalarType = C::ScalarType>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_1D;
     fn max_size(state: &ContextState) -> Self::Dims {
@@ -407,7 +407,7 @@ where
     C: ?Sized + ImageFormatRenderable,
 {
     type DynRenderable =
-        ImageFormatRenderable<ScalarType = C::ScalarType, FormatType = C::FormatType>;
+        dyn ImageFormatRenderable<ScalarType = C::ScalarType, FormatType = C::FormatType>;
 }
 unsafe impl<C> TextureType<D2> for C
 where
@@ -418,7 +418,7 @@ where
     type Format = C;
     type Dims = DimsBox<D2, u32>;
 
-    type Dyn = ImageFormat<ScalarType = C::ScalarType>;
+    type Dyn = dyn ImageFormat<ScalarType = C::ScalarType>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_2D;
     fn max_size(state: &ContextState) -> Self::Dims {
@@ -478,7 +478,7 @@ where
     C: ?Sized + ImageFormatRenderable,
 {
     type DynRenderable =
-        ImageFormatRenderable<ScalarType = C::ScalarType, FormatType = C::FormatType>;
+        dyn ImageFormatRenderable<ScalarType = C::ScalarType, FormatType = C::FormatType>;
 }
 unsafe impl<C> TextureType<D3> for C
 where
@@ -489,7 +489,7 @@ where
     type Format = C;
     type Dims = DimsBox<D3, u32>;
 
-    type Dyn = ImageFormat<ScalarType = C::ScalarType>;
+    type Dyn = dyn ImageFormat<ScalarType = C::ScalarType>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_3D;
     fn max_size(state: &ContextState) -> Self::Dims {
@@ -549,7 +549,7 @@ where
     C: ?Sized + ImageFormatRenderable,
 {
     type DynRenderable =
-        ImageFormatRenderable<ScalarType = C::ScalarType, FormatType = C::FormatType>;
+        dyn ImageFormatRenderable<ScalarType = C::ScalarType, FormatType = C::FormatType>;
 }
 
 unsafe impl<C> TextureType<D2> for CubemapTex<C>
@@ -561,7 +561,7 @@ where
     type Format = C;
     type Dims = DimsSquare;
 
-    type Dyn = CubemapTex<ImageFormat<ScalarType = C::ScalarType>>;
+    type Dyn = CubemapTex<dyn ImageFormat<ScalarType = C::ScalarType>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_CUBE_MAP;
     fn max_size(state: &ContextState) -> Self::Dims {
@@ -622,8 +622,9 @@ unsafe impl<C> TextureTypeRenderable<D2> for CubemapTex<C>
 where
     C: ?Sized + ImageFormatRenderable,
 {
-    type DynRenderable =
-        CubemapTex<ImageFormatRenderable<ScalarType = C::ScalarType, FormatType = C::FormatType>>;
+    type DynRenderable = CubemapTex<
+        dyn ImageFormatRenderable<ScalarType = C::ScalarType, FormatType = C::FormatType>,
+    >;
 }
 
 // TRAIT IMPLEMENTATIONS FOR RectTex
@@ -638,7 +639,7 @@ where
     type Format = C;
     type Dims = DimsBox<D2, u32>;
 
-    type Dyn = RectTex<ImageFormat<ScalarType = C::ScalarType>>;
+    type Dyn = RectTex<dyn ImageFormat<ScalarType = C::ScalarType>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_RECTANGLE;
     fn max_size(state: &ContextState) -> Self::Dims {
@@ -698,7 +699,7 @@ where
     C: ?Sized + ImageFormatRenderable,
 {
     type DynRenderable =
-        RectTex<ImageFormatRenderable<ScalarType = C::ScalarType, FormatType = C::FormatType>>;
+        RectTex<dyn ImageFormatRenderable<ScalarType = C::ScalarType, FormatType = C::FormatType>>;
 }
 
 // impl Sealed for BufferTex {}
@@ -716,16 +717,16 @@ where
 
 // TRAIT IMPLEMENTATIONS FOR MultisampleTex
 
-unsafe impl<S> TextureType<D2> for MultisampleTex<ImageFormat<ScalarType = S>>
+unsafe impl<S> TextureType<D2> for MultisampleTex<dyn ImageFormat<ScalarType = S>>
 where
     S: 'static + ScalarType,
 {
     type MipSelector = ();
     type Samples = u8;
-    type Format = ImageFormat<ScalarType = S>;
+    type Format = dyn ImageFormat<ScalarType = S>;
     type Dims = DimsBox<D2, u32>;
 
-    type Dyn = MultisampleTex<ImageFormat<ScalarType = S>>;
+    type Dyn = MultisampleTex<dyn ImageFormat<ScalarType = S>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_2D_MULTISAMPLE;
     fn max_size(state: &ContextState) -> Self::Dims {
@@ -769,7 +770,7 @@ where
     type Format = C;
     type Dims = DimsBox<D2, u32>;
 
-    type Dyn = MultisampleTex<ImageFormat<ScalarType = C::ScalarType>>;
+    type Dyn = MultisampleTex<dyn ImageFormat<ScalarType = C::ScalarType>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_2D_MULTISAMPLE;
     fn max_size(state: &ContextState) -> Self::Dims {
@@ -832,7 +833,7 @@ where
     C: ?Sized + ImageFormatRenderable,
 {
     type DynRenderable = MultisampleTex<
-        ImageFormatRenderable<ScalarType = C::ScalarType, FormatType = C::FormatType>,
+        dyn ImageFormatRenderable<ScalarType = C::ScalarType, FormatType = C::FormatType>,
     >;
 }
 unsafe impl<C> TextureType<D2> for ArrayTex<MultisampleTex<C>>
@@ -844,7 +845,7 @@ where
     type Format = C;
     type Dims = DimsBox<D3, u32>;
 
-    type Dyn = ArrayTex<MultisampleTex<ImageFormat<ScalarType = C::ScalarType>>>;
+    type Dyn = ArrayTex<MultisampleTex<dyn ImageFormat<ScalarType = C::ScalarType>>>;
 
     const BIND_TARGET: GLenum = gl::TEXTURE_2D_MULTISAMPLE_ARRAY;
     fn max_size(state: &ContextState) -> Self::Dims {

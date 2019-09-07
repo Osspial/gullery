@@ -15,8 +15,10 @@
 pub(crate) mod vao;
 pub use self::vao::VertexArrayObject;
 
-use gl::types::GLenum;
-use glsl::{Scalar, TransparentType};
+use crate::{
+    gl::types::GLenum,
+    glsl::{Scalar, TransparentType},
+};
 use std::marker::PhantomData;
 
 pub unsafe trait Index: 'static + Copy {

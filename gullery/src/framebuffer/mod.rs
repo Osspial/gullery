@@ -33,16 +33,17 @@ pub use self::{raw::DrawMode, renderbuffer::Renderbuffer};
 use std::borrow::BorrowMut;
 
 use self::render_state::RenderState;
+use crate::{
+    gl::{self, types::*, Gl},
+    image_format::{ConcreteImageFormat, FormatType, FormatTypeTag, ImageFormatRenderable, Rgba},
+    program::Program,
+    uniform::Uniforms,
+    vertex::{Index, Vertex, VertexArrayObject},
+    ContextState, Handle,
+};
 use cgmath_geometry::{rect::OffsetBox, D2};
-use gl::{self, types::*, Gl};
-use image_format::{ConcreteImageFormat, FormatType, FormatTypeTag, ImageFormatRenderable, Rgba};
-use program::Program;
-use uniform::Uniforms;
-use vertex::{Index, Vertex, VertexArrayObject};
-use ContextState;
-use Handle;
 
-use std::{mem, ops::RangeBounds, rc::Rc};
+use std::{ops::RangeBounds, rc::Rc};
 
 pub(crate) struct FramebufferTargets {
     read: RawFramebufferTargetRead,
@@ -355,9 +356,9 @@ where
 
 impl<A: Attachments> Drop for FramebufferObject<A> {
     fn drop(&mut self) {
-        let mut fbo = unsafe { mem::uninitialized() };
-        mem::swap(&mut fbo, &mut self.raw);
-        fbo.delete(&self.state);
+        unsafe {
+            self.raw.delete(&self.state);
+        }
     }
 }
 

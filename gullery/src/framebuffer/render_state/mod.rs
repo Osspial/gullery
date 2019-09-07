@@ -19,8 +19,8 @@ pub use self::raw::{
     BlendFunc, BlendFuncs, ColorMask, CullFace, DepthStencilFunc, FrontFace, PolygonOffset,
     StencilOp, StencilTest,
 };
+use crate::ContextState;
 use cgmath_geometry::{rect::OffsetBox, D2};
-use ContextState;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RenderState {

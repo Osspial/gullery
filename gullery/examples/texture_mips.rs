@@ -41,7 +41,7 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: &'a Texture<D2, ImageFormat<ScalarType = GLSLFloat>>,
+    tex: &'a Texture<D2, dyn ImageFormat<ScalarType = GLSLFloat>>,
 }
 
 fn load_image_from_file(path: &str) -> Result<(Vec<u8>, DimsBox<D2, u32>), io::Error> {

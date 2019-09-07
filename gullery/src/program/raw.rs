@@ -12,21 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use framebuffer::attachments::{
-    AMRNSImpl, AttachmentType, Attachments, AttachmentsMemberRegistryNoSpecifics,
+use crate::{
+    framebuffer::attachments::{
+        AMRNSImpl, AttachmentType, Attachments, AttachmentsMemberRegistryNoSpecifics,
+    },
+    gl::{self, types::*, Gl},
+    image_format::{FormatType, FormatTypeTag, ImageFormatRenderable},
 };
-use gl::{self, types::*, Gl};
-use image_format::{FormatType, FormatTypeTag, ImageFormatRenderable};
 
 use super::error::{LinkError, MismatchedTypeError, ProgramError, ProgramWarning};
-use glsl::{TransparentType, TypeTag, TypeTagSingle};
-use texture::ImageUnits;
-use uniform::{
-    TextureUniformBinder, UniformLocContainer, UniformType, Uniforms, UniformsMemberRegistry,
+use crate::{
+    glsl::{TransparentType, TypeTag, TypeTagSingle},
+    texture::ImageUnits,
+    uniform::{
+        TextureUniformBinder, UniformLocContainer, UniformType, Uniforms, UniformsMemberRegistry,
+    },
+    vertex::{Vertex, VertexMemberRegistry},
+    ContextState, Handle,
 };
-use vertex::{Vertex, VertexMemberRegistry};
-use ContextState;
-use Handle;
 
 use std::{cell::Cell, ffi::CString, marker::PhantomData, mem, ptr};
 
@@ -150,10 +153,8 @@ impl<S: ShaderStage> RawShader<S> {
         self.handle
     }
 
-    pub fn delete(self, gl: &Gl) {
-        unsafe {
-            gl.DeleteShader(self.handle.get());
-        }
+    pub unsafe fn delete(&mut self, gl: &Gl) {
+        gl.DeleteShader(self.handle.get());
     }
 }
 
@@ -298,12 +299,10 @@ impl RawProgram {
         self.handle
     }
 
-    pub fn delete(self, state: &ContextState) {
-        unsafe {
-            state.gl.DeleteProgram(self.handle.get());
-            if state.program_target.0.bound_program.get() == Some(self.handle) {
-                state.program_target.0.reset_bind(&state.gl);
-            }
+    pub unsafe fn delete(&mut self, state: &ContextState) {
+        state.gl.DeleteProgram(self.handle.get());
+        if state.program_target.0.bound_program.get() == Some(self.handle) {
+            state.program_target.0.reset_bind(&state.gl);
         }
     }
 }

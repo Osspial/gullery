@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use gl::{self, types::*, Gl};
+use crate::gl::{self, types::*, Gl};
 
-use buffer::Buffer;
-use glsl::{Scalar, TransparentType, TypeTagSingle};
-use vertex::{Index, Vertex, VertexMemberRegistry};
-use ContextState;
-use GLObject;
-use Handle;
+use crate::{
+    buffer::Buffer,
+    glsl::{Scalar, TransparentType, TypeTagSingle},
+    vertex::{Index, Vertex, VertexMemberRegistry},
+    ContextState, GLObject, Handle,
+};
 
 use std::{cell::Cell, marker::PhantomData, mem};
 
@@ -68,13 +68,11 @@ impl<V: Vertex> RawVAO<V> {
         self.handle
     }
 
-    pub fn delete(self, state: &ContextState) {
-        unsafe {
-            state.gl.DeleteVertexArrays(1, &self.handle.get());
-            let bound_vao = state.vao_target.0.bound_vao.get();
-            if bound_vao == Some(self.handle) {
-                state.vao_target.0.reset_bind(&state.gl);
-            }
+    pub unsafe fn delete(&mut self, state: &ContextState) {
+        state.gl.DeleteVertexArrays(1, &self.handle.get());
+        let bound_vao = state.vao_target.0.bound_vao.get();
+        if bound_vao == Some(self.handle) {
+            state.vao_target.0.reset_bind(&state.gl);
         }
     }
 }

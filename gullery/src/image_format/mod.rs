@@ -86,11 +86,11 @@ macro_rules! impl_slice_conversions {
 
 pub mod compressed;
 
-use gl::{self, types::*};
+use crate::gl::{self, types::*};
 
-use glsl::*;
+use crate::glsl::*;
 
-use cgmath::{Vector1, Vector2, Vector3, Vector4};
+use crate::cgmath::{Vector1, Vector2, Vector3, Vector4};
 use cgmath_geometry::{rect::DimsBox, D3};
 
 #[repr(u8)]

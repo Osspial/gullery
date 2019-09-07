@@ -42,14 +42,12 @@ use self::{
     raw::{RawBoundProgram, RawProgram, RawProgramTarget, RawShader},
 };
 
-use framebuffer::attachments::Attachments;
-use uniform::Uniforms;
-use vertex::Vertex;
-use ContextState;
-use GLObject;
-use Handle;
+use crate::{
+    framebuffer::attachments::Attachments, uniform::Uniforms, vertex::Vertex, ContextState,
+    GLObject, Handle,
+};
 
-use std::{marker::PhantomData, mem, rc::Rc};
+use std::{marker::PhantomData, rc::Rc};
 
 pub use self::raw::{FragmentStage, GeometryStage, ShaderStage, VertexStage};
 
@@ -230,9 +228,9 @@ where
 
 impl<S: ShaderStage> Drop for Shader<S> {
     fn drop(&mut self) {
-        let mut shader_raw = unsafe { mem::uninitialized() };
-        mem::swap(&mut shader_raw, &mut self.raw);
-        shader_raw.delete(&self.state.gl);
+        unsafe {
+            self.raw.delete(&self.state.gl);
+        }
     }
 }
 
@@ -243,19 +241,21 @@ where
     A: Attachments,
 {
     fn drop(&mut self) {
-        let mut program_raw = unsafe { mem::uninitialized() };
-        mem::swap(&mut program_raw, &mut self.raw);
-        program_raw.delete(&self.state);
+        unsafe {
+            self.raw.delete(&self.state);
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cgmath::Vector3;
-    use gl::types::*;
-    use test_helper::{TestVertex, CONTEXT_STATE};
-    use uniform::{Uniforms, UniformsMemberRegistry};
+    use crate::{
+        cgmath::Vector3,
+        gl::types::*,
+        test_helper::{TestVertex, CONTEXT_STATE},
+        uniform::{Uniforms, UniformsMemberRegistry},
+    };
 
     const VERTEX_SHADER: &str = r#"
         #version 330

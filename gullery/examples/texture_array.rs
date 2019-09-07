@@ -44,7 +44,7 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: &'a Texture<D2, CubemapTex<ImageFormat<ScalarType = GLSLFloat>>>,
+    tex: &'a Texture<D2, CubemapTex<dyn ImageFormat<ScalarType = GLSLFloat>>>,
     array_index: u32,
 }
 

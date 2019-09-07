@@ -39,7 +39,7 @@ pub mod texture;
 pub mod uniform;
 pub mod vertex;
 
-use gl::Gl;
+use crate::gl::Gl;
 
 use std::{cell::Cell, collections::Bound, num::NonZeroU32, rc::Rc};
 
@@ -126,10 +126,12 @@ impl ContextState {
 #[cfg(test)]
 mod test_helper {
     use super::*;
-    use cgmath::{Point2, Point3};
+    use crate::{
+        cgmath::{Point2, Point3},
+        vertex::{Vertex, VertexMemberRegistry},
+    };
     use glutin::{Api, Context, ContextBuilder, EventsLoop, GlContext, GlRequest};
     use quickcheck::{Arbitrary, Gen};
-    use vertex::{Vertex, VertexMemberRegistry};
 
     #[derive(Debug, Clone, Copy)]
     pub struct TestVertex {

@@ -15,11 +15,11 @@
 mod raw;
 use self::raw::*;
 
-use buffer::Buffer;
-use vertex::{Index, Vertex};
-use ContextState;
-use GLObject;
-use Handle;
+use crate::{
+    buffer::Buffer,
+    vertex::{Index, Vertex},
+    ContextState, GLObject, Handle,
+};
 
 use std::{mem, ptr, rc::Rc};
 
@@ -103,9 +103,7 @@ impl<V: Vertex, I: Index> VertexArrayObject<V, I> {
 
     /// Destroy the VAO **without** recursively dropping the contained vertex and index buffer
     unsafe fn destroy_in_place(&mut self) {
-        let mut raw_vao = mem::uninitialized();
-        mem::swap(&mut raw_vao, &mut self.raw);
-        raw_vao.delete(&**self.vertex_buffer.state());
+        self.raw.delete(&**self.vertex_buffer.state());
     }
 }
 
@@ -148,8 +146,10 @@ impl<V: Vertex, I: Index> Drop for VertexArrayObject<V, I> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use buffer::BufferUsage;
-    use test_helper::{TestVertex, CONTEXT_STATE};
+    use crate::{
+        buffer::BufferUsage,
+        test_helper::{TestVertex, CONTEXT_STATE},
+    };
 
     quickcheck! {
         fn make_vao_noindex(buffer_data: Vec<TestVertex>) -> () {

@@ -12,15 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use gl::{self, types::*, Gl};
+use crate::gl::{self, types::*, Gl};
 
 use cgmath_geometry::{
     rect::{DimsBox, GeoBox},
     D2,
 };
 
-use ContextState;
-use Handle;
+use crate::{ContextState, Handle};
 
 use std::{cell::Cell, marker::PhantomData};
 
@@ -58,13 +57,11 @@ impl RawRenderbuffer {
         self.handle
     }
 
-    pub fn delete(self, state: &ContextState) {
-        unsafe {
-            if state.renderbuffer_target.0.bound_buffer.get() == Some(self.handle) {
-                state.renderbuffer_target.0.reset_bind(&state.gl);
-            }
-            state.gl.DeleteRenderbuffers(1, &self.handle.get());
+    pub unsafe fn delete(&mut self, state: &ContextState) {
+        if state.renderbuffer_target.0.bound_buffer.get() == Some(self.handle) {
+            state.renderbuffer_target.0.reset_bind(&state.gl);
         }
+        state.gl.DeleteRenderbuffers(1, &self.handle.get());
     }
 }
 

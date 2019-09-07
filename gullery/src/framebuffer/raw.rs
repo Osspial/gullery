@@ -12,23 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::{
+    gl::{self, types::*, Gl},
+    texture::{MipSelector, Texture, TextureType},
+};
 use cgmath_geometry::{
     rect::{GeoBox, OffsetBox},
     Dimensionality, D2,
 };
-use gl::{self, types::*, Gl};
-use texture::{MipSelector, Texture, TextureType};
 
 use super::{attachments::*, Renderbuffer};
-use image_format::{
-    ConcreteImageFormat, FormatAttributes, FormatType, FormatTypeTag, ImageFormatRenderable, Rgba,
+use crate::{
+    image_format::{
+        ConcreteImageFormat, FormatAttributes, FormatType, FormatTypeTag, ImageFormatRenderable,
+        Rgba,
+    },
+    program::BoundProgram,
+    uniform::Uniforms,
+    vertex::{vao::BoundVAO, Index, Vertex},
+    ContextState, GLObject, Handle,
 };
-use program::BoundProgram;
-use uniform::Uniforms;
-use vertex::{vao::BoundVAO, Index, Vertex};
-use ContextState;
-use GLObject;
-use Handle;
 
 use std::{cell::Cell, marker::PhantomData, mem, ops::RangeBounds};
 
@@ -113,11 +116,9 @@ impl RawFramebufferObject {
         }
     }
 
-    pub fn delete(self, state: &ContextState) {
-        unsafe {
-            state.framebuffer_targets.unbind(&self, &state.gl);
-            state.gl.DeleteFramebuffers(1, &self.handle.get());
-        }
+    pub unsafe fn delete(&mut self, state: &ContextState) {
+        state.framebuffer_targets.unbind(self, &state.gl);
+        state.gl.DeleteFramebuffers(1, &self.handle.get());
     }
 }
 
@@ -312,12 +313,12 @@ where
         A: Attachments,
     {
         let index_type_option = I::INDEX_GL_ENUM;
-        let read_offset = ::bound_to_num_start(range.start_bound(), 0);
+        let read_offset = crate::bound_to_num_start(range.start_bound(), 0);
 
         if let (Some(index_type), Some(index_buffer)) =
             (index_type_option, bound_vao.vao().index_buffer())
         {
-            let read_end = ::bound_to_num_end(range.end_bound(), index_buffer.len());
+            let read_end = crate::bound_to_num_end(range.end_bound(), index_buffer.len());
             assert!(read_offset <= read_end);
             assert!((read_end - read_offset) <= GLsizei::max_value() as usize);
 
@@ -331,7 +332,7 @@ where
             }
         } else {
             let read_end =
-                ::bound_to_num_end(range.end_bound(), bound_vao.vao().vertex_buffer().len());
+                crate::bound_to_num_end(range.end_bound(), bound_vao.vao().vertex_buffer().len());
             assert!(read_offset <= GLint::max_value() as usize);
             assert!(read_offset <= read_end);
             assert!((read_end - read_offset) <= isize::max_value() as usize);

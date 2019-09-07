@@ -14,13 +14,14 @@
 
 //! Framebuffer attachment traits.
 
+use crate::{
+    framebuffer::Renderbuffer,
+    image_format::{FormatType, FormatTypeTag, ImageFormatRenderable},
+    texture::{MipSelector, Texture, TextureType},
+    GLObject, Handle,
+};
 use cgmath_geometry::Dimensionality;
-use framebuffer::Renderbuffer;
-use image_format::{FormatType, FormatTypeTag, ImageFormatRenderable};
 use std::marker::PhantomData;
-use texture::{MipSelector, Texture, TextureType};
-use GLObject;
-use Handle;
 
 /// A Rust type that can be used as a [`FramebufferObject`] attachment.
 ///

@@ -39,7 +39,7 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: &'a Texture<D2, ImageFormat<ScalarType = GLSLFloat>>,
+    tex: &'a Texture<D2, dyn ImageFormat<ScalarType = GLSLFloat>>,
 }
 
 fn main() {

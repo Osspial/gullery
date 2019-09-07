@@ -14,9 +14,9 @@
 
 //! Types used to interface with GLSL.
 
-use gl::{self, types::*};
+use crate::gl::{self, types::*};
 
-use cgmath::{
+use crate::cgmath::{
     Matrix2, Matrix3, Matrix4, Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4,
 };
 

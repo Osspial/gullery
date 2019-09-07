@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use ContextState;
-use GLObject;
-use Handle;
+use crate::{ContextState, GLObject, Handle};
 mod raw;
 use self::raw::{RawRenderbuffer, RawRenderbufferTarget};
-use image_format::{ConcreteImageFormat, FormatAttributes, ImageFormatRenderable};
+use crate::image_format::{ConcreteImageFormat, FormatAttributes, ImageFormatRenderable};
 
 use cgmath_geometry::{rect::DimsBox, D2};
-use std::{marker::PhantomData, mem, rc::Rc};
+use std::{marker::PhantomData, rc::Rc};
 
 pub(crate) struct RenderbufferTarget(RawRenderbufferTarget);
 
@@ -106,8 +104,8 @@ impl<I: ImageFormatRenderable> GLObject for Renderbuffer<I> {
 
 impl<I: ImageFormatRenderable> Drop for Renderbuffer<I> {
     fn drop(&mut self) {
-        let mut buffer = unsafe { mem::uninitialized() };
-        mem::swap(&mut buffer, &mut self.raw);
-        buffer.delete(&self.state);
+        unsafe {
+            self.raw.delete(&self.state);
+        }
     }
 }

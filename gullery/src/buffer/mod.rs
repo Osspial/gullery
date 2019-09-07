@@ -20,12 +20,9 @@ pub use self::raw::BufferUsage;
 pub(crate) use self::raw::RawBindTarget;
 use self::raw::{targets, RawBuffer};
 
-use gl::Gl;
-use ContextState;
-use GLObject;
-use Handle;
+use crate::{gl::Gl, ContextState, GLObject, Handle};
 
-use std::{mem, ops::RangeBounds, rc::Rc};
+use std::{ops::RangeBounds, rc::Rc};
 
 pub(crate) struct BufferBinds {
     copy_read: targets::RawCopyRead,
@@ -183,16 +180,16 @@ impl<T: 'static + Copy> GLObject for Buffer<T> {
 
 impl<T: 'static + Copy> Drop for Buffer<T> {
     fn drop(&mut self) {
-        let mut buffer = unsafe { mem::uninitialized() };
-        mem::swap(&mut buffer, &mut self.raw);
-        buffer.delete(&self.state);
+        unsafe {
+            self.raw.delete(&self.state);
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_helper::CONTEXT_STATE;
+    use crate::test_helper::CONTEXT_STATE;
 
     quickcheck! {
         fn buffer_data(data: Vec<u32>) -> bool {

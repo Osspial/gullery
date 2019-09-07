@@ -44,7 +44,7 @@ struct TextureVertex {
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
     offset: Vector2<f32>,
-    tex: &'a Texture<D2, ImageFormat<ScalarType = GLSLFloat>>,
+    tex: &'a Texture<D2, dyn ImageFormat<ScalarType = GLSLFloat>>,
 }
 
 #[derive(Attachments)]

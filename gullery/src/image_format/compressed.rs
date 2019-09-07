@@ -27,14 +27,16 @@
 //!
 //! [nvidia]: https://developer.nvidia.com/gpu-accelerated-texture-compression
 
-use cgmath::Vector3;
-use cgmath_geometry::rect::DimsBox;
-use gl;
-use glsl::GLSLFloat;
-use image_format::{
-    ColorComponents, ConcreteImageFormat, FormatAttributes, ImageFormat, Red, Rg, Rgb, Rgba, SRgb,
-    SRgba,
+use crate::{
+    cgmath::Vector3,
+    gl,
+    glsl::GLSLFloat,
+    image_format::{
+        ColorComponents, ConcreteImageFormat, FormatAttributes, ImageFormat, Red, Rg, Rgb, Rgba,
+        SRgb, SRgba,
+    },
 };
+use cgmath_geometry::rect::DimsBox;
 
 /// Alias for DXT1.
 pub type BC1<S> = DXT1<S>;

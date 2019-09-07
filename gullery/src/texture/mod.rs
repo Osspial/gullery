@@ -18,16 +18,18 @@
 pub mod sample_parameters;
 mod raw;
 
-use gl::{types::*, Gl};
+use crate::gl::{types::*, Gl};
 
 use self::{raw::*, sample_parameters::*};
-use image_format::{ConcreteImageFormat, ImageFormat, Rgba};
-use ContextState;
-use GLObject;
-use Handle;
+use crate::{
+    image_format::{ConcreteImageFormat, ImageFormat, Rgba},
+    ContextState, GLObject, Handle,
+};
 
-use glsl::{ScalarType, TypeTag, TypeTagSingle};
-use uniform::{TextureUniformBinder, UniformType};
+use crate::{
+    glsl::{ScalarType, TypeTag, TypeTagSingle},
+    uniform::{TextureUniformBinder, UniformType},
+};
 
 use std::{cell::Cell, error::Error, fmt, io, mem, rc::Rc};
 
@@ -566,9 +568,7 @@ where
 {
     fn drop(&mut self) {
         unsafe {
-            let mut raw_tex = mem::uninitialized();
-            mem::swap(&mut raw_tex, &mut self.raw);
-            raw_tex.delete(&self.state);
+            self.raw.delete(&self.state);
         }
     }
 }
@@ -576,9 +576,7 @@ where
 impl Drop for Sampler {
     fn drop(&mut self) {
         unsafe {
-            let mut raw_sampler = mem::uninitialized();
-            mem::swap(&mut raw_sampler, &mut self.raw);
-            raw_sampler.delete(&self.state);
+            self.raw.delete(&self.state);
         }
     }
 }

@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use gl::{self, types::*, Gl};
+use crate::gl::{self, types::*, Gl};
 
-use cgmath::{
-    Matrix2, Matrix3, Matrix4, Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4,
+use crate::{
+    cgmath::{
+        Matrix2, Matrix3, Matrix4, Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4,
+    },
+    glsl::{TransparentType, TypeTag},
+    image_format::{Red, Rg, Rgb, Rgba},
+    texture::{ImageUnits, Sampler, Texture, TextureType},
 };
 use cgmath_geometry::Dimensionality;
-use glsl::{TransparentType, TypeTag};
-use image_format::{Red, Rg, Rgb, Rgba};
 use std::marker::PhantomData;
-use texture::{ImageUnits, Sampler, Texture, TextureType};
 
 pub struct TextureUniformBinder<'a> {
     pub(crate) image_units: &'a ImageUnits,
