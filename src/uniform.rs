@@ -12,30 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use gl::{self, Gl, types::*};
+use gl::{self, types::*, Gl};
 
-use std::marker::PhantomData;
-use cgmath::{Vector1, Vector2, Vector3, Vector4, Point1, Point2, Point3, Matrix2, Matrix3, Matrix4};
+use cgmath::{
+    Matrix2, Matrix3, Matrix4, Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4,
+};
 use cgmath_geometry::Dimensionality;
-use glsl::{TypeTag, TransparentType};
-use texture::{ImageUnits, Texture, Sampler, TextureType};
+use glsl::{TransparentType, TypeTag};
 use image_format::{Red, Rg, Rgb, Rgba};
+use std::marker::PhantomData;
+use texture::{ImageUnits, Sampler, Texture, TextureType};
 
 pub struct TextureUniformBinder<'a> {
     pub(crate) image_units: &'a ImageUnits,
-    pub(crate) unit: &'a mut u32
+    pub(crate) unit: &'a mut u32,
 }
 
 impl<'a> TextureUniformBinder<'a> {
-    pub unsafe fn bind<D, T>(&mut self, tex: &Texture<D, T>, sampler: Option<&Sampler>, gl: &Gl) -> u32
-        where D: Dimensionality<u32>,
-              T: ?Sized + TextureType<D>,
+    pub unsafe fn bind<D, T>(
+        &mut self,
+        tex: &Texture<D, T>,
+        sampler: Option<&Sampler>,
+        gl: &Gl,
+    ) -> u32
+    where
+        D: Dimensionality<u32>,
+        T: ?Sized + TextureType<D>,
     {
         if let Some(sampler) = sampler {
             sampler.upload_parameters();
-        }/* else {
-            tex.upload_parameters();
-        }*/
+        } /* else {
+              tex.upload_parameters();
+          }*/
 
         let ret = *self.unit;
         self.image_units.bind(*self.unit, tex, sampler, gl);
@@ -51,10 +59,11 @@ pub unsafe trait UniformType: Copy {
 
 pub trait Uniforms: Sized + Copy {
     type ULC: UniformLocContainer;
-    type Static: 'static + Uniforms<ULC=Self::ULC>;
+    type Static: 'static + Uniforms<ULC = Self::ULC>;
 
     fn members<R>(reg: R)
-        where R: UniformsMemberRegistry<Uniforms=Self>;
+    where
+        R: UniformsMemberRegistry<Uniforms = Self>;
 
     #[inline]
     fn num_members() -> usize {
@@ -63,7 +72,8 @@ pub trait Uniforms: Sized + Copy {
             type Uniforms = U;
             #[inline]
             fn add_member<T>(&mut self, _: &str, _: fn(Self::Uniforms) -> T)
-                where T: UniformType
+            where
+                T: UniformType,
             {
                 *self.0 += 1;
             }
@@ -90,7 +100,10 @@ impl Uniforms for () {
 
     #[inline]
     fn members<R>(_: R)
-        where R: UniformsMemberRegistry<Uniforms=()> {}
+    where
+        R: UniformsMemberRegistry<Uniforms = ()>,
+    {
+    }
 }
 
 macro_rules! impl_glsl_type_uniform {
@@ -117,7 +130,7 @@ macro_rules! impl_glsl_type_uniform {
         impl_glsl_type_uniform!($($rest)*);
     };
 }
-impl_glsl_type_uniform!{
+impl_glsl_type_uniform! {
     f32, (f, loc, gl) => gl.Uniform1f(loc, f),
     Vector1<f32>, (v, loc, gl) => gl.Uniform1f(loc, v.x),
     Vector2<f32>, (v, loc, gl) => gl.Uniform2f(loc, v.x, v.y),
@@ -196,7 +209,7 @@ macro_rules! impl_ulc_array {
 // numbers to this list. However, if you ever need more than 1024 uniform fields (god forbid)
 // you're gonna needa add checks because OpenGL defines the minimum value of the maximum number
 // of uniform fields as 1024.
-impl_ulc_array!{
+impl_ulc_array! {
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
     26, 27, 28, 29, 30, 31, 32//, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
     // 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73,

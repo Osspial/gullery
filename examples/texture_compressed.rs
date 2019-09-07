@@ -6,22 +6,28 @@ extern crate glutin;
 
 extern crate num_traits;
 
-use gullery::ContextState;
-use gullery::buffer::*;
-use gullery::framebuffer::{*, render_state::*};
-use gullery::program::*;
-use gullery::image_format::*;
-use gullery::image_format::compressed::RGTC;
-use gullery::texture::*;
-use gullery::vertex::VertexArrayObject;
+use gullery::{
+    buffer::*,
+    framebuffer::{render_state::*, *},
+    image_format::{compressed::RGTC, *},
+    program::*,
+    texture::*,
+    vertex::VertexArrayObject,
+    ContextState,
+};
 
-use cgmath_geometry::{cgmath, D2};
-use cgmath_geometry::rect::{DimsBox, OffsetBox};
+use cgmath_geometry::{
+    cgmath,
+    rect::{DimsBox, OffsetBox},
+    D2,
+};
 
 use cgmath::*;
 
-use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuilder, ContextBuilder, GlWindow, GlRequest};
-use glutin::dpi::LogicalSize;
+use glutin::{
+    dpi::LogicalSize, ContextBuilder, ControlFlow, Event, EventsLoop, GlContext, GlRequest,
+    GlWindow, WindowBuilder, WindowEvent,
+};
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
@@ -31,7 +37,7 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: &'a Texture<D2, RGTC<Rg>>
+    tex: &'a Texture<D2, RGTC<Rg>>,
 }
 
 fn main() {
@@ -41,56 +47,63 @@ fn main() {
         ContextBuilder::new()
             .with_gl(GlRequest::GlThenGles {
                 opengl_version: (3, 3),
-                opengles_version: (3, 0)
+                opengles_version: (3, 0),
             })
             .with_srgb(true),
-        &events_loop
-    ).unwrap();
-    unsafe{ window.context().make_current().unwrap() };
-    let state = unsafe{ ContextState::new(|addr| window.context().get_proc_address(addr)) };
+        &events_loop,
+    )
+    .unwrap();
+    unsafe { window.context().make_current().unwrap() };
+    let state = unsafe { ContextState::new(|addr| window.context().get_proc_address(addr)) };
 
-    let vertex_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[
-        Vertex {
-            pos: Vector2::new(-1.0, -1.0),
-            tex_coord: Vector2::new(0, !0)
-        },
-        Vertex {
-            pos: Vector2::new(-1.0,  1.0),
-            tex_coord: Vector2::new(0, 0)
-        },
-        Vertex {
-            pos: Vector2::new( 1.0,  1.0),
-            tex_coord: Vector2::new(!0, 0)
-        },
-        Vertex {
-            pos: Vector2::new( 1.0, -1.0),
-            tex_coord: Vector2::new(!0, !0)
-        },
-    ], state.clone());
-    let index_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[
-        0, 1, 2,
-        2, 3, 0u16
-    ], state.clone());
+    let vertex_buffer = Buffer::with_data(
+        BufferUsage::StaticDraw,
+        &[
+            Vertex {
+                pos: Vector2::new(-1.0, -1.0),
+                tex_coord: Vector2::new(0, !0),
+            },
+            Vertex {
+                pos: Vector2::new(-1.0, 1.0),
+                tex_coord: Vector2::new(0, 0),
+            },
+            Vertex {
+                pos: Vector2::new(1.0, 1.0),
+                tex_coord: Vector2::new(!0, 0),
+            },
+            Vertex {
+                pos: Vector2::new(1.0, -1.0),
+                tex_coord: Vector2::new(!0, !0),
+            },
+        ],
+        state.clone(),
+    );
+    let index_buffer = Buffer::with_data(
+        BufferUsage::StaticDraw,
+        &[0, 1, 2, 2, 3, 0u16],
+        state.clone(),
+    );
     let vao = VertexArrayObject::new(vertex_buffer, Some(index_buffer));
     println!("vao created");
     let (image, dims) = {
-        use std::fs::File;
-        use std::io::BufReader;
+        use std::{fs::File, io::BufReader};
 
         let mut file = BufReader::new(File::open("./examples/textures/rg.dds").unwrap());
         let dds = ddsfile::Dds::read(&mut file).unwrap();
         let buf_len = dds.header.linear_size.unwrap() as usize;
-        assert_eq!(Some(ddsfile::FourCC(ddsfile::FourCC::ATI2)), dds.header.spf.fourcc);
-        (dds.data[..buf_len].to_vec(), DimsBox::new2(dds.header.width, dds.header.height))
+        assert_eq!(
+            Some(ddsfile::FourCC(ddsfile::FourCC::ATI2)),
+            dds.header.spf.fourcc
+        );
+        (
+            dds.data[..buf_len].to_vec(),
+            DimsBox::new2(dds.header.width, dds.header.height),
+        )
     };
     println!("texture loaded");
-    let texture = Texture::with_images(
-        dims,
-        Some(RGTC::slice_from_raw(&image)),
-        state.clone()
-    ).unwrap();
+    let texture =
+        Texture::with_images(dims, Some(RGTC::slice_from_raw(&image)), state.clone()).unwrap();
     println!("texture uploaded");
-
 
     let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();
     let fragment_shader = Shader::new(FRAGMENT_SHADER, state.clone()).unwrap();
@@ -100,7 +113,7 @@ fn main() {
         srgb: true,
         viewport: OffsetBox {
             origin: Point2::new(0, 0),
-            dims: Vector2::new(512, 512)
+            dims: Vector2::new(512, 512),
         },
         ..RenderState::default()
     };
@@ -108,24 +121,34 @@ fn main() {
     let mut default_framebuffer = FramebufferDefault::new(state.clone()).unwrap();
     events_loop.run_forever(|event| {
         match event {
-            Event::WindowEvent{event, ..} => match event {
+            Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Resized(logical_size) => {
                     let physical_size = logical_size.to_physical(window.get_hidpi_factor());
 
-                    let uniform = Uniforms {
-                        tex: &texture
-                    };
-                    render_state.viewport = OffsetBox::new2(0, 0, physical_size.width as u32, physical_size.height as u32);
+                    let uniform = Uniforms { tex: &texture };
+                    render_state.viewport = OffsetBox::new2(
+                        0,
+                        0,
+                        physical_size.width as u32,
+                        physical_size.height as u32,
+                    );
                     default_framebuffer.clear_depth(1.0);
                     default_framebuffer.clear_color_all(Rgba::new(0.0, 0.0, 0.0, 1.0));
-                    default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
+                    default_framebuffer.draw(
+                        DrawMode::Triangles,
+                        ..,
+                        &vao,
+                        &program,
+                        uniform,
+                        render_state,
+                    );
 
                     window.swap_buffers().unwrap();
                 }
                 WindowEvent::CloseRequested => return ControlFlow::Break,
-                _ => ()
+                _ => (),
             },
-            _ => ()
+            _ => (),
         }
 
         ControlFlow::Continue

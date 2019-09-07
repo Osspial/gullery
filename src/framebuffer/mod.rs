@@ -24,34 +24,29 @@
 //! [`ImageFormatRenderable`]: ../image_format/trait.ImageFormatRenderable.html
 
 pub mod attachments;
-pub mod render_state;
 mod raw;
+pub mod render_state;
 pub(crate) mod renderbuffer;
 
+use self::{attachments::*, raw::*};
+pub use self::{raw::DrawMode, renderbuffer::Renderbuffer};
 use std::borrow::BorrowMut;
-use self::raw::*;
-use self::attachments::*;
-pub use self::raw::DrawMode;
-pub use self::renderbuffer::Renderbuffer;
 
-use gl::{self, Gl};
-use gl::types::*;
-use {Handle, ContextState};
-use vertex::{Index, Vertex, VertexArrayObject};
-use uniform::Uniforms;
-use program::Program;
-use image_format::{Rgba, FormatType, ImageFormatRenderable, ConcreteImageFormat, FormatTypeTag};
 use self::render_state::RenderState;
-use cgmath_geometry::D2;
-use cgmath_geometry::rect::OffsetBox;
+use cgmath_geometry::{rect::OffsetBox, D2};
+use gl::{self, types::*, Gl};
+use image_format::{ConcreteImageFormat, FormatType, FormatTypeTag, ImageFormatRenderable, Rgba};
+use program::Program;
+use uniform::Uniforms;
+use vertex::{Index, Vertex, VertexArrayObject};
+use ContextState;
+use Handle;
 
-use std::mem;
-use std::rc::Rc;
-use std::ops::RangeBounds;
+use std::{mem, ops::RangeBounds, rc::Rc};
 
 pub(crate) struct FramebufferTargets {
     read: RawFramebufferTargetRead,
-    draw: RawFramebufferTargetDraw
+    draw: RawFramebufferTargetDraw,
 }
 
 /// The default back framebuffer.
@@ -61,7 +56,7 @@ pub(crate) struct FramebufferTargets {
 /// the drawn contents to the user.*
 pub struct FramebufferDefault {
     raw: RawFramebufferDefault,
-    state: Rc<ContextState>
+    state: Rc<ContextState>,
 }
 
 /// An off-screen render-target collection.
@@ -77,14 +72,15 @@ pub struct FramebufferDefault {
 pub struct FramebufferObject<A: 'static + Attachments> {
     raw: RawFramebufferObject,
     handles: A::AHC,
-    state: Rc<ContextState>
+    state: Rc<ContextState>,
 }
 
 /// An off-screen framebuffer paired with a set of render targets.
-pub struct FramebufferObjectAttached<A, F=FramebufferObject<<A as Attachments>::Static>>
-    where A: Attachments,
-          A::Static: Attachments,
-          F: BorrowMut<FramebufferObject<A::Static>>
+pub struct FramebufferObjectAttached<A, F = FramebufferObject<<A as Attachments>::Static>>
+where
+    A: Attachments,
+    A::Static: Attachments,
+    F: BorrowMut<FramebufferObject<A::Static>>,
 {
     pub fbo: F,
     pub attachments: A,
@@ -93,24 +89,25 @@ pub struct FramebufferObjectAttached<A, F=FramebufferObject<<A as Attachments>::
 #[doc(hidden)]
 pub struct AttachmentsRefMut<'a, A: 'a + Attachments> {
     attachments: &'a mut A,
-    ahc: &'a mut [Option<Handle>]
+    ahc: &'a mut [Option<Handle>],
 }
 
 impl<A, F> FramebufferObjectAttached<A, F>
-    where A: Attachments,
-          A::Static: Attachments,
-          F: BorrowMut<FramebufferObject<A::Static>>
+where
+    A: Attachments,
+    A::Static: Attachments,
+    F: BorrowMut<FramebufferObject<A::Static>>,
 {
     #[inline(always)]
     pub fn new(fbo: F, attachments: A) -> FramebufferObjectAttached<A, F> {
-        FramebufferObjectAttached{ fbo, attachments }
+        FramebufferObjectAttached { fbo, attachments }
     }
 }
 
 /// Exposes common framebuffer functionality.
 pub trait Framebuffer {
-    type Attachments: Attachments<Static=Self::AttachmentsStatic>;
-    type AttachmentsStatic: Attachments<AHC=<Self::Attachments as Attachments>::AHC> + 'static;
+    type Attachments: Attachments<Static = Self::AttachmentsStatic>;
+    type AttachmentsStatic: Attachments<AHC = <Self::Attachments as Attachments>::AHC> + 'static;
     /// Really these raw things are just implementation details. You library users don't have to
     /// worry about them, so they aren't shown to you.
     #[doc(hidden)]
@@ -118,7 +115,13 @@ pub trait Framebuffer {
     #[doc(hidden)]
     fn raw(&self) -> (&Self::Raw, &ContextState);
     #[doc(hidden)]
-    fn raw_mut(&mut self) -> (&mut Self::Raw, AttachmentsRefMut<Self::Attachments>, &ContextState);
+    fn raw_mut(
+        &mut self,
+    ) -> (
+        &mut Self::Raw,
+        AttachmentsRefMut<Self::Attachments>,
+        &ContextState,
+    );
 
     /// Clears the color of all attached color buffers to `color` to the specified value.
     ///
@@ -160,7 +163,6 @@ pub trait Framebuffer {
         }
     }
 
-
     /// Performs a single draw call.
     ///
     /// ## Parameters
@@ -179,12 +181,12 @@ pub trait Framebuffer {
         vao: &VertexArrayObject<V, I>,
         program: &Program<V, U::Static, Self::AttachmentsStatic>,
         uniform: U,
-        render_state: RenderState
-    )
-        where R: RangeBounds<usize>,
-              V: Vertex,
-              I: Index,
-              U: Uniforms
+        render_state: RenderState,
+    ) where
+        R: RangeBounds<usize>,
+        V: Vertex,
+        I: Index,
+        U: Uniforms,
     {
         let (raw_mut, arm, state) = self.raw_mut();
         render_state.upload_state(state);
@@ -214,7 +216,7 @@ impl FramebufferDefault {
             state.default_framebuffer_exists.set(true);
             Some(FramebufferDefault {
                 raw: RawFramebufferDefault,
-                state
+                state,
             })
         } else {
             None
@@ -224,7 +226,8 @@ impl FramebufferDefault {
     /// Reads pixels from the default framebuffer
     #[inline]
     pub fn read_pixels<C>(&mut self, read_rect: OffsetBox<D2, u32>, data: &mut [C])
-        where C: ImageFormatRenderable + ConcreteImageFormat
+    where
+        C: ImageFormatRenderable + ConcreteImageFormat,
     {
         let (raw, arm, state) = self.raw_mut();
         unsafe {
@@ -249,29 +252,35 @@ impl<A: Attachments> FramebufferObject<A> {
         FramebufferObject {
             raw,
             handles: A::AHC::new_zeroed(),
-            state
+            state,
         }
     }
 }
 
 impl<A, F> FramebufferObjectAttached<A, F>
-    where A: Attachments,
-          A::Static: Attachments,
-          F: BorrowMut<FramebufferObject<A::Static>>
+where
+    A: Attachments,
+    A::Static: Attachments,
+    F: BorrowMut<FramebufferObject<A::Static>>,
 {
     fn map_attachment_to_index<At>(&self, attachment: &At) -> Option<u8>
-        where At: AttachmentType
+    where
+        At: AttachmentType,
     {
         struct AttachmentRefMatcher<'a, A: 'a> {
             ptr: *const (),
             valid: &'a mut bool,
             color_index: &'a mut Option<u8>,
             color_index_wip: u8,
-            attachments: &'a A
+            attachments: &'a A,
         }
         impl<'a, A: Attachments> AttachmentsMemberRegistryNoSpecifics for AttachmentRefMatcher<'a, A> {
             type Attachments = A;
-            fn add_member<At: AttachmentType>(&mut self, _: &str, get_member: impl FnOnce(&A) -> &At) {
+            fn add_member<At: AttachmentType>(
+                &mut self,
+                _: &str,
+                get_member: impl FnOnce(&A) -> &At,
+            ) {
                 if !*self.valid {
                     let image_type = <At::Format as ImageFormatRenderable>::FormatType::FORMAT_TYPE;
                     if get_member(self.attachments) as *const _ as *const () == self.ptr {
@@ -295,7 +304,7 @@ impl<A, F> FramebufferObjectAttached<A, F>
             valid: &mut valid,
             color_index: &mut color_index,
             color_index_wip: 0,
-            attachments: &self.attachments
+            attachments: &self.attachments,
         }));
 
         if !valid {
@@ -310,10 +319,10 @@ impl<A, F> FramebufferObjectAttached<A, F>
         &mut self,
         read_rect: OffsetBox<D2, u32>,
         data: &mut [C],
-        get_attachment: impl FnOnce(&<Self as Framebuffer>::Attachments) -> &At
-    )
-        where C: ImageFormatRenderable + ConcreteImageFormat,
-              At: AttachmentType<Format=C>
+        get_attachment: impl FnOnce(&<Self as Framebuffer>::Attachments) -> &At,
+    ) where
+        C: ImageFormatRenderable + ConcreteImageFormat,
+        At: AttachmentType<Format = C>,
     {
         let color_index = self.map_attachment_to_index(get_attachment(&self.attachments));
         let (raw, arm, state) = self.raw_mut();
@@ -330,9 +339,11 @@ impl<A, F> FramebufferObjectAttached<A, F>
     pub fn clear_color_attachment<At: AttachmentType>(
         &mut self,
         color: Rgba<f32>,
-        get_attachment: impl FnOnce(&<Self as Framebuffer>::Attachments) -> &At
+        get_attachment: impl FnOnce(&<Self as Framebuffer>::Attachments) -> &At,
     ) {
-        let color_index = self.map_attachment_to_index(get_attachment(&self.attachments)).expect("Provided attachment not color attachment");
+        let color_index = self
+            .map_attachment_to_index(get_attachment(&self.attachments))
+            .expect("Provided attachment not color attachment");
         let (raw_mut, arm, state) = self.raw_mut();
         unsafe {
             let mut framebuffer_bind = state.framebuffer_targets.draw.bind(raw_mut, &state.gl);
@@ -344,7 +355,7 @@ impl<A, F> FramebufferObjectAttached<A, F>
 
 impl<A: Attachments> Drop for FramebufferObject<A> {
     fn drop(&mut self) {
-        let mut fbo = unsafe{ mem::uninitialized() };
+        let mut fbo = unsafe { mem::uninitialized() };
         mem::swap(&mut fbo, &mut self.raw);
         fbo.delete(&self.state);
     }
@@ -361,7 +372,7 @@ impl FramebufferTargets {
     pub fn new() -> FramebufferTargets {
         FramebufferTargets {
             read: RawFramebufferTargetRead::new(),
-            draw: RawFramebufferTargetDraw::new()
+            draw: RawFramebufferTargetDraw::new(),
         }
     }
 
@@ -390,9 +401,9 @@ impl Framebuffer for FramebufferDefault {
             &mut self.raw,
             AttachmentsRefMut {
                 ahc: &mut [],
-                attachments: unsafe{ &mut EMPTY }
+                attachments: unsafe { &mut EMPTY },
             },
-            &self.state
+            &self.state,
         )
     }
 
@@ -408,9 +419,10 @@ impl Framebuffer for FramebufferDefault {
 }
 
 impl<A, F> Framebuffer for FramebufferObjectAttached<A, F>
-    where A: Attachments,
-          A::Static: Attachments,
-          F: BorrowMut<FramebufferObject<A::Static>>
+where
+    A: Attachments,
+    A::Static: Attachments,
+    F: BorrowMut<FramebufferObject<A::Static>>,
 {
     type Attachments = A;
     type AttachmentsStatic = A::Static;
@@ -426,9 +438,9 @@ impl<A, F> Framebuffer for FramebufferObjectAttached<A, F>
             &mut fbo.raw,
             AttachmentsRefMut {
                 ahc: fbo.handles.as_mut(),
-                attachments: &mut self.attachments
+                attachments: &mut self.attachments,
             },
-            &fbo.state
+            &fbo.state,
         )
     }
 }

@@ -14,11 +14,13 @@
 
 mod raw;
 
-use ContextState;
 use self::raw::Capability;
-use cgmath_geometry::D2;
-use cgmath_geometry::rect::OffsetBox;
-pub use self::raw::{BlendFuncs, BlendFunc, CullFace, FrontFace, DepthStencilFunc, StencilTest, StencilOp, ColorMask, PolygonOffset};
+pub use self::raw::{
+    BlendFunc, BlendFuncs, ColorMask, CullFace, DepthStencilFunc, FrontFace, PolygonOffset,
+    StencilOp, StencilTest,
+};
+use cgmath_geometry::{rect::OffsetBox, D2};
+use ContextState;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RenderState {
@@ -76,7 +78,10 @@ impl RenderState {
             raw::set_gl_cap(gl, Capability::StencilTest(self.stencil_test));
         }
         if self.texture_cubemap_seamless != old_state.texture_cubemap_seamless {
-            raw::set_gl_cap(gl, Capability::TextureCubemapSeamless(self.texture_cubemap_seamless));
+            raw::set_gl_cap(
+                gl,
+                Capability::TextureCubemapSeamless(self.texture_cubemap_seamless),
+            );
         }
         if self.program_point_size != old_state.program_point_size {
             raw::set_gl_cap(gl, Capability::ProgramPointSize(self.program_point_size));
@@ -115,7 +120,7 @@ impl Default for RenderState {
             polygon_offset: None,
             viewport: OffsetBox::new2(0, 0, 0, 0),
             color_mask: ColorMask::default(),
-            depth_mask: true
+            depth_mask: true,
         }
     }
 }

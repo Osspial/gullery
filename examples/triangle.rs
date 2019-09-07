@@ -9,30 +9,33 @@ extern crate png;
 
 extern crate num_traits;
 
-use gullery::ContextState;
-use gullery::buffer::*;
-use gullery::framebuffer::{*, render_state::*};
-use gullery::program::*;
-use gullery::image_format::*;
-use gullery::vertex::VertexArrayObject;
+use gullery::{
+    buffer::*,
+    framebuffer::{render_state::*, *},
+    image_format::*,
+    program::*,
+    vertex::VertexArrayObject,
+    ContextState,
+};
 
-use cgmath_geometry::cgmath;
-use cgmath_geometry::rect::OffsetBox;
+use cgmath_geometry::{cgmath, rect::OffsetBox};
 
 use cgmath::*;
 
-use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuilder, ContextBuilder, GlWindow, GlProfile, GlRequest};
-use glutin::dpi::LogicalSize;
+use glutin::{
+    dpi::LogicalSize, ContextBuilder, ControlFlow, Event, EventsLoop, GlContext, GlProfile,
+    GlRequest, GlWindow, WindowBuilder, WindowEvent,
+};
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
     pos: Vector2<f32>,
-    color: Rgb<u8>
+    color: Rgb<u8>,
 }
 
 #[derive(Clone, Copy, Uniforms)]
 struct TriUniforms {
-    offset: Point2<f32>
+    offset: Point2<f32>,
 }
 
 fn main() {
@@ -43,30 +46,34 @@ fn main() {
             .with_gl_profile(GlProfile::Core)
             .with_gl(GlRequest::GlThenGles {
                 opengl_version: (3, 2),
-                opengles_version: (3, 0)
+                opengles_version: (3, 0),
             })
             .with_srgb(true),
-        &events_loop
-    ).unwrap();
-    unsafe{ window.context().make_current().unwrap() };
-    let state = unsafe{ ContextState::new(|addr| window.context().get_proc_address(addr)) };
+        &events_loop,
+    )
+    .unwrap();
+    unsafe { window.context().make_current().unwrap() };
+    let state = unsafe { ContextState::new(|addr| window.context().get_proc_address(addr)) };
 
-    let vertex_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[
-        Vertex {
-            pos: Vector2::new(-1.0, -1.0),
-            color: Rgb::new(255, 0, 0)
-        },
-        Vertex {
-            pos: Vector2::new( 0.0,  1.0),
-            color: Rgb::new(0, 255, 0)
-        },
-        Vertex {
-            pos: Vector2::new( 1.0,  -1.0),
-            color: Rgb::new(0, 0, 255)
-        },
-    ], state.clone());
+    let vertex_buffer = Buffer::with_data(
+        BufferUsage::StaticDraw,
+        &[
+            Vertex {
+                pos: Vector2::new(-1.0, -1.0),
+                color: Rgb::new(255, 0, 0),
+            },
+            Vertex {
+                pos: Vector2::new(0.0, 1.0),
+                color: Rgb::new(0, 255, 0),
+            },
+            Vertex {
+                pos: Vector2::new(1.0, -1.0),
+                color: Rgb::new(0, 0, 255),
+            },
+        ],
+        state.clone(),
+    );
     let vao = VertexArrayObject::<_, !>::new(vertex_buffer, None);
-
 
     let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();
     let fragment_shader = Shader::new(FRAGMENT_SHADER, state.clone()).unwrap();
@@ -76,7 +83,7 @@ fn main() {
         srgb: true,
         viewport: OffsetBox {
             origin: Point2::new(0, 0),
-            dims: Vector2::new(512, 512)
+            dims: Vector2::new(512, 512),
         },
         ..RenderState::default()
     };
@@ -84,24 +91,32 @@ fn main() {
     let mut default_framebuffer = FramebufferDefault::new(state.clone()).unwrap();
     events_loop.run_forever(|event| {
         match event {
-            Event::WindowEvent{event, ..} => match event {
+            Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Resized(logical_size) => {
                     let physical_size = logical_size.to_physical(window.get_hidpi_factor());
                     window.resize(physical_size);
                     let uniform = TriUniforms {
-                        offset: Point2::new(0.0, 0.0)
+                        offset: Point2::new(0.0, 0.0),
                     };
-                    render_state.viewport = OffsetBox::new2(0, 0, physical_size.width as _, physical_size.height as _);
+                    render_state.viewport =
+                        OffsetBox::new2(0, 0, physical_size.width as _, physical_size.height as _);
                     default_framebuffer.clear_depth(1.0);
                     default_framebuffer.clear_color_all(Rgba::new(0.0, 0.0, 0.0, 1.0));
-                    default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
+                    default_framebuffer.draw(
+                        DrawMode::Triangles,
+                        ..,
+                        &vao,
+                        &program,
+                        uniform,
+                        render_state,
+                    );
 
                     window.swap_buffers().unwrap();
                 }
                 WindowEvent::CloseRequested => return ControlFlow::Break,
-                _ => ()
+                _ => (),
             },
-            _ => ()
+            _ => (),
         }
 
         ControlFlow::Continue

@@ -12,17 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use gl::{self, Gl};
-use gl::types::*;
+use gl::{self, types::*, Gl};
 
-use {Handle, ContextState, GLObject};
-use glsl::{TransparentType, Scalar, TypeTagSingle};
-use vertex::{Vertex, VertexMemberRegistry, Index};
 use buffer::Buffer;
+use glsl::{Scalar, TransparentType, TypeTagSingle};
+use vertex::{Index, Vertex, VertexMemberRegistry};
+use ContextState;
+use GLObject;
+use Handle;
 
-use std::mem;
-use std::cell::Cell;
-use std::marker::PhantomData;
+use std::{cell::Cell, marker::PhantomData, mem};
 
 pub struct RawVAO<V: Vertex> {
     handle: Handle,
@@ -30,12 +29,12 @@ pub struct RawVAO<V: Vertex> {
     vbuf: Cell<Option<Handle>>,
     /// Handle of the bound index buffer
     ibuf: Cell<Option<Handle>>,
-    _sendsync_optout: PhantomData<(*const (), V)>
+    _sendsync_optout: PhantomData<(*const (), V)>,
 }
 
 pub struct RawVAOTarget {
     bound_vao: Cell<Option<Handle>>,
-    _sendsync_optout: PhantomData<*const ()>
+    _sendsync_optout: PhantomData<*const ()>,
 }
 
 pub struct RawBoundVAO<'a, V: Vertex>(PhantomData<(&'a RawVAO<V>, *const ())>);
@@ -44,9 +43,8 @@ struct VertexAttribBuilder<'a, V: Vertex> {
     attrib_loc: u32,
     max_attribs: u32,
     gl: &'a Gl,
-    _marker: PhantomData<(*const V)>
+    _marker: PhantomData<(*const V)>,
 }
-
 
 impl<V: Vertex> RawVAO<V> {
     #[inline]
@@ -60,7 +58,7 @@ impl<V: Vertex> RawVAO<V> {
                 handle,
                 vbuf: Cell::new(None),
                 ibuf: Cell::new(None),
-                _sendsync_optout: PhantomData
+                _sendsync_optout: PhantomData,
             }
         }
     }
@@ -86,14 +84,21 @@ impl RawVAOTarget {
     pub fn new() -> RawVAOTarget {
         RawVAOTarget {
             bound_vao: Cell::new(None),
-            _sendsync_optout: PhantomData
+            _sendsync_optout: PhantomData,
         }
     }
 
     #[inline]
-    pub unsafe fn bind<'a, V, I>(&'a self, vao: &'a RawVAO<V>, vbuf: &Buffer<V>, ibuf: &Option<Buffer<I>>, gl: &Gl) -> RawBoundVAO<'a, V>
-        where V: Vertex,
-              I: Index
+    pub unsafe fn bind<'a, V, I>(
+        &'a self,
+        vao: &'a RawVAO<V>,
+        vbuf: &Buffer<V>,
+        ibuf: &Option<Buffer<I>>,
+        gl: &Gl,
+    ) -> RawBoundVAO<'a, V>
+    where
+        V: Vertex,
+        I: Index,
     {
         if self.bound_vao.get() != Some(vao.handle) {
             gl.BindVertexArray(vao.handle.get());
@@ -113,12 +118,15 @@ impl RawVAOTarget {
                 attrib_loc: 0,
                 max_attribs: max_attribs as u32,
                 gl,
-                _marker: PhantomData
+                _marker: PhantomData,
             })
         }
         let ibuf_handle_opt = ibuf.as_ref().map(|ib| ib.handle());
         if ibuf_handle_opt != vao.ibuf.get() {
-            gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibuf_handle_opt.map(|h| h.get()).unwrap_or(0));
+            gl.BindBuffer(
+                gl::ELEMENT_ARRAY_BUFFER,
+                ibuf_handle_opt.map(|h| h.get()).unwrap_or(0),
+            );
             vao.ibuf.set(ibuf_handle_opt);
         }
 
@@ -136,13 +144,15 @@ impl<'a, V: Vertex> VertexMemberRegistry for VertexAttribBuilder<'a, V> {
     type Group = V;
 
     fn add_member<T>(&mut self, name: &str, get_type: fn(*const V) -> *const T)
-        where T: TransparentType
+    where
+        T: TransparentType,
     {
         let gl = self.gl;
-        let vertex = unsafe{ mem::zeroed() };
+        let vertex = unsafe { mem::zeroed() };
 
         let attrib_ptr = get_type(&vertex) as *const T;
-        let attrib_offset = attrib_ptr as *const u8 as isize - &vertex as *const V as *const u8 as isize;
+        let attrib_offset =
+            attrib_ptr as *const u8 as isize - &vertex as *const V as *const u8 as isize;
 
         // Make sure the attribute is actually inside of the type, instead of pointing to a static or smth.
         assert!(attrib_offset >= 0);
@@ -154,7 +164,6 @@ impl<'a, V: Vertex> VertexMemberRegistry for VertexAttribBuilder<'a, V> {
         let attrib_len = T::prim_tag().len() / ty_attrib_slots;
         let attrib_size = attrib_len * mem::size_of::<T::Scalar>();
         assert!(attrib_size <= mem::size_of::<T>());
-
 
         unsafe {
             if self.attrib_loc < self.max_attribs {
@@ -171,17 +180,16 @@ impl<'a, V: Vertex> VertexMemberRegistry for VertexAttribBuilder<'a, V> {
                             T::Scalar::GL_ENUM,
                             T::Scalar::NORMALIZED as GLboolean,
                             mem::size_of::<V>() as GLsizei,
-                            (attrib_offset + slot_offset) as *const GLvoid
+                            (attrib_offset + slot_offset) as *const GLvoid,
                         ),
-                        TypeTagSingle::Int |
-                        TypeTagSingle::UInt |
-                        TypeTagSingle::Bool => gl.VertexAttribIPointer(
-                            self.attrib_loc + slot,
-                            attrib_len as GLint,
-                            T::Scalar::GL_ENUM,
-                            mem::size_of::<V>() as GLsizei,
-                            (attrib_offset + slot_offset) as *const GLvoid
-                        ),
+                        TypeTagSingle::Int | TypeTagSingle::UInt | TypeTagSingle::Bool => gl
+                            .VertexAttribIPointer(
+                                self.attrib_loc + slot,
+                                attrib_len as GLint,
+                                T::Scalar::GL_ENUM,
+                                mem::size_of::<V>() as GLsizei,
+                                (attrib_offset + slot_offset) as *const GLvoid,
+                            ),
                         // TypeTagSingle::Double => {
                         //     panic!("Attempting to use OpenGL 4 feature")
                         //     gl.VertexAttribLPointer(
@@ -192,7 +200,7 @@ impl<'a, V: Vertex> VertexMemberRegistry for VertexAttribBuilder<'a, V> {
                         //         attrib_offset as *const GLvoid
                         //     );
                         // },
-                        _ => panic!("Invalid scalar type tag")
+                        _ => panic!("Invalid scalar type tag"),
                     }
                 }
 
@@ -200,8 +208,7 @@ impl<'a, V: Vertex> VertexMemberRegistry for VertexAttribBuilder<'a, V> {
             } else {
                 panic!(
                     "Too many attributes on field {}; GL implementation has maximum of {}",
-                    name,
-                    self.max_attribs
+                    name, self.max_attribs
                 );
             }
             assert_eq!(0, gl.GetError());

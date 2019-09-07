@@ -15,9 +15,9 @@
 #![recursion_limit = "128"]
 extern crate proc_macro;
 
-use syn::*;
-use quote::{quote, ToTokens};
 use proc_macro2::Span;
+use quote::{quote, ToTokens};
+use syn::*;
 
 #[proc_macro_derive(Vertex)]
 pub fn derive_vertex(input_tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -49,13 +49,12 @@ fn impl_vertex(derive_input: &DeriveInput) -> proc_macro2::TokenStream {
     } = *derive_input;
 
     match *data {
-        Data::Enum(..) |
-        Data::Union(..) => panic!("Vertex can only be derived on structs"),
+        Data::Enum(..) | Data::Union(..) => panic!("Vertex can only be derived on structs"),
         Data::Struct(ref variant) => {
             let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
             let idents = idents(variant.fields.iter().cloned());
 
-            quote!{
+            quote! {
                 #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
                 const _: () = {
                     extern crate gullery as _gullery;
@@ -85,15 +84,14 @@ fn impl_uniforms(derive_input: &DeriveInput) -> proc_macro2::TokenStream {
     } = *derive_input;
 
     match *data {
-        Data::Enum(..) |
-        Data::Union(..) => panic!("Uniforms can only be derived on structs"),
+        Data::Enum(..) | Data::Union(..) => panic!("Uniforms can only be derived on structs"),
         Data::Struct(ref variant) => {
             let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
             let static_type_generics = static_type_generics(generics);
             let idents = idents(variant.fields.iter().cloned());
             let num_members = variant.fields.iter().len();
 
-            quote!{
+            quote! {
                 #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
                 const _: () = {
                     extern crate gullery as _gullery;
@@ -125,25 +123,26 @@ fn impl_attachments(derive_input: &DeriveInput) -> proc_macro2::TokenStream {
     } = *derive_input;
 
     match *data {
-        Data::Enum(..) |
-        Data::Union(..) => panic!("Attachments can only be derived on structs"),
+        Data::Enum(..) | Data::Union(..) => panic!("Attachments can only be derived on structs"),
         Data::Struct(ref variant) => {
             let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
             let static_type_generics = static_type_generics(generics);
             let idents = idents(variant.fields.iter().cloned());
-            let types = variant.fields.iter().cloned()
-                .map(|mut variant| {
-                    if let Type::Reference(TypeReference{ref mut lifetime, ..}) = variant.ty {
-                        if let Some(_) = *lifetime {
-                            *lifetime = None;
-                        }
+            let types = variant.fields.iter().cloned().map(|mut variant| {
+                if let Type::Reference(TypeReference {
+                    ref mut lifetime, ..
+                }) = variant.ty
+                {
+                    if let Some(_) = *lifetime {
+                        *lifetime = None;
                     }
-                    variant.ty
-                });
+                }
+                variant.ty
+            });
             let types_1 = types.clone();
             let num_members = variant.fields.iter().len();
 
-            quote!{
+            quote! {
                 #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
                 const _: () = {
                     extern crate gullery as _gullery;
@@ -189,23 +188,34 @@ fn impl_attachments(derive_input: &DeriveInput) -> proc_macro2::TokenStream {
     }
 }
 
-fn idents(fields: impl Iterator<Item=Field>) -> impl Iterator<Item=proc_macro2::TokenStream> {
-    fields
-        .enumerate()
-        .map(|(index, variant)| {
-            variant.ident.map(|i| i.into_token_stream())
-                .unwrap_or_else(|| Index{ index: index as u32, span: Span::call_site()}.into_token_stream())
-        })
+fn idents(fields: impl Iterator<Item = Field>) -> impl Iterator<Item = proc_macro2::TokenStream> {
+    fields.enumerate().map(|(index, variant)| {
+        variant
+            .ident
+            .map(|i| i.into_token_stream())
+            .unwrap_or_else(|| {
+                Index {
+                    index: index as u32,
+                    span: Span::call_site(),
+                }
+                .into_token_stream()
+            })
+    })
 }
 
 fn static_type_generics(generics: &Generics) -> proc_macro2::TokenStream {
     let static_generics = Generics {
-        params: generics.params.iter().cloned().map(|mut p| {
-            if let GenericParam::Lifetime(ref mut ld) = p {
-                ld.lifetime = Lifetime::new("'static", Span::call_site());
-            }
-            p
-        }).collect(),
+        params: generics
+            .params
+            .iter()
+            .cloned()
+            .map(|mut p| {
+                if let GenericParam::Lifetime(ref mut ld) = p {
+                    ld.lifetime = Lifetime::new("'static", Span::call_site());
+                }
+                p
+            })
+            .collect(),
         ..generics.clone()
     };
     let (_, type_generics, _) = static_generics.split_for_impl();

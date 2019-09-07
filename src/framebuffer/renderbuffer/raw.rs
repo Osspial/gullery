@@ -12,30 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use gl::{self, Gl};
-use gl::types::*;
+use gl::{self, types::*, Gl};
 
-use cgmath_geometry::D2;
-use cgmath_geometry::rect::{DimsBox, GeoBox};
+use cgmath_geometry::{
+    rect::{DimsBox, GeoBox},
+    D2,
+};
 
-use {ContextState, Handle};
+use ContextState;
+use Handle;
 
-use std::cell::Cell;
-use std::marker::PhantomData;
+use std::{cell::Cell, marker::PhantomData};
 
 pub struct RawRenderbuffer {
     handle: Handle,
-    _sendsync_optout: PhantomData<*const ()>
+    _sendsync_optout: PhantomData<*const ()>,
 }
 
 pub struct RawRenderbufferTarget {
     bound_buffer: Cell<Option<Handle>>,
-    _sendsync_optout: PhantomData<*const ()>
+    _sendsync_optout: PhantomData<*const ()>,
 }
 
 pub struct RawBoundRenderbufferMut<'a> {
     gl: &'a Gl,
-    _marker: PhantomData<&'a RawRenderbuffer>
+    _marker: PhantomData<&'a RawRenderbuffer>,
 }
 
 impl RawRenderbuffer {
@@ -47,7 +48,7 @@ impl RawRenderbuffer {
 
             RawRenderbuffer {
                 handle,
-                _sendsync_optout: PhantomData
+                _sendsync_optout: PhantomData,
             }
         }
     }
@@ -72,19 +73,24 @@ impl RawRenderbufferTarget {
     pub fn new() -> RawRenderbufferTarget {
         RawRenderbufferTarget {
             bound_buffer: Cell::new(None),
-            _sendsync_optout: PhantomData
+            _sendsync_optout: PhantomData,
         }
     }
 
     #[inline]
-    pub unsafe fn bind_mut<'a>(&'a self, renderbuffer: &'a mut RawRenderbuffer, gl: &'a Gl) -> RawBoundRenderbufferMut<'a> {
+    pub unsafe fn bind_mut<'a>(
+        &'a self,
+        renderbuffer: &'a mut RawRenderbuffer,
+        gl: &'a Gl,
+    ) -> RawBoundRenderbufferMut<'a> {
         if self.bound_buffer.get() != Some(renderbuffer.handle) {
             self.bound_buffer.set(Some(renderbuffer.handle));
             gl.BindRenderbuffer(gl::RENDERBUFFER, renderbuffer.handle.get());
         }
 
         RawBoundRenderbufferMut {
-            gl, _marker: PhantomData
+            gl,
+            _marker: PhantomData,
         }
     }
 
@@ -103,7 +109,13 @@ impl<'a> RawBoundRenderbufferMut<'a> {
             assert!(width >= 0);
             assert!(height >= 0);
 
-            self.gl.RenderbufferStorageMultisample(gl::RENDERBUFFER, samples as i32, internal_format, width as GLsizei, height as GLsizei);
+            self.gl.RenderbufferStorageMultisample(
+                gl::RENDERBUFFER,
+                samples as i32,
+                internal_format,
+                width as GLsizei,
+                height as GLsizei,
+            );
             assert_eq!(0, self.gl.GetError());
         }
     }

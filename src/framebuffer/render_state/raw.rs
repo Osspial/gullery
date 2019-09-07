@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use gl::{self, Gl};
-use gl::types::*;
+use gl::{self, types::*, Gl};
 
 use std::mem;
 
-use cgmath_geometry::D2;
-use cgmath_geometry::rect::{GeoBox, OffsetBox};
+use cgmath_geometry::{
+    rect::{GeoBox, OffsetBox},
+    D2,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Capability {
@@ -34,7 +35,7 @@ pub enum Capability {
     StencilTest(Option<StencilTest>),
     TextureCubemapSeamless(bool),
     ProgramPointSize(bool),
-    PolygonOffset(Option<PolygonOffset>)
+    PolygonOffset(Option<PolygonOffset>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,7 +43,7 @@ pub struct BlendFuncs {
     pub src_rgb: BlendFunc,
     pub dst_rgb: BlendFunc,
     pub src_alpha: BlendFunc,
-    pub dst_alpha: BlendFunc
+    pub dst_alpha: BlendFunc,
 }
 
 impl Default for BlendFuncs {
@@ -56,7 +57,7 @@ impl Default for BlendFuncs {
     }
 }
 
-bitflags!{
+bitflags! {
     pub struct ColorMask: u8 {
         const R = 1 << 0;
         const G = 1 << 1;
@@ -90,14 +91,14 @@ pub enum BlendFunc {
 pub enum CullFace {
     Front = gl::FRONT,
     Back = gl::BACK,
-    Both = gl::FRONT_AND_BACK
+    Both = gl::FRONT_AND_BACK,
 }
 
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FrontFace {
     Clockwise = gl::CW,
-    CounterCw = gl::CCW
+    CounterCw = gl::CCW,
 }
 
 #[repr(u32)]
@@ -110,7 +111,7 @@ pub enum DepthStencilFunc {
     Greater = gl::GREATER,
     NotEqual = gl::NOTEQUAL,
     GEqual = gl::GEQUAL,
-    Always = gl::ALWAYS
+    Always = gl::ALWAYS,
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -120,7 +121,7 @@ pub struct StencilTest {
     pub mask: u32,
     pub stencil_fail: StencilOp,
     pub depth_fail: StencilOp,
-    pub depth_pass: StencilOp
+    pub depth_pass: StencilOp,
 }
 
 #[repr(u32)]
@@ -133,13 +134,13 @@ pub enum StencilOp {
     IncrWrap = gl::INCR_WRAP,
     Decr = gl::DECR,
     DecrWrap = gl::DECR_WRAP,
-    Invert = gl::INVERT
+    Invert = gl::INVERT,
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct PolygonOffset {
     pub factor: f32,
-    pub units: f32
+    pub units: f32,
 }
 
 #[inline]
@@ -157,10 +158,10 @@ pub fn set_gl_cap(gl: &Gl, cap: Capability) {
                         funcs.src_rgb.into(),
                         funcs.dst_rgb.into(),
                         funcs.src_alpha.into(),
-                        funcs.dst_alpha.into()
+                        funcs.dst_alpha.into(),
                     );
                 }
-            },
+            }
             Cull(cull_opt) => {
                 gl_capability = &[gl::CULL_FACE];
                 if let Some((cull_face, front_face)) = cull_opt {
@@ -168,62 +169,66 @@ pub fn set_gl_cap(gl: &Gl, cap: Capability) {
                     gl.CullFace(cull_face.into());
                     gl.FrontFace(front_face.into());
                 }
-            },
+            }
             DepthClamp(clamp) => {
                 gl_capability = &[gl::DEPTH_CLAMP];
                 enable = clamp;
-            },
+            }
             DepthTest(test_opt) => {
                 gl_capability = &[gl::DEPTH_TEST];
-                if let Some(func) = test_opt{
+                if let Some(func) = test_opt {
                     enable = true;
                     gl.DepthFunc(func.into());
                 }
-            },
+            }
             Dither(dither) => {
                 gl_capability = &[gl::DITHER];
                 enable = dither;
-            },
+            }
             Srgb(srgb) => {
                 gl_capability = &[gl::FRAMEBUFFER_SRGB];
                 enable = srgb;
-            },
+            }
             Multisample(ms) => {
                 gl_capability = &[gl::MULTISAMPLE];
                 enable = ms;
-            },
+            }
             PrimitiveRestart(restart_opt) => {
                 gl_capability = &[gl::PRIMITIVE_RESTART];
                 if let Some(restart) = restart_opt {
                     enable = true;
                     gl.PrimitiveRestartIndex(restart);
                 }
-            },
+            }
             RasterizerDiscard(discard) => {
                 gl_capability = &[gl::RASTERIZER_DISCARD];
                 enable = discard;
-            },
+            }
             StencilTest(test_opt) => {
                 gl_capability = &[gl::STENCIL_TEST];
                 if let Some(test) = test_opt {
                     enable = true;
                     gl.StencilFunc(test.func.into(), test.frag_value, test.mask);
-                    gl.StencilOp(test.stencil_fail.into(), test.depth_fail.into(), test.depth_pass.into());
+                    gl.StencilOp(
+                        test.stencil_fail.into(),
+                        test.depth_fail.into(),
+                        test.depth_pass.into(),
+                    );
                 }
             }
             TextureCubemapSeamless(seamless) => {
                 gl_capability = &[gl::TEXTURE_CUBE_MAP_SEAMLESS];
                 enable = seamless;
-            },
+            }
             ProgramPointSize(prog) => {
                 gl_capability = &[gl::PROGRAM_POINT_SIZE];
                 enable = prog;
-            },
+            }
             PolygonOffset(offset_opt) => {
                 gl_capability = &[
                     gl::POLYGON_OFFSET_FILL,
                     gl::POLYGON_OFFSET_LINE,
-                    gl::POLYGON_OFFSET_POINT
+                    gl::POLYGON_OFFSET_POINT,
                 ];
                 if let Some(offset) = offset_opt {
                     enable = true;
@@ -235,7 +240,7 @@ pub fn set_gl_cap(gl: &Gl, cap: Capability) {
         for cap in gl_capability {
             match enable {
                 true => gl.Enable(*cap),
-                false => gl.Disable(*cap)
+                false => gl.Disable(*cap),
             }
         }
     }
@@ -249,7 +254,7 @@ pub fn set_viewport(gl: &Gl, vp_rect: OffsetBox<D2, u32>) {
             vp_rect.origin.x as GLint,
             vp_rect.origin.y as GLint,
             vp_rect.width() as GLint,
-            vp_rect.height() as GLint
+            vp_rect.height() as GLint,
         );
     }
 }
@@ -260,7 +265,7 @@ pub fn set_color_mask(gl: &Gl, mask: ColorMask) {
             mask.contains(ColorMask::R) as GLboolean,
             mask.contains(ColorMask::G) as GLboolean,
             mask.contains(ColorMask::B) as GLboolean,
-            mask.contains(ColorMask::A) as GLboolean
+            mask.contains(ColorMask::A) as GLboolean,
         );
     }
 }
@@ -274,35 +279,35 @@ pub fn set_depth_mask(gl: &Gl, mask: bool) {
 impl From<BlendFunc> for GLenum {
     #[inline]
     fn from(func: BlendFunc) -> GLenum {
-        unsafe{ mem::transmute(func) }
+        unsafe { mem::transmute(func) }
     }
 }
 
 impl From<CullFace> for GLenum {
     #[inline]
     fn from(face: CullFace) -> GLenum {
-        unsafe{ mem::transmute(face) }
+        unsafe { mem::transmute(face) }
     }
 }
 
 impl From<FrontFace> for GLenum {
     #[inline]
     fn from(face: FrontFace) -> GLenum {
-        unsafe{ mem::transmute(face) }
+        unsafe { mem::transmute(face) }
     }
 }
 
 impl From<DepthStencilFunc> for GLenum {
     #[inline]
     fn from(func: DepthStencilFunc) -> GLenum {
-        unsafe{ mem::transmute(func) }
+        unsafe { mem::transmute(func) }
     }
 }
 
 impl From<StencilOp> for GLenum {
     #[inline]
     fn from(op: StencilOp) -> GLenum {
-        unsafe{ mem::transmute(op) }
+        unsafe { mem::transmute(op) }
     }
 }
 

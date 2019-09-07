@@ -12,22 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use {ContextState, Handle};
+use ContextState;
+use Handle;
 
-use gl::{self, Gl};
-use gl::types::*;
+use gl::{self, types::*, Gl};
 
-use std::{mem, ptr};
-use std::ops::{Deref, RangeBounds};
-use std::cell::Cell;
-use std::marker::PhantomData;
+use std::{
+    cell::Cell,
+    marker::PhantomData,
+    mem,
+    ops::{Deref, RangeBounds},
+    ptr,
+};
 
 pub struct RawBuffer<T: Copy> {
     handle: Handle,
     size: usize,
     /// `*const ()` used to opt out of `Send` and `Sync` without relying on the unstable opt-out
     /// features.
-    _marker: PhantomData<(T, *const ())>
+    _marker: PhantomData<(T, *const ())>,
 }
 
 // The RawBoundBuffer types are #[repr(C)] because deref coercing from RawBoundBufferMut to
@@ -35,22 +38,24 @@ pub struct RawBuffer<T: Copy> {
 // identical between the two types.
 #[repr(C)]
 pub struct RawBoundBuffer<'a, T, B>
-    where B: 'a + RawBindTarget,
-          T: 'a + Copy
+where
+    B: 'a + RawBindTarget,
+    T: 'a + Copy,
 {
     bind: PhantomData<&'a B>,
     buffer: &'a RawBuffer<T>,
-    gl: &'a Gl
+    gl: &'a Gl,
 }
 
 #[repr(C)]
 pub struct RawBoundBufferMut<'a, T, B>
-    where B: 'a + RawBindTarget,
-          T: 'a + Copy
+where
+    B: 'a + RawBindTarget,
+    T: 'a + Copy,
 {
     bind: PhantomData<&'a B>,
     buffer: &'a mut RawBuffer<T>,
-    gl: &'a Gl
+    gl: &'a Gl,
 }
 
 const USAGE_OFFSET: GLenum = 35039;
@@ -70,7 +75,7 @@ pub enum BufferUsage {
     StaticCopy = (gl::STATIC_COPY - USAGE_OFFSET) as u8,
     DynamicDraw = (gl::DYNAMIC_DRAW - USAGE_OFFSET) as u8,
     DynamicRead = (gl::DYNAMIC_READ - USAGE_OFFSET) as u8,
-    DynamicCopy = (gl::DYNAMIC_COPY - USAGE_OFFSET) as u8
+    DynamicCopy = (gl::DYNAMIC_COPY - USAGE_OFFSET) as u8,
 }
 
 pub unsafe trait RawBindTarget: 'static + Sized {
@@ -78,7 +83,11 @@ pub unsafe trait RawBindTarget: 'static + Sized {
     fn bound_buffer(&self) -> &Cell<Option<Handle>>;
 
     #[inline]
-    unsafe fn bind<'a, T: Copy>(&'a self, buffer: &'a RawBuffer<T>, gl: &'a Gl) -> RawBoundBuffer<'a, T, Self> {
+    unsafe fn bind<'a, T: Copy>(
+        &'a self,
+        buffer: &'a RawBuffer<T>,
+        gl: &'a Gl,
+    ) -> RawBoundBuffer<'a, T, Self> {
         let handle = buffer.handle;
         let bound_buffer = self.bound_buffer();
         if bound_buffer.get() != Some(handle) {
@@ -86,25 +95,28 @@ pub unsafe trait RawBindTarget: 'static + Sized {
             bound_buffer.set(Some(handle));
         }
 
-        debug_assert_eq!(
-            Some(handle),
-            {
-                let mut bound = 0;
-                gl.GetIntegerv(Self::TARGET, &mut bound);
-                Handle::new(bound as u32)
-            }
-        );
+        debug_assert_eq!(Some(handle), {
+            let mut bound = 0;
+            gl.GetIntegerv(Self::TARGET, &mut bound);
+            Handle::new(bound as u32)
+        });
         RawBoundBuffer {
             bind: PhantomData,
-            buffer, gl
+            buffer,
+            gl,
         }
     }
     #[inline]
-    unsafe fn bind_mut<'a, T: Copy>(&'a self, buffer: &'a mut RawBuffer<T>, gl: &'a Gl) -> RawBoundBufferMut<'a, T, Self> {
+    unsafe fn bind_mut<'a, T: Copy>(
+        &'a self,
+        buffer: &'a mut RawBuffer<T>,
+        gl: &'a Gl,
+    ) -> RawBoundBufferMut<'a, T, Self> {
         self.bind(buffer, gl);
         RawBoundBufferMut {
             bind: PhantomData,
-            buffer, gl
+            buffer,
+            gl,
         }
     }
     #[inline]
@@ -146,7 +158,7 @@ pub mod targets {
 
     // The ARRAY_BUFFER and ELEMENT_ARRAY_BUFFER targets are implemented in the vertex::vao module,
     // under the VertexArrayObjTarget struct.
-    raw_bind_target!{
+    raw_bind_target! {
         pub target RawCopyRead = gl::COPY_READ_BUFFER;
         pub target RawCopyWrite = gl::COPY_WRITE_BUFFER;
         // pub target RawDrawIndirect = gl::DRAW_INDIRECT_BUFFER;
@@ -157,7 +169,6 @@ pub mod targets {
         // pub target RawUniform = gl::UNIFORM_BUFFER;
     }
 }
-
 
 impl<T: Copy> RawBuffer<T> {
     /// Allocate a new RawBuffer on the GPU.
@@ -172,7 +183,7 @@ impl<T: Copy> RawBuffer<T> {
             RawBuffer {
                 handle,
                 size: 0,
-                _marker: PhantomData
+                _marker: PhantomData,
             }
         }
     }
@@ -199,8 +210,9 @@ impl<T: Copy> RawBuffer<T> {
 }
 
 impl<'a, T, B> RawBoundBuffer<'a, T, B>
-    where B: 'a + RawBindTarget,
-          T: 'a + Copy
+where
+    B: 'a + RawBindTarget,
+    T: 'a + Copy,
 {
     #[inline]
     pub(crate) unsafe fn get_data(&self, offset: usize, buf: &mut [T]) {
@@ -210,7 +222,7 @@ impl<'a, T, B> RawBoundBuffer<'a, T, B>
                     B::TARGET,
                     offset as GLintptr,
                     (buf.len() * mem::size_of::<T>()) as GLsizeiptr,
-                    buf.as_mut_ptr() as *mut GLvoid
+                    buf.as_mut_ptr() as *mut GLvoid,
                 );
             } else {
                 panic!("Attempted to get data from buffer where offset + request length exceeded buffer length");
@@ -219,48 +231,68 @@ impl<'a, T, B> RawBoundBuffer<'a, T, B>
     }
 
     #[inline]
-    pub(crate) fn copy_to<C, R>(&self, dest_bind: &mut RawBoundBufferMut<T, C>, self_range: R, write_offset: usize)
-        where C: RawBindTarget,
-              R: RangeBounds<usize>
+    pub(crate) fn copy_to<C, R>(
+        &self,
+        dest_bind: &mut RawBoundBufferMut<T, C>,
+        self_range: R,
+        write_offset: usize,
+    ) where
+        C: RawBindTarget,
+        R: RangeBounds<usize>,
     {
         if mem::size_of::<T>() != 0 {
             let read_offset = ::bound_to_num_start(self_range.start_bound(), 0);
             let read_end = ::bound_to_num_end(self_range.end_bound(), self.buffer.size);
             assert!(read_end <= isize::max_value() as usize);
 
-            let size = read_offset.checked_sub(read_end)
-                .expect(&format!("Copy range starts at {} but ends at {}", read_offset, read_end));
+            let size = read_offset.checked_sub(read_end).expect(&format!(
+                "Copy range starts at {} but ends at {}",
+                read_offset, read_end
+            ));
 
             if read_end > self.buffer.size {
-                panic!("Read index {} out of range for buffer of length {}", read_end, self.buffer.size);
+                panic!(
+                    "Read index {} out of range for buffer of length {}",
+                    read_end, self.buffer.size
+                );
             } else if write_offset + size > dest_bind.buffer.size {
-                panic!("Write offset {} with read length {} out of range for buffer of length {}", write_offset, size, dest_bind.buffer.size);
+                panic!(
+                    "Write offset {} with read length {} out of range for buffer of length {}",
+                    write_offset, size, dest_bind.buffer.size
+                );
             } else if size > 0 {
-                unsafe {self.gl.CopyBufferSubData(
-                    B::TARGET, C::TARGET,
-                    read_offset as GLintptr, write_offset as GLintptr,
-                    size as GLsizeiptr
-                )}
+                unsafe {
+                    self.gl.CopyBufferSubData(
+                        B::TARGET,
+                        C::TARGET,
+                        read_offset as GLintptr,
+                        write_offset as GLintptr,
+                        size as GLsizeiptr,
+                    )
+                }
             }
         }
     }
 }
 
 impl<'a, T, B> RawBoundBufferMut<'a, T, B>
-    where B: 'a + RawBindTarget,
-          T: 'a + Copy
+where
+    B: 'a + RawBindTarget,
+    T: 'a + Copy,
 {
     #[inline]
     pub(crate) fn sub_data(&mut self, offset: usize, data: &[T]) {
         assert!(offset + data.len() <= isize::max_value() as usize);
         if mem::size_of::<T>() != 0 {
             if offset + data.len() <= self.buffer.size {
-                unsafe {self.gl.BufferSubData(
-                    B::TARGET,
-                    offset as GLintptr,
-                    (data.len() * mem::size_of::<T>()) as GLsizeiptr,
-                    data.as_ptr() as *const GLvoid
-                )};
+                unsafe {
+                    self.gl.BufferSubData(
+                        B::TARGET,
+                        offset as GLintptr,
+                        (data.len() * mem::size_of::<T>()) as GLsizeiptr,
+                        data.as_ptr() as *const GLvoid,
+                    )
+                };
             } else {
                 panic!("Attempted to upload data to buffer where offset + data length exceeded buffer length");
             }
@@ -275,7 +307,7 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
                 B::TARGET,
                 (size * mem::size_of::<T>()) as GLsizeiptr,
                 ptr::null_mut(),
-                usage.to_gl_enum()
+                usage.to_gl_enum(),
             );
 
             let error = self.gl.GetError();
@@ -295,14 +327,16 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
     pub(crate) fn alloc_upload(&mut self, data: &[T], usage: BufferUsage) {
         assert!(data.len() <= isize::max_value() as usize);
         if mem::size_of::<T>() != 0 {
-            unsafe {self.gl.BufferData(
-                B::TARGET,
-                (data.len() * mem::size_of::<T>()) as GLsizeiptr,
-                data.as_ptr() as *const GLvoid,
-                usage.to_gl_enum()
-            )};
+            unsafe {
+                self.gl.BufferData(
+                    B::TARGET,
+                    (data.len() * mem::size_of::<T>()) as GLsizeiptr,
+                    data.as_ptr() as *const GLvoid,
+                    usage.to_gl_enum(),
+                )
+            };
 
-            let error = unsafe{ self.gl.GetError() };
+            let error = unsafe { self.gl.GetError() };
             if error == 0 {
                 self.buffer.size = data.len();
             } else {
@@ -317,20 +351,21 @@ impl<'a, T, B> RawBoundBufferMut<'a, T, B>
 }
 
 impl<'a, T, B> Deref for RawBoundBufferMut<'a, T, B>
-    where B: 'a + RawBindTarget,
-          T: 'a + Copy
+where
+    B: 'a + RawBindTarget,
+    T: 'a + Copy,
 {
     type Target = RawBoundBuffer<'a, T, B>;
 
     fn deref(&self) -> &RawBoundBuffer<'a, T, B> {
-        unsafe{ &*(self as *const _ as *const RawBoundBuffer<'a, T, B>) }
+        unsafe { &*(self as *const _ as *const RawBoundBuffer<'a, T, B>) }
     }
 }
 
 impl BufferUsage {
     #[inline]
     fn to_gl_enum(self) -> GLenum {
-        let discriminant: u8 = unsafe{ mem::transmute(self) };
+        let discriminant: u8 = unsafe { mem::transmute(self) };
         discriminant as GLenum + USAGE_OFFSET
     }
 }

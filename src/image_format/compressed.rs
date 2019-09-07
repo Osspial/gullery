@@ -27,14 +27,14 @@
 //!
 //! [nvidia]: https://developer.nvidia.com/gpu-accelerated-texture-compression
 
-use gl;
-use image_format::{
-    ImageFormat, ConcreteImageFormat, ColorComponents, FormatAttributes,
-    Rgb, Rgba, SRgb, SRgba, Red, Rg
-};
-use glsl::GLSLFloat;
 use cgmath::Vector3;
 use cgmath_geometry::rect::DimsBox;
+use gl;
+use glsl::GLSLFloat;
+use image_format::{
+    ColorComponents, ConcreteImageFormat, FormatAttributes, ImageFormat, Red, Rg, Rgb, Rgba, SRgb,
+    SRgba,
+};
 
 /// Alias for DXT1.
 pub type BC1<S> = DXT1<S>;
@@ -59,7 +59,7 @@ pub type BC5<S> = RGTC<Rg<S>>;
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RGTC<S: ColorComponents> {
-    pub block: [S; 8]
+    pub block: [S; 8],
 }
 
 /// Stores either RGB or RGBA with 1-bit alpha.
@@ -75,7 +75,7 @@ pub struct RGTC<S: ColorComponents> {
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct DXT1<S: ColorComponents> {
-    pub block: [S::Scalar; 8]
+    pub block: [S::Scalar; 8],
 }
 
 /// Stores RGBA data with 4bpp uncompressed alpha data.
@@ -87,7 +87,7 @@ pub struct DXT1<S: ColorComponents> {
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct DXT3<S: ColorComponents> {
-    pub block: [S::Scalar; 16]
+    pub block: [S::Scalar; 16],
 }
 
 /// Stores RGBA data with compressed alpha data. Generally has higher alpha quality than DXT3.
@@ -99,7 +99,7 @@ pub struct DXT3<S: ColorComponents> {
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct DXT5<S: ColorComponents> {
-    pub block: [S::Scalar; 16]
+    pub block: [S::Scalar; 16],
 }
 
 impl<S: ColorComponents> RGTC<S> {
@@ -122,7 +122,6 @@ impl<S: ColorComponents> DXT5<S> {
     impl_slice_conversions!(S::Scalar);
 }
 
-
 unsafe impl ImageFormat for RGTC<Red<i8>> {
     type ScalarType = GLSLFloat;
 }
@@ -130,11 +129,7 @@ unsafe impl ConcreteImageFormat for RGTC<Red<i8>> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_SIGNED_RED_RGTC1,
         block_dims: DimsBox {
-            dims: Vector3 {
-                x: 4,
-                y: 4,
-                z: 1,
-            }
+            dims: Vector3 { x: 4, y: 4, z: 1 },
         },
     };
 }
@@ -145,11 +140,7 @@ unsafe impl ConcreteImageFormat for RGTC<Red<u8>> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_RED_RGTC1,
         block_dims: DimsBox {
-            dims: Vector3 {
-                x: 4,
-                y: 4,
-                z: 1,
-            }
+            dims: Vector3 { x: 4, y: 4, z: 1 },
         },
     };
 }
@@ -160,11 +151,7 @@ unsafe impl ConcreteImageFormat for RGTC<Rg<i8>> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_SIGNED_RG_RGTC2,
         block_dims: DimsBox {
-            dims: Vector3 {
-                x: 4,
-                y: 4,
-                z: 1,
-            }
+            dims: Vector3 { x: 4, y: 4, z: 1 },
         },
     };
 }
@@ -175,11 +162,7 @@ unsafe impl ConcreteImageFormat for RGTC<Rg<u8>> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_RG_RGTC2,
         block_dims: DimsBox {
-            dims: Vector3 {
-                x: 4,
-                y: 4,
-                z: 1,
-            }
+            dims: Vector3 { x: 4, y: 4, z: 1 },
         },
     };
 }
@@ -191,11 +174,7 @@ unsafe impl ConcreteImageFormat for DXT1<Rgb> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_RGB_S3TC_DXT1_EXT,
         block_dims: DimsBox {
-            dims: Vector3 {
-                x: 4,
-                y: 4,
-                z: 1,
-            }
+            dims: Vector3 { x: 4, y: 4, z: 1 },
         },
     };
 }
@@ -206,11 +185,7 @@ unsafe impl ConcreteImageFormat for DXT1<Rgba> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_RGBA_S3TC_DXT1_EXT,
         block_dims: DimsBox {
-            dims: Vector3 {
-                x: 4,
-                y: 4,
-                z: 1,
-            }
+            dims: Vector3 { x: 4, y: 4, z: 1 },
         },
     };
 }
@@ -221,11 +196,7 @@ unsafe impl ConcreteImageFormat for DXT1<SRgb> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_SRGB_S3TC_DXT1_EXT,
         block_dims: DimsBox {
-            dims: Vector3 {
-                x: 4,
-                y: 4,
-                z: 1,
-            }
+            dims: Vector3 { x: 4, y: 4, z: 1 },
         },
     };
 }
@@ -236,11 +207,7 @@ unsafe impl ConcreteImageFormat for DXT1<SRgba> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT,
         block_dims: DimsBox {
-            dims: Vector3 {
-                x: 4,
-                y: 4,
-                z: 1,
-            }
+            dims: Vector3 { x: 4, y: 4, z: 1 },
         },
     };
 }
@@ -252,11 +219,7 @@ unsafe impl ConcreteImageFormat for DXT3<Rgba> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_RGBA_S3TC_DXT3_EXT,
         block_dims: DimsBox {
-            dims: Vector3 {
-                x: 4,
-                y: 4,
-                z: 1,
-            }
+            dims: Vector3 { x: 4, y: 4, z: 1 },
         },
     };
 }
@@ -267,11 +230,7 @@ unsafe impl ConcreteImageFormat for DXT3<SRgba> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT,
         block_dims: DimsBox {
-            dims: Vector3 {
-                x: 4,
-                y: 4,
-                z: 1,
-            }
+            dims: Vector3 { x: 4, y: 4, z: 1 },
         },
     };
 }
@@ -283,11 +242,7 @@ unsafe impl ConcreteImageFormat for DXT5<Rgba> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_RGBA_S3TC_DXT5_EXT,
         block_dims: DimsBox {
-            dims: Vector3 {
-                x: 4,
-                y: 4,
-                z: 1,
-            }
+            dims: Vector3 { x: 4, y: 4, z: 1 },
         },
     };
 }
@@ -298,11 +253,7 @@ unsafe impl ConcreteImageFormat for DXT5<SRgba> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT,
         block_dims: DimsBox {
-            dims: Vector3 {
-                x: 4,
-                y: 4,
-                z: 1,
-            }
+            dims: Vector3 { x: 4, y: 4, z: 1 },
         },
     };
 }

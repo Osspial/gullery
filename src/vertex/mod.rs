@@ -16,7 +16,7 @@ pub(crate) mod vao;
 pub use self::vao::VertexArrayObject;
 
 use gl::types::GLenum;
-use glsl::{TransparentType, Scalar};
+use glsl::{Scalar, TransparentType};
 use std::marker::PhantomData;
 
 pub unsafe trait Index: 'static + Copy {
@@ -40,12 +40,14 @@ pub trait VertexMemberRegistry {
     /// Add a member to the registry. Note that the value pointed to by `get_type` is allowed to be
     /// instantiated with `mem::zeroed()`, and any references inside should not be dereferenced.
     fn add_member<T>(&mut self, name: &str, get_type: fn(*const Self::Group) -> *const T)
-        where T: TransparentType;
+    where
+        T: TransparentType;
 }
 
 pub trait Vertex: 'static + Copy {
     fn members<M>(reg: M)
-        where M: VertexMemberRegistry<Group=Self>;
+    where
+        M: VertexMemberRegistry<Group = Self>;
 
     #[inline]
     fn num_members() -> usize {
@@ -54,7 +56,8 @@ pub trait Vertex: 'static + Copy {
             type Group = G;
             #[inline]
             fn add_member<T>(&mut self, _: &str, _: fn(*const G) -> *const T)
-                where T: TransparentType
+            where
+                T: TransparentType,
             {
                 *self.0 += 1;
             }

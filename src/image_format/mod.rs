@@ -43,40 +43,55 @@ macro_rules! impl_slice_conversions {
         #[inline(always)]
         pub fn slice_from_raw(raw: &[$ty]) -> &[Self] {
             let size = Self::size();
-            assert_eq!(0, raw.len() % size, "raw slice length not multiple of {}", size);
-            unsafe{ ::std::slice::from_raw_parts(raw.as_ptr() as *const Self, raw.len() / size) }
+            assert_eq!(
+                0,
+                raw.len() % size,
+                "raw slice length not multiple of {}",
+                size
+            );
+            unsafe { ::std::slice::from_raw_parts(raw.as_ptr() as *const Self, raw.len() / size) }
         }
 
         #[inline(always)]
         pub fn slice_from_raw_mut(raw: &mut [$ty]) -> &mut [Self] {
             let size = Self::size();
-            assert_eq!(0, raw.len() % size, "raw slice length not multiple of {}", size);
-            unsafe{ ::std::slice::from_raw_parts_mut(raw.as_mut_ptr() as *mut Self, raw.len() / size) }
+            assert_eq!(
+                0,
+                raw.len() % size,
+                "raw slice length not multiple of {}",
+                size
+            );
+            unsafe {
+                ::std::slice::from_raw_parts_mut(raw.as_mut_ptr() as *mut Self, raw.len() / size)
+            }
         }
 
         #[inline(always)]
         pub fn to_raw_slice(slice: &[Self]) -> &[$ty] {
             let size = Self::size();
-            unsafe{ ::std::slice::from_raw_parts(slice.as_ptr() as *const $ty, slice.len() * size) }
+            unsafe {
+                ::std::slice::from_raw_parts(slice.as_ptr() as *const $ty, slice.len() * size)
+            }
         }
 
         #[inline(always)]
         pub fn to_raw_slice_mut(slice: &mut [Self]) -> &mut [$ty] {
             let size = Self::size();
-            unsafe{ ::std::slice::from_raw_parts_mut(slice.as_mut_ptr() as *mut $ty, slice.len() * size) }
+            unsafe {
+                ::std::slice::from_raw_parts_mut(slice.as_mut_ptr() as *mut $ty, slice.len() * size)
+            }
         }
     };
 }
 
 pub mod compressed;
 
-use gl;
-use gl::types::*;
+use gl::{self, types::*};
 
 use glsl::*;
 
 use cgmath::{Vector1, Vector2, Vector3, Vector4};
-use cgmath_geometry::{D3, rect::DimsBox};
+use cgmath_geometry::{rect::DimsBox, D3};
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -118,7 +133,7 @@ pub enum FormatAttributes {
         /// Gullery's compressed formats expose a single instance of a struct as a block of pixel
         /// data.
         block_dims: DimsBox<D3, u32>,
-    }
+    },
 }
 
 /// An image format the GPU can use to look up pixel data.
@@ -142,10 +157,15 @@ pub unsafe trait ConcreteImageFormat: ImageFormat + Copy {
     const FORMAT: FormatAttributes;
     fn blocks_for_dims(dims: DimsBox<D3, u32>) -> usize {
         let (x_mult, y_mult, z_mult) = match Self::FORMAT {
-            FormatAttributes::Uncompressed{..} => (1, 1, 1),
-            FormatAttributes::Compressed{block_dims, ..} => (block_dims.dims.x, block_dims.dims.y, block_dims.dims.z)
+            FormatAttributes::Uncompressed { .. } => (1, 1, 1),
+            FormatAttributes::Compressed { block_dims, .. } => {
+                (block_dims.dims.x, block_dims.dims.y, block_dims.dims.z)
+            }
         };
-        ((next_multiple_of(dims.dims.x, x_mult) * next_multiple_of(dims.dims.y, y_mult) * next_multiple_of(dims.dims.z, z_mult)) / (x_mult * y_mult * z_mult)) as usize
+        ((next_multiple_of(dims.dims.x, x_mult)
+            * next_multiple_of(dims.dims.y, y_mult)
+            * next_multiple_of(dims.dims.z, z_mult))
+            / (x_mult * y_mult * z_mult)) as usize
     }
 }
 
@@ -220,11 +240,11 @@ unsafe impl ConcreteImageFormat for Depth32F {
 /// [`GLSLInt`]: ../glsl/struct.GLSLInt.html
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Rgba<S=u8> {
+pub struct Rgba<S = u8> {
     pub r: S,
     pub g: S,
     pub b: S,
-    pub a: S
+    pub a: S,
 }
 
 /// Linear three-channel RGB color format.
@@ -236,10 +256,10 @@ pub struct Rgba<S=u8> {
 /// [`GLSLInt`]: ../glsl/struct.GLSLInt.html
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Rgb<S=u8> {
+pub struct Rgb<S = u8> {
     pub r: S,
     pub g: S,
-    pub b: S
+    pub b: S,
 }
 
 /// Linear two-channel RG color format.
@@ -251,9 +271,9 @@ pub struct Rgb<S=u8> {
 /// [`GLSLInt`]: ../glsl/struct.GLSLInt.html
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Rg<S=u8> {
+pub struct Rg<S = u8> {
     pub r: S,
-    pub g: S
+    pub g: S,
 }
 
 /// Linear single-channel red color format.
@@ -265,8 +285,8 @@ pub struct Rg<S=u8> {
 /// [`GLSLInt`]: ../glsl/struct.GLSLInt.html
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Red<S=u8> {
-    pub r: S
+pub struct Red<S = u8> {
+    pub r: S,
 }
 
 /// Four-channel sRGBA color format.
@@ -279,7 +299,7 @@ pub struct SRgba {
     pub r: u8,
     pub g: u8,
     pub b: u8,
-    pub a: u8
+    pub a: u8,
 }
 
 /// Three-channel sRGB color format.
@@ -291,7 +311,7 @@ pub struct SRgba {
 pub struct SRgb {
     pub r: u8,
     pub g: u8,
-    pub b: u8
+    pub b: u8,
 }
 
 macro_rules! impl_color {
@@ -310,7 +330,7 @@ macro_rules! impl_color {
     };
 }
 
-impl_color!{
+impl_color! {
     impl Rgba<S>(4, color: r, g, b, a);
     impl Rgb<S>(3, color: r, g, b);
     impl Rg<S>(2, color: r, g);
@@ -318,11 +338,11 @@ impl_color!{
 }
 
 impl SRgba {
-    impl_color!{impl body SRgba<u8>(4, color: r, g, b, a)}
+    impl_color! {impl body SRgba<u8>(4, color: r, g, b, a)}
 }
 
 impl SRgb {
-    impl_color!{impl body SRgb<u8>(3, color: r, g, b)}
+    impl_color! {impl body SRgb<u8>(3, color: r, g, b)}
 }
 
 impl<S: ScalarNum> From<Rgb<S>> for Rgba<S> {
@@ -347,22 +367,30 @@ impl<S: ScalarNum> From<Red<S>> for Rgba<S> {
 unsafe impl<S: ScalarNum> TransparentType for Rgba<S> {
     type Scalar = S;
     #[inline]
-    fn prim_tag() -> TypeTagSingle {Self::Scalar::prim_tag().vectorize(4).unwrap()}
+    fn prim_tag() -> TypeTagSingle {
+        Self::Scalar::prim_tag().vectorize(4).unwrap()
+    }
 }
 unsafe impl<S: ScalarNum> TransparentType for Rgb<S> {
     type Scalar = S;
     #[inline]
-    fn prim_tag() -> TypeTagSingle {Self::Scalar::prim_tag().vectorize(3).unwrap()}
+    fn prim_tag() -> TypeTagSingle {
+        Self::Scalar::prim_tag().vectorize(3).unwrap()
+    }
 }
 unsafe impl<S: ScalarNum> TransparentType for Rg<S> {
     type Scalar = S;
     #[inline]
-    fn prim_tag() -> TypeTagSingle {Self::Scalar::prim_tag().vectorize(2).unwrap()}
+    fn prim_tag() -> TypeTagSingle {
+        Self::Scalar::prim_tag().vectorize(2).unwrap()
+    }
 }
 unsafe impl<S: ScalarNum> TransparentType for Red<S> {
     type Scalar = S;
     #[inline]
-    fn prim_tag() -> TypeTagSingle {Self::Scalar::prim_tag().vectorize(1).unwrap()}
+    fn prim_tag() -> TypeTagSingle {
+        Self::Scalar::prim_tag().vectorize(1).unwrap()
+    }
 }
 impl<S: ScalarNum> Into<Vector4<S>> for Rgba<S> {
     #[inline]
@@ -391,7 +419,8 @@ impl<S: ScalarNum> Into<Vector1<S>> for Red<S> {
 
 macro_rules! if_integer {
     (if $prim:ty => ($t:expr) else ($f:expr)) => {{
-        (<$prim as Scalar>::ScalarType::IS_INTEGER as GLenum * $t) + (!<$prim as Scalar>::ScalarType::IS_INTEGER as GLenum * $f)
+        (<$prim as Scalar>::ScalarType::IS_INTEGER as GLenum * $t)
+            + (!<$prim as Scalar>::ScalarType::IS_INTEGER as GLenum * $f)
     }};
 }
 
@@ -466,7 +495,7 @@ macro_rules! basic_format {
     )*}
 }
 
-basic_format!{
+basic_format! {
     u8 = (RGBA8, RGB8, RG8, R8);
     u16 = (RGBA16, RGB16, RG16, R16);
 

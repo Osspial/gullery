@@ -146,17 +146,23 @@ pub struct SampleParameters {
 
 impl Default for FilterMin {
     #[inline(always)]
-    fn default() -> FilterMin {FilterMin::NearestMipLinear}
+    fn default() -> FilterMin {
+        FilterMin::NearestMipLinear
+    }
 }
 
 impl Default for FilterMag {
     #[inline(always)]
-    fn default() -> FilterMag {FilterMag::Linear}
+    fn default() -> FilterMag {
+        FilterMag::Linear
+    }
 }
 
 impl Default for TextureWrapAxis {
     #[inline(always)]
-    fn default() -> TextureWrapAxis {TextureWrapAxis::Repeat}
+    fn default() -> TextureWrapAxis {
+        TextureWrapAxis::Repeat
+    }
 }
 
 impl Default for SampleParameters {
@@ -167,7 +173,7 @@ impl Default for SampleParameters {
             filter_mag: FilterMag::default(),
             lod: Lod::default(),
             anisotropy_max: 1.0,
-            texture_wrap: TextureWrap::default()
+            texture_wrap: TextureWrap::default(),
         }
     }
 }
@@ -193,7 +199,7 @@ impl From<Swizzle> for GLenum {
             Blue => gl::BLUE,
             Alpha => gl::ALPHA,
             Zero => gl::ZERO,
-            One => gl::ONE
+            One => gl::ONE,
         }
     }
 }
@@ -208,7 +214,7 @@ impl From<FilterMin> for GLenum {
             NearestMipNearest => gl::NEAREST_MIPMAP_NEAREST,
             LinearMipNearest => gl::LINEAR_MIPMAP_NEAREST,
             NearestMipLinear => gl::NEAREST_MIPMAP_LINEAR,
-            LinearMipLinear => gl::LINEAR_MIPMAP_LINEAR
+            LinearMipLinear => gl::LINEAR_MIPMAP_LINEAR,
         }
     }
 }
@@ -219,7 +225,7 @@ impl From<FilterMag> for GLenum {
         use self::FilterMag::*;
         match filter {
             Nearest => gl::NEAREST,
-            Linear => gl::LINEAR
+            Linear => gl::LINEAR,
         }
     }
 }

@@ -7,37 +7,45 @@ extern crate png;
 
 extern crate num_traits;
 
-use gullery::ContextState;
-use gullery::glsl::GLSLFloat;
-use gullery::buffer::*;
-use gullery::framebuffer::{*, render_state::*};
-use gullery::program::*;
-use gullery::image_format::*;
-use gullery::texture::*;
-use gullery::texture::types::{CubemapImage, CubemapTex};
-use gullery::vertex::VertexArrayObject;
+use gullery::{
+    buffer::*,
+    framebuffer::{render_state::*, *},
+    glsl::GLSLFloat,
+    image_format::*,
+    program::*,
+    texture::{
+        types::{CubemapImage, CubemapTex},
+        *,
+    },
+    vertex::VertexArrayObject,
+    ContextState,
+};
 
-use cgmath_geometry::{cgmath, D2};
-use cgmath_geometry::rect::{DimsBox, OffsetBox};
+use cgmath_geometry::{
+    cgmath,
+    rect::{DimsBox, OffsetBox},
+    D2,
+};
 
-use std::io;
-use std::fs::File;
+use std::{fs::File, io};
 
 use cgmath::*;
 
-use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuilder, ContextBuilder, GlWindow, GlRequest, ElementState, VirtualKeyCode};
-use glutin::dpi::LogicalSize;
+use glutin::{
+    dpi::LogicalSize, ContextBuilder, ControlFlow, ElementState, Event, EventsLoop, GlContext,
+    GlRequest, GlWindow, VirtualKeyCode, WindowBuilder, WindowEvent,
+};
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
     pos: Vector2<f32>,
-    tex_coord: Vector2<u16>
+    tex_coord: Vector2<u16>,
 }
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: &'a Texture<D2, CubemapTex<ImageFormat<ScalarType=GLSLFloat>>>,
-    array_index: u32
+    tex: &'a Texture<D2, CubemapTex<ImageFormat<ScalarType = GLSLFloat>>>,
+    array_index: u32,
 }
 
 fn load_image_from_file(path: &str) -> Result<(Vec<u8>, DimsBox<D2, u32>), io::Error> {
@@ -55,44 +63,56 @@ fn main() {
         ContextBuilder::new()
             .with_gl(GlRequest::GlThenGles {
                 opengl_version: (3, 3),
-                opengles_version: (3, 0)
+                opengles_version: (3, 0),
             })
             .with_srgb(true),
-        &events_loop
-    ).unwrap();
-    unsafe{ window.context().make_current().unwrap() };
-    let state = unsafe{ ContextState::new(|addr| window.context().get_proc_address(addr)) };
+        &events_loop,
+    )
+    .unwrap();
+    unsafe { window.context().make_current().unwrap() };
+    let state = unsafe { ContextState::new(|addr| window.context().get_proc_address(addr)) };
 
-    let vertex_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[
-        Vertex {
-            pos: Vector2::new(-1.0, -1.0),
-            tex_coord: Vector2::new(0, !0)
-        },
-        Vertex {
-            pos: Vector2::new(-1.0,  1.0),
-            tex_coord: Vector2::new(0, 0)
-        },
-        Vertex {
-            pos: Vector2::new( 1.0,  1.0),
-            tex_coord: Vector2::new(!0, 0)
-        },
-        Vertex {
-            pos: Vector2::new( 1.0, -1.0),
-            tex_coord: Vector2::new(!0, !0)
-        },
-    ], state.clone());
-    let index_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[
-        0, 1, 2,
-        2, 3, 0u16
-    ], state.clone());
+    let vertex_buffer = Buffer::with_data(
+        BufferUsage::StaticDraw,
+        &[
+            Vertex {
+                pos: Vector2::new(-1.0, -1.0),
+                tex_coord: Vector2::new(0, !0),
+            },
+            Vertex {
+                pos: Vector2::new(-1.0, 1.0),
+                tex_coord: Vector2::new(0, 0),
+            },
+            Vertex {
+                pos: Vector2::new(1.0, 1.0),
+                tex_coord: Vector2::new(!0, 0),
+            },
+            Vertex {
+                pos: Vector2::new(1.0, -1.0),
+                tex_coord: Vector2::new(!0, !0),
+            },
+        ],
+        state.clone(),
+    );
+    let index_buffer = Buffer::with_data(
+        BufferUsage::StaticDraw,
+        &[0, 1, 2, 2, 3, 0u16],
+        state.clone(),
+    );
     let vao = VertexArrayObject::new(vertex_buffer, Some(index_buffer));
     println!("vao created");
-    let (pos_x, pos_x_dims) = load_image_from_file("./examples/textures/cubemap/pos_x.png").unwrap();
-    let (pos_y, pos_y_dims) = load_image_from_file("./examples/textures/cubemap/pos_y.png").unwrap();
-    let (pos_z, pos_z_dims) = load_image_from_file("./examples/textures/cubemap/pos_z.png").unwrap();
-    let (neg_x, neg_x_dims) = load_image_from_file("./examples/textures/cubemap/neg_x.png").unwrap();
-    let (neg_y, neg_y_dims) = load_image_from_file("./examples/textures/cubemap/neg_y.png").unwrap();
-    let (neg_z, neg_z_dims) = load_image_from_file("./examples/textures/cubemap/neg_z.png").unwrap();
+    let (pos_x, pos_x_dims) =
+        load_image_from_file("./examples/textures/cubemap/pos_x.png").unwrap();
+    let (pos_y, pos_y_dims) =
+        load_image_from_file("./examples/textures/cubemap/pos_y.png").unwrap();
+    let (pos_z, pos_z_dims) =
+        load_image_from_file("./examples/textures/cubemap/pos_z.png").unwrap();
+    let (neg_x, neg_x_dims) =
+        load_image_from_file("./examples/textures/cubemap/neg_x.png").unwrap();
+    let (neg_y, neg_y_dims) =
+        load_image_from_file("./examples/textures/cubemap/neg_y.png").unwrap();
+    let (neg_z, neg_z_dims) =
+        load_image_from_file("./examples/textures/cubemap/neg_z.png").unwrap();
     assert_eq!(pos_x_dims.width(), pos_x_dims.height());
     assert_eq!(pos_x_dims, pos_y_dims);
     assert_eq!(pos_y_dims, pos_z_dims);
@@ -111,10 +131,10 @@ fn main() {
             neg_y: SRgb::slice_from_raw(&neg_y),
             neg_z: SRgb::slice_from_raw(&neg_z),
         }),
-        state.clone()
-    ).unwrap();
+        state.clone(),
+    )
+    .unwrap();
     println!("texture uploaded");
-
 
     let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();
     let fragment_shader = Shader::new(FRAGMENT_SHADER, state.clone()).unwrap();
@@ -124,7 +144,7 @@ fn main() {
         srgb: true,
         viewport: OffsetBox {
             origin: Point2::new(0, 0),
-            dims: Vector2::new(512, 512)
+            dims: Vector2::new(512, 512),
         },
         ..RenderState::default()
     };
@@ -132,39 +152,54 @@ fn main() {
     let mut default_framebuffer = FramebufferDefault::new(state.clone()).unwrap();
     let mut array_index = 0;
     let mut redraw = |array_index| {
-        let physical_size = window.get_inner_size().unwrap().to_physical(window.get_hidpi_factor());
-        render_state.viewport = OffsetBox::new2(0, 0, physical_size.width as u32, physical_size.height as u32);
+        let physical_size = window
+            .get_inner_size()
+            .unwrap()
+            .to_physical(window.get_hidpi_factor());
+        render_state.viewport = OffsetBox::new2(
+            0,
+            0,
+            physical_size.width as u32,
+            physical_size.height as u32,
+        );
         let uniform = Uniforms {
             tex: ferris_texture.as_dyn(),
-            array_index
+            array_index,
         };
         default_framebuffer.clear_depth(1.0);
         default_framebuffer.clear_color_all(Rgba::new(0.0, 0.0, 0.0, 1.0));
-        default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
+        default_framebuffer.draw(
+            DrawMode::Triangles,
+            ..,
+            &vao,
+            &program,
+            uniform,
+            render_state,
+        );
 
         window.swap_buffers().unwrap();
     };
 
     events_loop.run_forever(|event| {
         match event {
-            Event::WindowEvent{event, ..} => match event {
+            Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Resized(_) => {
                     redraw(array_index);
-                },
-                WindowEvent::KeyboardInput{input, ..}
-                    if input.state == ElementState::Pressed &&
-                       input.virtual_keycode == Some(VirtualKeyCode::Space)
-                => {
+                }
+                WindowEvent::KeyboardInput { input, .. }
+                    if input.state == ElementState::Pressed
+                        && input.virtual_keycode == Some(VirtualKeyCode::Space) =>
+                {
                     array_index += 1;
                     array_index %= ferris_texture.dims().depth();
                     println!("change array index to {}", array_index);
                     redraw(array_index);
-                },
+                }
 
                 WindowEvent::CloseRequested => return ControlFlow::Break,
-                _ => ()
+                _ => (),
             },
-            _ => ()
+            _ => (),
         }
 
         ControlFlow::Continue

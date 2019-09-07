@@ -9,44 +9,48 @@ extern crate png;
 
 extern crate num_traits;
 
-use gullery::ContextState;
-use gullery::buffer::*;
-use gullery::glsl::GLSLFloat;
-use gullery::texture::{*, sample_parameters::Swizzle};
-use gullery::framebuffer::{*, render_state::*};
-use gullery::program::*;
-use gullery::image_format::*;
-use gullery::vertex::VertexArrayObject;
+use gullery::{
+    buffer::*,
+    framebuffer::{render_state::*, *},
+    glsl::GLSLFloat,
+    image_format::*,
+    program::*,
+    texture::{sample_parameters::Swizzle, *},
+    vertex::VertexArrayObject,
+    ContextState,
+};
 
-use cgmath_geometry::{cgmath, D2};
-use cgmath_geometry::rect::{DimsBox, OffsetBox};
+use cgmath_geometry::{
+    cgmath,
+    rect::{DimsBox, OffsetBox},
+    D2,
+};
 
 use cgmath::*;
 
-use glutin::*;
-use glutin::dpi::LogicalSize;
+use glutin::{dpi::LogicalSize, *};
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
-    pos: Vector3<f32>
+    pos: Vector3<f32>,
 }
 
 #[derive(Vertex, Clone, Copy)]
 struct TextureVertex {
     pos: Vector2<f32>,
-    uv: Vector2<u16>
+    uv: Vector2<u16>,
 }
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
     offset: Vector2<f32>,
-    tex: &'a Texture<D2, ImageFormat<ScalarType=GLSLFloat>>
+    tex: &'a Texture<D2, ImageFormat<ScalarType = GLSLFloat>>,
 }
 
 #[derive(Attachments)]
 struct Attachments<'a> {
     color: &'a mut Texture<D2, SRgb>,
-    depth: &'a mut Texture<D2, Depth16>
+    depth: &'a mut Texture<D2, Depth16>,
 }
 
 fn main() {
@@ -58,31 +62,37 @@ fn main() {
         ContextBuilder::new()
             .with_gl(GlRequest::GlThenGles {
                 opengl_version: (3, 3),
-                opengles_version: (3, 0)
+                opengles_version: (3, 0),
             })
             .with_srgb(true),
-        &events_loop
-    ).unwrap();
-    unsafe{ window.context().make_current().unwrap() };
-    let state = unsafe{ ContextState::new(|addr| window.context().get_proc_address(addr)) };
+        &events_loop,
+    )
+    .unwrap();
+    unsafe { window.context().make_current().unwrap() };
+    let state = unsafe { ContextState::new(|addr| window.context().get_proc_address(addr)) };
 
-    let mut color_texture = Texture::with_mip_count(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap();
-    let mut depth_texture = Texture::with_mip_count(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap();
+    let mut color_texture =
+        Texture::with_mip_count(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap();
+    let mut depth_texture =
+        Texture::with_mip_count(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap();
 
     {
-        let vertex_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[
-            Vertex {
-                pos: Vector3::new(-1.0, -1.0, -1.0),
-            },
-            Vertex {
-                pos: Vector3::new( 0.0,  1.0, 1.0),
-            },
-            Vertex {
-                pos: Vector3::new( 1.0,  -1.0, -1.0),
-            },
-        ], state.clone());
+        let vertex_buffer = Buffer::with_data(
+            BufferUsage::StaticDraw,
+            &[
+                Vertex {
+                    pos: Vector3::new(-1.0, -1.0, -1.0),
+                },
+                Vertex {
+                    pos: Vector3::new(0.0, 1.0, 1.0),
+                },
+                Vertex {
+                    pos: Vector3::new(1.0, -1.0, -1.0),
+                },
+            ],
+            state.clone(),
+        );
         let vao = VertexArrayObject::<_, !>::new(vertex_buffer, None);
-
 
         let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();
         let fragment_shader = Shader::new(FRAGMENT_SHADER, state.clone()).unwrap();
@@ -95,8 +105,8 @@ fn main() {
             fbo: FramebufferObject::new(state.clone()),
             attachments: Attachments {
                 color: &mut color_texture,
-                depth: &mut depth_texture
-            }
+                depth: &mut depth_texture,
+            },
         };
         let render_state = RenderState {
             srgb: true,
@@ -110,74 +120,104 @@ fn main() {
     }
 
     {
-        let vertex_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[
-            TextureVertex {
-                pos: Vector2::new(-1.0, -1.0),
-                uv: Vector2::new(0, 0)
-            },
-            TextureVertex {
-                pos: Vector2::new(-1.0,  1.0),
-                uv: Vector2::new(0, !0)
-            },
-            TextureVertex {
-                pos: Vector2::new( 0.0,  1.0),
-                uv: Vector2::new(!0, !0)
-            },
-            TextureVertex {
-                pos: Vector2::new( 0.0, -1.0),
-                uv: Vector2::new(!0, 0)
-            },
-        ], state.clone());
-        let index_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[
-            0, 1, 2,
-            2, 3, 0u16
-        ], state.clone());
+        let vertex_buffer = Buffer::with_data(
+            BufferUsage::StaticDraw,
+            &[
+                TextureVertex {
+                    pos: Vector2::new(-1.0, -1.0),
+                    uv: Vector2::new(0, 0),
+                },
+                TextureVertex {
+                    pos: Vector2::new(-1.0, 1.0),
+                    uv: Vector2::new(0, !0),
+                },
+                TextureVertex {
+                    pos: Vector2::new(0.0, 1.0),
+                    uv: Vector2::new(!0, !0),
+                },
+                TextureVertex {
+                    pos: Vector2::new(0.0, -1.0),
+                    uv: Vector2::new(!0, 0),
+                },
+            ],
+            state.clone(),
+        );
+        let index_buffer = Buffer::with_data(
+            BufferUsage::StaticDraw,
+            &[0, 1, 2, 2, 3, 0u16],
+            state.clone(),
+        );
         let vao = VertexArrayObject::new(vertex_buffer, Some(index_buffer));
 
         let vertex_shader = Shader::new(TEX_TO_WINDOW_VERTEX_SHADER, state.clone()).unwrap();
-        let fragment_shader = Shader::new(TEX_TO_WINDOW_FRAGMENT_DEPTH_SHADER, state.clone()).unwrap();
+        let fragment_shader =
+            Shader::new(TEX_TO_WINDOW_FRAGMENT_DEPTH_SHADER, state.clone()).unwrap();
         let (program, _) = Program::new(&vertex_shader, None, &fragment_shader).unwrap();
 
         let mut render_state = RenderState {
             srgb: true,
             viewport: OffsetBox {
                 origin: Point2::new(0, 0),
-                dims: Vector2::new(512, 512)
+                dims: Vector2::new(512, 512),
             },
             ..RenderState::default()
         };
 
-        depth_texture.swizzle_read(Rgba::new(Swizzle::Red, Swizzle::Red, Swizzle::Red, Swizzle::One));
+        depth_texture.swizzle_read(Rgba::new(
+            Swizzle::Red,
+            Swizzle::Red,
+            Swizzle::Red,
+            Swizzle::One,
+        ));
 
         let mut default_framebuffer = FramebufferDefault::new(state.clone()).unwrap();
         events_loop.run_forever(|event| {
             match event {
-                Event::WindowEvent{event, ..} => match event {
+                Event::WindowEvent { event, .. } => match event {
                     WindowEvent::Resized(logical_size) => {
                         let physical_size = logical_size.to_physical(window.get_hidpi_factor());
                         window.resize(physical_size);
                         let uniform = Uniforms {
                             offset: Vector2::new(0.0, 0.0),
-                            tex: color_texture.as_dyn()
+                            tex: color_texture.as_dyn(),
                         };
-                        render_state.viewport = OffsetBox::new2(0, 0, physical_size.width as _, physical_size.height as _);
+                        render_state.viewport = OffsetBox::new2(
+                            0,
+                            0,
+                            physical_size.width as _,
+                            physical_size.height as _,
+                        );
                         default_framebuffer.clear_depth(1.0);
                         default_framebuffer.clear_color_all(Rgba::new(0.0, 0.0, 0.0, 1.0));
 
-                        default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
+                        default_framebuffer.draw(
+                            DrawMode::Triangles,
+                            ..,
+                            &vao,
+                            &program,
+                            uniform,
+                            render_state,
+                        );
 
                         let uniform = Uniforms {
                             offset: Vector2::new(1.0, 0.0),
-                            tex: depth_texture.as_dyn()
+                            tex: depth_texture.as_dyn(),
                         };
-                        default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
+                        default_framebuffer.draw(
+                            DrawMode::Triangles,
+                            ..,
+                            &vao,
+                            &program,
+                            uniform,
+                            render_state,
+                        );
 
                         window.swap_buffers().unwrap();
                     }
                     WindowEvent::CloseRequested => return ControlFlow::Break,
-                    _ => ()
+                    _ => (),
                 },
-                _ => ()
+                _ => (),
             }
 
             ControlFlow::Continue

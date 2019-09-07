@@ -7,26 +7,31 @@ extern crate png;
 
 extern crate num_traits;
 
-use gullery::ContextState;
-use gullery::glsl::GLSLFloat;
-use gullery::buffer::*;
-use gullery::framebuffer::{*, render_state::*};
-use gullery::program::*;
-use gullery::image_format::{ConcreteImageFormat, ImageFormat, SRgb, Rgba, compressed::DXT1};
-use gullery::texture::*;
-use gullery::texture::types::{CubemapImage, CubemapTex};
-use gullery::vertex::VertexArrayObject;
+use gullery::{
+    buffer::*,
+    framebuffer::{render_state::*, *},
+    glsl::GLSLFloat,
+    image_format::{compressed::DXT1, ConcreteImageFormat, ImageFormat, Rgba, SRgb},
+    program::*,
+    texture::{
+        types::{CubemapImage, CubemapTex},
+        *,
+    },
+    vertex::VertexArrayObject,
+    ContextState,
+};
 
-use cgmath_geometry::{cgmath, D2};
-use cgmath_geometry::rect::{DimsBox, OffsetBox};
+use cgmath_geometry::{
+    cgmath,
+    rect::{DimsBox, OffsetBox},
+    D2,
+};
 
-use std::io::BufReader;
-use std::fs::File;
+use std::{fs::File, io::BufReader};
 
 use cgmath::*;
 
-use glutin::*;
-use glutin::dpi::LogicalSize;
+use glutin::{dpi::LogicalSize, *};
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
@@ -35,7 +40,7 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: &'a Texture<D2, CubemapTex<ImageFormat<ScalarType=GLSLFloat>>>,
+    tex: &'a Texture<D2, CubemapTex<ImageFormat<ScalarType = GLSLFloat>>>,
     matrix: Matrix4<f32>,
 }
 
@@ -67,54 +72,53 @@ fn main() {
         ContextBuilder::new()
             .with_gl(GlRequest::GlThenGles {
                 opengl_version: (3, 3),
-                opengles_version: (3, 0)
+                opengles_version: (3, 0),
             })
             .with_srgb(true),
-        &events_loop
-    ).unwrap();
-    unsafe{ window.context().make_current().unwrap() };
-    let state = unsafe{ ContextState::new(|addr| window.context().get_proc_address(addr)) };
+        &events_loop,
+    )
+    .unwrap();
+    unsafe { window.context().make_current().unwrap() };
+    let state = unsafe { ContextState::new(|addr| window.context().get_proc_address(addr)) };
 
-    let vertex_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[
-        Vertex {
-            pos: Point3::new(1.0, -1.0, -1.0)
-        },
-        Vertex {
-            pos: Point3::new(1.0, -1.0, 1.0)
-        },
-        Vertex {
-            pos: Point3::new(-1.0, -1.0, 1.0)
-        },
-        Vertex {
-            pos: Point3::new(-1.0, -1.0, -1.0)
-        },
-        Vertex {
-            pos: Point3::new(1.0, 1.0, -1.0)
-        },
-        Vertex {
-            pos: Point3::new(1.0, 1.0, 1.0)
-        },
-        Vertex {
-            pos: Point3::new(-1.0, 1.0, 1.0)
-        },
-        Vertex {
-            pos: Point3::new(-1.0, 1.0, -1.0)
-        },
-    ], state.clone());
-    let index_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[
-        0, 3, 2,
-        0, 2, 1,
-        4, 5, 6,
-        4, 6, 7,
-        0, 1, 5,
-        0, 5, 4,
-        1, 2, 6,
-        1, 6, 5,
-        2, 3, 7,
-        2, 7, 6,
-        4, 7, 3,
-        4, 3, 0u16,
-    ], state.clone());
+    let vertex_buffer = Buffer::with_data(
+        BufferUsage::StaticDraw,
+        &[
+            Vertex {
+                pos: Point3::new(1.0, -1.0, -1.0),
+            },
+            Vertex {
+                pos: Point3::new(1.0, -1.0, 1.0),
+            },
+            Vertex {
+                pos: Point3::new(-1.0, -1.0, 1.0),
+            },
+            Vertex {
+                pos: Point3::new(-1.0, -1.0, -1.0),
+            },
+            Vertex {
+                pos: Point3::new(1.0, 1.0, -1.0),
+            },
+            Vertex {
+                pos: Point3::new(1.0, 1.0, 1.0),
+            },
+            Vertex {
+                pos: Point3::new(-1.0, 1.0, 1.0),
+            },
+            Vertex {
+                pos: Point3::new(-1.0, 1.0, -1.0),
+            },
+        ],
+        state.clone(),
+    );
+    let index_buffer = Buffer::with_data(
+        BufferUsage::StaticDraw,
+        &[
+            0, 3, 2, 0, 2, 1, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 1, 2, 6, 1, 6, 5, 2, 3, 7, 2, 7,
+            6, 4, 7, 3, 4, 3, 0u16,
+        ],
+        state.clone(),
+    );
     let vao = VertexArrayObject::new(vertex_buffer, Some(index_buffer));
     println!("vao created");
     let (pos_x_mips, pos_x_dims) = load_image_from_file("./examples/textures/cubemap/pos_x.dds");
@@ -139,13 +143,9 @@ fn main() {
         neg_y: &neg_y_mips[i],
         neg_z: &neg_z_mips[i],
     });
-    let cubemap_texture: Texture<D2, CubemapTex<DXT1<SRgb>>> = Texture::with_images(
-        DimsSquare::new(pos_x_dims.width()),
-        mips,
-        state.clone()
-    ).unwrap();
+    let cubemap_texture: Texture<D2, CubemapTex<DXT1<SRgb>>> =
+        Texture::with_images(DimsSquare::new(pos_x_dims.width()), mips, state.clone()).unwrap();
     println!("vao created");
-
 
     let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();
     let fragment_shader = Shader::new(FRAGMENT_SHADER, state.clone()).unwrap();
@@ -160,7 +160,7 @@ fn main() {
         cull: Some((CullFace::Front, FrontFace::Clockwise)),
         viewport: OffsetBox {
             origin: Point2::new(0, 0),
-            dims: Vector2::new(512, 512)
+            dims: Vector2::new(512, 512),
         },
         ..RenderState::default()
     };
@@ -173,30 +173,70 @@ fn main() {
     let mut rotation = Euler::new(Deg(0.0), Deg(0.0), Deg(0.0));
 
     let mut redraw = |rotation, aspect_ratio, use_perspective| {
-        let physical_size = window.get_inner_size().unwrap().to_physical(window.get_hidpi_factor());
-        render_state.viewport = OffsetBox::new2(0, 0, physical_size.width as u32, physical_size.height as u32);
+        let physical_size = window
+            .get_inner_size()
+            .unwrap()
+            .to_physical(window.get_hidpi_factor());
+        render_state.viewport = OffsetBox::new2(
+            0,
+            0,
+            physical_size.width as u32,
+            physical_size.height as u32,
+        );
         let scale = 1.0 / (fov.to_radians() / 2.0).tan();
         let perspective_matrix = match use_perspective {
             true => Matrix4::new(
-                scale / aspect_ratio, 0.0  , 0.0                                       , 0.0,
-                0.0                 , scale, 0.0                                       , 0.0,
-                0.0                 , 0.0  , (z_near + z_far) / (z_near - z_far)       , -1.0,
-                0.0                 , 0.0  , (2.0 * z_far * z_near) / (z_near - z_far) , 0.0
+                scale / aspect_ratio,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                scale,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                (z_near + z_far) / (z_near - z_far),
+                -1.0,
+                0.0,
+                0.0,
+                (2.0 * z_far * z_near) / (z_near - z_far),
+                0.0,
             ),
             false => Matrix4::new(
-                scale / aspect_ratio, 0.0  , 0.0                                 , 0.0,
-                0.0                 , scale, 0.0                                 , 0.0,
-                0.0                 , 0.0  , (z_near + z_far) / (z_near - z_far) , -1.0,
-                0.0                 , 0.0  , 0.0                                 , 1.0
-            )
-        } ;
+                scale / aspect_ratio,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                scale,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                (z_near + z_far) / (z_near - z_far),
+                -1.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+            ),
+        };
         let uniform = Uniforms {
             tex: cubemap_texture.as_dyn(),
-            matrix: perspective_matrix * Matrix4::from(Matrix3::from(Basis3::from(Quaternion::from(rotation)))),
+            matrix: perspective_matrix
+                * Matrix4::from(Matrix3::from(Basis3::from(Quaternion::from(rotation)))),
         };
         default_framebuffer.clear_depth(1.0);
         default_framebuffer.clear_color_all(Rgba::new(0.0, 0.0, 0.0, 1.0));
-        default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
+        default_framebuffer.draw(
+            DrawMode::Triangles,
+            ..,
+            &vao,
+            &program,
+            uniform,
+            render_state,
+        );
 
         window.swap_buffers().unwrap();
     };
@@ -207,11 +247,11 @@ fn main() {
     let mut use_perspective = true;
     events_loop.run_forever(|event| {
         match event {
-            Event::WindowEvent{event, ..} => match event {
+            Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Resized(d) => {
                     aspect_ratio = (d.width / d.height) as f32;
                     redraw(rotation, aspect_ratio, use_perspective);
-                },
+                }
                 WindowEvent::Focused(f) => {
                     window_focused = f;
                     if f {
@@ -221,40 +261,43 @@ fn main() {
                         window.grab_cursor(false).ok();
                         window.hide_cursor(false);
                     }
-                },
-                WindowEvent::MouseInput{state: ElementState::Pressed, ..} => {
+                }
+                WindowEvent::MouseInput {
+                    state: ElementState::Pressed,
+                    ..
+                } => {
                     window.grab_cursor(true).ok();
                     window.hide_cursor(true);
                     window_focused = true;
                 }
-                WindowEvent::KeyboardInput{input, ..}
-                    if input.state == ElementState::Pressed
-                => {
+                WindowEvent::KeyboardInput { input, .. }
+                    if input.state == ElementState::Pressed =>
+                {
                     match input.virtual_keycode {
                         Some(VirtualKeyCode::Escape) => {
                             window.grab_cursor(false).ok();
                             window.hide_cursor(false);
                             window_focused = false;
-                        },
+                        }
                         Some(VirtualKeyCode::Space) => {
                             use_perspective = !use_perspective;
                         }
                         _ => (),
                     }
                     redraw(rotation, aspect_ratio, use_perspective);
-                },
+                }
                 WindowEvent::CloseRequested => return ControlFlow::Break,
-                _ => ()
+                _ => (),
             },
-            Event::DeviceEvent{event, ..} => match event {
-                DeviceEvent::MouseMotion{delta} if window_focused => {
+            Event::DeviceEvent { event, .. } => match event {
+                DeviceEvent::MouseMotion { delta } if window_focused => {
                     rotation.x.0 += delta.1 as f32 * mouse_sensitivity;
                     rotation.y.0 += delta.0 as f32 * mouse_sensitivity;
                     redraw(rotation, aspect_ratio, use_perspective);
-                },
-                _ => ()
-            }
-            _ => ()
+                }
+                _ => (),
+            },
+            _ => (),
         }
 
         ControlFlow::Continue
@@ -286,4 +329,3 @@ const FRAGMENT_SHADER: &str = r#"
         color = texture(tex, tc);
     }
 "#;
-

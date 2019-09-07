@@ -14,12 +14,13 @@
 
 //! Framebuffer attachment traits.
 
-use texture::{Texture, TextureType, MipSelector};
-use image_format::{FormatType, ImageFormatRenderable, FormatTypeTag};
-use framebuffer::Renderbuffer;
-use std::marker::PhantomData;
 use cgmath_geometry::Dimensionality;
-use {Handle, GLObject};
+use framebuffer::Renderbuffer;
+use image_format::{FormatType, FormatTypeTag, ImageFormatRenderable};
+use std::marker::PhantomData;
+use texture::{MipSelector, Texture, TextureType};
+use GLObject;
+use Handle;
 
 /// A Rust type that can be used as a [`FramebufferObject`] attachment.
 ///
@@ -33,9 +34,9 @@ pub trait AttachmentType: GLObject {
         registry: &mut R,
         name: &str,
         get_member: impl FnOnce(&R::Attachments) -> &Self,
-        mip: Self::MipSelector
-    )
-        where R: AttachmentsMemberRegistry;
+        mip: Self::MipSelector,
+    ) where
+        R: AttachmentsMemberRegistry;
 
     /// Resolve the Attachment to a pointer to the innermost type. For raw types this is a no-op,
     /// but function overloads are used to dereference a `&mut Attachment` to the original value.
@@ -55,10 +56,11 @@ pub trait AttachmentType: GLObject {
 /// - Stencil attachments, for the stencil test
 pub trait Attachments: Sized {
     type AHC: AttachmentHandleContainer;
-    type Static: 'static + Attachments<AHC=Self::AHC>;
+    type Static: 'static + Attachments<AHC = Self::AHC>;
 
     fn members<R>(reg: R)
-        where R: AttachmentsMemberRegistry<Attachments=Self>;
+    where
+        R: AttachmentsMemberRegistry<Attachments = Self>;
 
     #[inline]
     fn num_members() -> usize {
@@ -66,8 +68,11 @@ pub trait Attachments: Sized {
         impl<'a, A: Attachments> AttachmentsMemberRegistryNoSpecifics for MemberCounter<'a, A> {
             type Attachments = A;
             #[inline(always)]
-            fn add_member<At: AttachmentType>(&mut self, _: &str, _: impl FnOnce(&Self::Attachments) -> &At)
-            {
+            fn add_member<At: AttachmentType>(
+                &mut self,
+                _: &str,
+                _: impl FnOnce(&Self::Attachments) -> &At,
+            ) {
                 *self.0 += 1;
             }
         }
@@ -81,9 +86,11 @@ pub trait Attachments: Sized {
         struct AttachmentRefMatcher<'a, A: 'a, F: FnMut(u8)> {
             color_index: u8,
             for_each: F,
-            _marker: PhantomData<&'a A>
+            _marker: PhantomData<&'a A>,
         }
-        impl<'a, A: Attachments, F: FnMut(u8)> AttachmentsMemberRegistryNoSpecifics for AttachmentRefMatcher<'a, A, F> {
+        impl<'a, A: Attachments, F: FnMut(u8)> AttachmentsMemberRegistryNoSpecifics
+            for AttachmentRefMatcher<'a, A, F>
+        {
             type Attachments = A;
             fn add_member<At: AttachmentType>(&mut self, _: &str, _: impl FnOnce(&A) -> &At) {
                 let image_type = <At::Format as ImageFormatRenderable>::FormatType::FORMAT_TYPE;
@@ -100,7 +107,7 @@ pub trait Attachments: Sized {
         Self::members(AMRNSImpl(AttachmentRefMatcher {
             color_index: 0,
             for_each,
-            _marker: PhantomData
+            _marker: PhantomData,
         }));
     }
 }
@@ -121,14 +128,17 @@ pub trait AttachmentsMemberRegistry {
     fn add_renderbuffer<I: ImageFormatRenderable>(
         &mut self,
         name: &str,
-        get_member: impl FnOnce(&Self::Attachments) -> &Renderbuffer<I>
+        get_member: impl FnOnce(&Self::Attachments) -> &Renderbuffer<I>,
     );
     fn add_texture<D, T>(
         &mut self,
         name: &str,
         get_member: impl FnOnce(&Self::Attachments) -> &Texture<D, T>,
-        texture_level: T::MipSelector
-    ) where D: Dimensionality<u32>, T: TextureType<D>, T::Format: ImageFormatRenderable;
+        texture_level: T::MipSelector,
+    ) where
+        D: Dimensionality<u32>,
+        T: TextureType<D>,
+        T::Format: ImageFormatRenderable;
 }
 
 pub(crate) trait AttachmentsMemberRegistryNoSpecifics {
@@ -136,25 +146,35 @@ pub(crate) trait AttachmentsMemberRegistryNoSpecifics {
     fn add_member<A: AttachmentType>(
         &mut self,
         name: &str,
-        get_member: impl FnOnce(&Self::Attachments) -> &A
+        get_member: impl FnOnce(&Self::Attachments) -> &A,
     );
 }
 pub(crate) struct AMRNSImpl<R: AttachmentsMemberRegistryNoSpecifics>(pub R);
 impl<R> AttachmentsMemberRegistry for AMRNSImpl<R>
-    where R: AttachmentsMemberRegistryNoSpecifics
+where
+    R: AttachmentsMemberRegistryNoSpecifics,
 {
     type Attachments = <R as AttachmentsMemberRegistryNoSpecifics>::Attachments;
     #[inline]
-    fn add_renderbuffer<I>(&mut self, name: &str, get_member: impl FnOnce(&Self::Attachments) -> &Renderbuffer<I>)
-        where I: ImageFormatRenderable
+    fn add_renderbuffer<I>(
+        &mut self,
+        name: &str,
+        get_member: impl FnOnce(&Self::Attachments) -> &Renderbuffer<I>,
+    ) where
+        I: ImageFormatRenderable,
     {
         self.0.add_member(name, get_member);
     }
     #[inline]
-    fn add_texture<D, T>(&mut self, name: &str, get_member: impl FnOnce(&Self::Attachments) -> &Texture<D, T>, _: T::MipSelector)
-        where D: Dimensionality<u32>,
-              T: TextureType<D>,
-              T::Format: ImageFormatRenderable
+    fn add_texture<D, T>(
+        &mut self,
+        name: &str,
+        get_member: impl FnOnce(&Self::Attachments) -> &Texture<D, T>,
+        _: T::MipSelector,
+    ) where
+        D: Dimensionality<u32>,
+        T: TextureType<D>,
+        T::Format: ImageFormatRenderable,
     {
         self.0.add_member(name, get_member);
     }
@@ -171,7 +191,7 @@ macro_rules! impl_attachment_array {
     )*}
 }
 
-impl_attachment_array!{
+impl_attachment_array! {
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
     26, 27, 28, 29, 30, 31, 32
 }
@@ -181,30 +201,44 @@ impl Attachments for () {
     type Static = Self;
 
     fn members<R>(_reg: R)
-        where R: AttachmentsMemberRegistry<Attachments=Self> {}
+    where
+        R: AttachmentsMemberRegistry<Attachments = Self>,
+    {
+    }
 }
 
 impl<I: ImageFormatRenderable> AttachmentType for Renderbuffer<I> {
     type Format = I;
     type MipSelector = ();
 
-    fn add_to_registry<R>(registry: &mut R, name: &str, get_member: impl FnOnce(&R::Attachments) -> &Self, _: ())
-        where R: AttachmentsMemberRegistry
+    fn add_to_registry<R>(
+        registry: &mut R,
+        name: &str,
+        get_member: impl FnOnce(&R::Attachments) -> &Self,
+        _: (),
+    ) where
+        R: AttachmentsMemberRegistry,
     {
         registry.add_renderbuffer(name, |r| get_member(r));
     }
 }
 
 impl<D, T> AttachmentType for Texture<D, T>
-    where D: Dimensionality<u32>,
-          T: TextureType<D>,
-          T::Format: ImageFormatRenderable
+where
+    D: Dimensionality<u32>,
+    T: TextureType<D>,
+    T::Format: ImageFormatRenderable,
 {
     type Format = T::Format;
     type MipSelector = T::MipSelector;
 
-    fn add_to_registry<R>(registry: &mut R, name: &str, get_member: impl FnOnce(&R::Attachments) -> &Self, mip: Self::MipSelector)
-        where R: AttachmentsMemberRegistry
+    fn add_to_registry<R>(
+        registry: &mut R,
+        name: &str,
+        get_member: impl FnOnce(&R::Attachments) -> &Self,
+        mip: Self::MipSelector,
+    ) where
+        R: AttachmentsMemberRegistry,
     {
         registry.add_texture(name, |r| get_member(r), mip);
     }
@@ -214,8 +248,13 @@ impl<'a, A: 'a + AttachmentType> AttachmentType for &'a mut A {
     type Format = A::Format;
     type MipSelector = A::MipSelector;
 
-    fn add_to_registry<R>(registry: &mut R, name: &str, get_member: impl FnOnce(&R::Attachments) -> &Self, mip_selector: A::MipSelector)
-        where R: AttachmentsMemberRegistry
+    fn add_to_registry<R>(
+        registry: &mut R,
+        name: &str,
+        get_member: impl FnOnce(&R::Attachments) -> &Self,
+        mip_selector: A::MipSelector,
+    ) where
+        R: AttachmentsMemberRegistry,
     {
         use std::mem;
 
@@ -228,8 +267,8 @@ impl<'a, A: 'a + AttachmentType> AttachmentType for &'a mut A {
             //
             // But we transmute because the compiler has trouble with lifetime
             // inference with just a plain call to `&**modify_member(r).
-            |r| unsafe{ mem::transmute::<&A, &A>(&**get_member(r)) },
-            mip_selector
+            |r| unsafe { mem::transmute::<&A, &A>(&**get_member(r)) },
+            mip_selector,
         );
     }
 

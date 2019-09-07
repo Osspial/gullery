@@ -7,24 +7,30 @@ extern crate png;
 
 extern crate num_traits;
 
-use gullery::ContextState;
-use gullery::buffer::*;
-use gullery::framebuffer::{*, render_state::*};
-use gullery::program::*;
-use gullery::image_format::*;
-use gullery::texture::{*, sample_parameters::*};
-use gullery::vertex::VertexArrayObject;
+use gullery::{
+    buffer::*,
+    framebuffer::{render_state::*, *},
+    image_format::*,
+    program::*,
+    texture::{sample_parameters::*, *},
+    vertex::VertexArrayObject,
+    ContextState,
+};
 
-use cgmath_geometry::{cgmath, D2};
-use cgmath_geometry::rect::{DimsBox, OffsetBox};
+use cgmath_geometry::{
+    cgmath,
+    rect::{DimsBox, OffsetBox},
+    D2,
+};
 
 use cgmath::*;
 
-use glutin::{GlContext, EventsLoop, Event, WindowEvent, ControlFlow, WindowBuilder, ContextBuilder, GlWindow, GlRequest, ElementState, VirtualKeyCode};
-use glutin::dpi::LogicalSize;
+use glutin::{
+    dpi::LogicalSize, ContextBuilder, ControlFlow, ElementState, Event, EventsLoop, GlContext,
+    GlRequest, GlWindow, VirtualKeyCode, WindowBuilder, WindowEvent,
+};
 
-use std::{io, fs::File};
-use std::rc::Rc;
+use std::{fs::File, io, rc::Rc};
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
@@ -36,10 +42,13 @@ struct Vertex {
 struct Uniforms<'a> {
     tex: SampledTexture<'a, D2, SRgba>,
     offset: Vector2<f32>,
-    scale: Vector2<f32>
+    scale: Vector2<f32>,
 }
 
-fn load_texture_from_file(path: &str, state: &Rc<ContextState>) -> Result<Texture<D2, SRgba>, io::Error> {
+fn load_texture_from_file(
+    path: &str,
+    state: &Rc<ContextState>,
+) -> Result<Texture<D2, SRgba>, io::Error> {
     let (image, dims) = {
         let decoder = png::Decoder::new(File::open(path)?);
         let (info, mut reader) = decoder.read_info()?;
@@ -48,11 +57,7 @@ fn load_texture_from_file(path: &str, state: &Rc<ContextState>) -> Result<Textur
         (buf, DimsBox::new2(info.width, info.height))
     };
     println!("texture loaded: {}", path);
-    let texture = Texture::with_images(
-        dims,
-        Some(SRgba::slice_from_raw(&image)),
-        state.clone()
-    )?;
+    let texture = Texture::with_images(dims, Some(SRgba::slice_from_raw(&image)), state.clone())?;
     println!("texture uploaded: {}", path);
     Ok(texture)
 }
@@ -64,43 +69,50 @@ fn main() {
         ContextBuilder::new()
             .with_gl(GlRequest::GlThenGles {
                 opengl_version: (3, 3),
-                opengles_version: (3, 0)
+                opengles_version: (3, 0),
             })
             .with_srgb(true),
-        &events_loop
-    ).unwrap();
-    unsafe{ window.context().make_current().unwrap() };
-    let state = unsafe{ ContextState::new(|addr| window.context().get_proc_address(addr)) };
+        &events_loop,
+    )
+    .unwrap();
+    unsafe { window.context().make_current().unwrap() };
+    let state = unsafe { ContextState::new(|addr| window.context().get_proc_address(addr)) };
 
-    let vertex_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[
-        Vertex {
-            pos: Vector2::new(-1.0, -1.0),
-            tex_coord: Vector2::new(0, !0)
-        },
-        Vertex {
-            pos: Vector2::new(-1.0,  1.0),
-            tex_coord: Vector2::new(0, 0)
-        },
-        Vertex {
-            pos: Vector2::new( 1.0,  1.0),
-            tex_coord: Vector2::new(!0, 0)
-        },
-        Vertex {
-            pos: Vector2::new( 1.0, -1.0),
-            tex_coord: Vector2::new(!0, !0)
-        },
-    ], state.clone());
-    let index_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[
-        0, 1, 2,
-        2, 3, 0u16
-    ], state.clone());
+    let vertex_buffer = Buffer::with_data(
+        BufferUsage::StaticDraw,
+        &[
+            Vertex {
+                pos: Vector2::new(-1.0, -1.0),
+                tex_coord: Vector2::new(0, !0),
+            },
+            Vertex {
+                pos: Vector2::new(-1.0, 1.0),
+                tex_coord: Vector2::new(0, 0),
+            },
+            Vertex {
+                pos: Vector2::new(1.0, 1.0),
+                tex_coord: Vector2::new(!0, 0),
+            },
+            Vertex {
+                pos: Vector2::new(1.0, -1.0),
+                tex_coord: Vector2::new(!0, !0),
+            },
+        ],
+        state.clone(),
+    );
+    let index_buffer = Buffer::with_data(
+        BufferUsage::StaticDraw,
+        &[0, 1, 2, 2, 3, 0u16],
+        state.clone(),
+    );
     let vao = VertexArrayObject::new(vertex_buffer, Some(index_buffer));
     println!("vao created");
-    let ferris_normal_texture = load_texture_from_file("./examples/textures/ferris_normal.png", &state).unwrap();
-    let ferris_happy_texture = load_texture_from_file("./examples/textures/ferris_happy.png", &state).unwrap();
+    let ferris_normal_texture =
+        load_texture_from_file("./examples/textures/ferris_normal.png", &state).unwrap();
+    let ferris_happy_texture =
+        load_texture_from_file("./examples/textures/ferris_happy.png", &state).unwrap();
     let mut sampler = Sampler::new(state.clone());
     sampler.sample_parameters.filter_mag = FilterMag::Nearest;
-
 
     let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();
     let fragment_shader = Shader::new(FRAGMENT_SHADER, state.clone()).unwrap();
@@ -110,7 +122,7 @@ fn main() {
         srgb: true,
         viewport: OffsetBox {
             origin: Point2::new(0, 0),
-            dims: Vector2::new(512, 512)
+            dims: Vector2::new(512, 512),
         },
         ..RenderState::default()
     };
@@ -122,8 +134,16 @@ fn main() {
 
     events_loop.run_forever(|event| {
         let mut redraw = |anisotropy_index| {
-            let physical_size = window.get_inner_size().unwrap().to_physical(window.get_hidpi_factor());
-            render_state.viewport = OffsetBox::new2(0, 0, physical_size.width as u32, physical_size.height as u32);
+            let physical_size = window
+                .get_inner_size()
+                .unwrap()
+                .to_physical(window.get_hidpi_factor());
+            render_state.viewport = OffsetBox::new2(
+                0,
+                0,
+                physical_size.width as u32,
+                physical_size.height as u32,
+            );
             default_framebuffer.clear_depth(1.0);
             default_framebuffer.clear_color_all(Rgba::new(0.0, 0.0, 0.0, 1.0));
 
@@ -131,17 +151,24 @@ fn main() {
             let mut uniform = Uniforms {
                 tex: SampledTexture {
                     texture: &ferris_normal_texture,
-                    sampler: &sampler
+                    sampler: &sampler,
                 },
                 offset: Vector2::new(-0.5, 0.5),
-                scale: Vector2::new(0.5, 0.5)
+                scale: Vector2::new(0.5, 0.5),
             };
 
             let mut draw_scaled_copies = |mut uniform: Uniforms| {
                 let copies = 6;
 
                 for _ in 0..copies {
-                    default_framebuffer.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
+                    default_framebuffer.draw(
+                        DrawMode::Triangles,
+                        ..,
+                        &vao,
+                        &program,
+                        uniform,
+                        render_state,
+                    );
                     uniform.offset.y -= uniform.scale.y * 1.5;
                     uniform.scale.y /= 2.0;
                 }
@@ -158,23 +185,26 @@ fn main() {
         };
 
         match event {
-            Event::WindowEvent{event, ..} => match event {
+            Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Resized(_) => {
                     redraw(anisotropy_index);
                 }
-                WindowEvent::KeyboardInput{input, ..}
-                    if input.state == ElementState::Pressed &&
-                       input.virtual_keycode == Some(VirtualKeyCode::Space)
-                => {
+                WindowEvent::KeyboardInput { input, .. }
+                    if input.state == ElementState::Pressed
+                        && input.virtual_keycode == Some(VirtualKeyCode::Space) =>
+                {
                     anisotropy_index += 1;
                     anisotropy_index %= anisotropy_values.len();
-                    println!("Changed anisotropy to: {}", anisotropy_values[anisotropy_index]);
+                    println!(
+                        "Changed anisotropy to: {}",
+                        anisotropy_values[anisotropy_index]
+                    );
                     redraw(anisotropy_index)
                 }
                 WindowEvent::CloseRequested => return ControlFlow::Break,
-                _ => ()
+                _ => (),
             },
-            _ => ()
+            _ => (),
         }
 
         ControlFlow::Continue

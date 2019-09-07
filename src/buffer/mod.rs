@@ -16,16 +16,16 @@
 
 mod raw;
 
-pub(crate) use self::raw::RawBindTarget;
 pub use self::raw::BufferUsage;
+pub(crate) use self::raw::RawBindTarget;
 use self::raw::{targets, RawBuffer};
 
 use gl::Gl;
-use {Handle, ContextState, GLObject};
+use ContextState;
+use GLObject;
+use Handle;
 
-use std::mem;
-use std::rc::Rc;
-use std::ops::RangeBounds;
+use std::{mem, ops::RangeBounds, rc::Rc};
 
 pub(crate) struct BufferBinds {
     copy_read: targets::RawCopyRead,
@@ -53,7 +53,7 @@ impl BufferBinds {
 /// The GPU data buffer type.
 pub struct Buffer<T: 'static + Copy> {
     raw: RawBuffer<T>,
-    state: Rc<ContextState>
+    state: Rc<ContextState>,
 }
 
 impl<T: 'static + Copy> Buffer<T> {
@@ -72,13 +72,13 @@ impl<T: 'static + Copy> Buffer<T> {
 
             let mut raw = RawBuffer::new(gl);
             {
-                let mut bind = unsafe{ buffer_binds.copy_write.bind_mut(&mut raw, gl) };
+                let mut bind = unsafe { buffer_binds.copy_write.bind_mut(&mut raw, gl) };
                 bind.alloc_upload(data, usage)
             }
             raw
         };
 
-        Buffer{raw, state}
+        Buffer { raw, state }
     }
 
     /// Creates a new buffer that can hold the specified number of elements.
@@ -102,7 +102,7 @@ impl<T: 'static + Copy> Buffer<T> {
             raw
         };
 
-        Buffer{raw, state}
+        Buffer { raw, state }
     }
 
     /// Returns the number of elements in the buffer.
@@ -147,20 +147,25 @@ impl<T: 'static + Copy> Buffer<T> {
             ..
         } = *self.state;
 
-        let mut bind = unsafe{ buffer_binds.copy_write.bind_mut(&mut self.raw, gl) };
+        let mut bind = unsafe { buffer_binds.copy_write.bind_mut(&mut self.raw, gl) };
         bind.sub_data(offset, data);
     }
 
     #[inline]
-    pub fn copy_to<R: RangeBounds<usize>>(&self, dest_buf: &mut Buffer<T>, self_range: R, write_offset: usize) {
+    pub fn copy_to<R: RangeBounds<usize>>(
+        &self,
+        dest_buf: &mut Buffer<T>,
+        self_range: R,
+        write_offset: usize,
+    ) {
         let ContextState {
             ref buffer_binds,
             ref gl,
             ..
         } = *self.state;
 
-        let src_bind = unsafe{ buffer_binds.copy_read.bind(&self.raw, gl) };
-        let mut dest_bind = unsafe{ buffer_binds.copy_write.bind_mut(&mut dest_buf.raw, gl) };
+        let src_bind = unsafe { buffer_binds.copy_read.bind(&self.raw, gl) };
+        let mut dest_bind = unsafe { buffer_binds.copy_write.bind_mut(&mut dest_buf.raw, gl) };
         src_bind.copy_to(&mut dest_bind, self_range, write_offset);
     }
 }
@@ -178,7 +183,7 @@ impl<T: 'static + Copy> GLObject for Buffer<T> {
 
 impl<T: 'static + Copy> Drop for Buffer<T> {
     fn drop(&mut self) {
-        let mut buffer = unsafe{ mem::uninitialized() };
+        let mut buffer = unsafe { mem::uninitialized() };
         mem::swap(&mut buffer, &mut self.raw);
         buffer.delete(&self.state);
     }
@@ -189,7 +194,7 @@ mod tests {
     use super::*;
     use test_helper::CONTEXT_STATE;
 
-    quickcheck!{
+    quickcheck! {
         fn buffer_data(data: Vec<u32>) -> bool {
             CONTEXT_STATE.with(|context_state| {
                 let buffer = Buffer::with_data(BufferUsage::StaticDraw, &data, context_state.clone());

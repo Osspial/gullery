@@ -12,16 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use {Handle, ContextState, GLObject};
+use ContextState;
+use GLObject;
+use Handle;
 mod raw;
 use self::raw::{RawRenderbuffer, RawRenderbufferTarget};
-use image_format::{ImageFormatRenderable, ConcreteImageFormat, FormatAttributes};
+use image_format::{ConcreteImageFormat, FormatAttributes, ImageFormatRenderable};
 
-use cgmath_geometry::D2;
-use cgmath_geometry::rect::DimsBox;
-use std::mem;
-use std::rc::Rc;
-use std::marker::PhantomData;
+use cgmath_geometry::{rect::DimsBox, D2};
+use std::{marker::PhantomData, mem, rc::Rc};
 
 pub(crate) struct RenderbufferTarget(RawRenderbufferTarget);
 
@@ -36,7 +35,7 @@ pub struct Renderbuffer<I: ImageFormatRenderable> {
     samples: u32,
     dims: DimsBox<D2, u32>,
     state: Rc<ContextState>,
-    _format: PhantomData<I>
+    _format: PhantomData<I>,
 }
 
 impl RenderbufferTarget {
@@ -52,14 +51,19 @@ impl<I: ImageFormatRenderable> Renderbuffer<I> {
     /// * `dims`: The dimensions of the renderbuffer.
     /// * `samples`: The number of samples to use for multisampling to use when rendering to the renderbuffer. TODO: ACCOUNT FOR GL_MAX_SAMPLES
     pub fn new(dims: DimsBox<D2, u32>, samples: u32, state: Rc<ContextState>) -> Renderbuffer<I>
-        where I: ConcreteImageFormat
+    where
+        I: ConcreteImageFormat,
     {
         let mut raw = RawRenderbuffer::new(&state.gl);
         let internal_format = match I::FORMAT {
-            FormatAttributes::Uncompressed{internal_format, ..} => internal_format,
-            FormatAttributes::Compressed{..} => panic!("compressed format information passed with uncompressed texture;\
-                                                check the image format's FORMAT field. It should have a\
-                                                FormatAttributes::Uncompressed value")
+            FormatAttributes::Uncompressed {
+                internal_format, ..
+            } => internal_format,
+            FormatAttributes::Compressed { .. } => panic!(
+                "compressed format information passed with uncompressed texture;\
+                 check the image format's FORMAT field. It should have a\
+                 FormatAttributes::Uncompressed value"
+            ),
         };
 
         unsafe {
@@ -68,8 +72,11 @@ impl<I: ImageFormatRenderable> Renderbuffer<I> {
         }
 
         Renderbuffer {
-            raw, samples, dims, state,
-            _format: PhantomData
+            raw,
+            samples,
+            dims,
+            state,
+            _format: PhantomData,
         }
     }
 
@@ -99,7 +106,7 @@ impl<I: ImageFormatRenderable> GLObject for Renderbuffer<I> {
 
 impl<I: ImageFormatRenderable> Drop for Renderbuffer<I> {
     fn drop(&mut self) {
-        let mut buffer = unsafe{ mem::uninitialized() };
+        let mut buffer = unsafe { mem::uninitialized() };
         mem::swap(&mut buffer, &mut self.raw);
         buffer.delete(&self.state);
     }

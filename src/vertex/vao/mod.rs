@@ -15,17 +15,18 @@
 mod raw;
 use self::raw::*;
 
-use {GLObject, Handle, ContextState};
-use vertex::{Index, Vertex};
 use buffer::Buffer;
+use vertex::{Index, Vertex};
+use ContextState;
+use GLObject;
+use Handle;
 
-use std::{mem, ptr};
-use std::rc::Rc;
+use std::{mem, ptr, rc::Rc};
 
 pub struct VertexArrayObject<V: Vertex, I: Index> {
     raw: RawVAO<V>,
     vertex_buffer: Buffer<V>,
-    index_buffer: Option<Buffer<I>>
+    index_buffer: Option<Buffer<I>>,
 }
 
 impl<V: Vertex, I: Index> GLObject for VertexArrayObject<V, I> {
@@ -41,15 +42,19 @@ impl<V: Vertex, I: Index> GLObject for VertexArrayObject<V, I> {
 pub(crate) struct VAOTarget(RawVAOTarget);
 pub(crate) struct BoundVAO<'a, V: Vertex, I: Index> {
     vao: &'a VertexArrayObject<V, I>,
-    _bind: RawBoundVAO<'a, V>
+    _bind: RawBoundVAO<'a, V>,
 }
 
 impl<V: Vertex, I: Index> VertexArrayObject<V, I> {
-    pub fn new(vertex_buffer: Buffer<V>, index_buffer: Option<Buffer<I>>) -> VertexArrayObject<V, I> {
+    pub fn new(
+        vertex_buffer: Buffer<V>,
+        index_buffer: Option<Buffer<I>>,
+    ) -> VertexArrayObject<V, I> {
         let vertex_buffer_context_ptr = vertex_buffer.state().as_ref() as *const _;
-        let index_buffer_context_ptr = index_buffer.as_ref()
-                                        .map(|ib| ib.state().as_ref() as *const _)
-                                        .unwrap_or(vertex_buffer_context_ptr);
+        let index_buffer_context_ptr = index_buffer
+            .as_ref()
+            .map(|ib| ib.state().as_ref() as *const _)
+            .unwrap_or(vertex_buffer_context_ptr);
 
         if vertex_buffer_context_ptr != index_buffer_context_ptr {
             panic!("vertex buffer and index buffer using different contexts");
@@ -58,7 +63,7 @@ impl<V: Vertex, I: Index> VertexArrayObject<V, I> {
         VertexArrayObject {
             raw: RawVAO::new(&vertex_buffer.state().gl),
             vertex_buffer,
-            index_buffer
+            index_buffer,
         }
     }
 
@@ -85,7 +90,10 @@ impl<V: Vertex, I: Index> VertexArrayObject<V, I> {
     pub fn unwrap(mut self) -> (Buffer<V>, Option<Buffer<I>>) {
         unsafe {
             self.destroy_in_place();
-            let buffer = (ptr::read(&self.vertex_buffer), ptr::read(&self.index_buffer));
+            let buffer = (
+                ptr::read(&self.vertex_buffer),
+                ptr::read(&self.index_buffer),
+            );
 
             mem::forget(self);
 
@@ -109,12 +117,18 @@ impl VAOTarget {
 
     #[inline]
     pub unsafe fn bind<'a, V, I>(&'a self, vao: &'a VertexArrayObject<V, I>) -> BoundVAO<'a, V, I>
-        where V: Vertex,
-              I: Index
+    where
+        V: Vertex,
+        I: Index,
     {
         BoundVAO {
             vao,
-            _bind: self.0.bind(&vao.raw, &vao.vertex_buffer, &vao.index_buffer, &vao.vertex_buffer.state().gl)
+            _bind: self.0.bind(
+                &vao.raw,
+                &vao.vertex_buffer,
+                &vao.index_buffer,
+                &vao.vertex_buffer.state().gl,
+            ),
         }
     }
 }
@@ -127,17 +141,17 @@ impl<'a, V: Vertex, I: Index> BoundVAO<'a, V, I> {
 
 impl<V: Vertex, I: Index> Drop for VertexArrayObject<V, I> {
     fn drop(&mut self) {
-        unsafe{ self.destroy_in_place() }
+        unsafe { self.destroy_in_place() }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_helper::{CONTEXT_STATE, TestVertex};
     use buffer::BufferUsage;
+    use test_helper::{TestVertex, CONTEXT_STATE};
 
-    quickcheck!{
+    quickcheck! {
         fn make_vao_noindex(buffer_data: Vec<TestVertex>) -> () {
             CONTEXT_STATE.with(|context_state| {
                 let vertex_buffer = Buffer::with_data(BufferUsage::StaticDraw, &buffer_data, context_state.clone());

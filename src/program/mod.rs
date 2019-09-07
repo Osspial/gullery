@@ -37,27 +37,28 @@
 pub mod error;
 mod raw;
 
-use self::raw::{RawShader, RawProgram, RawProgramTarget, RawBoundProgram};
-use self::error::{ShaderError, ProgramWarning, ProgramError};
+use self::{
+    error::{ProgramError, ProgramWarning, ShaderError},
+    raw::{RawBoundProgram, RawProgram, RawProgramTarget, RawShader},
+};
 
-
-use {Handle, ContextState, GLObject};
-use vertex::Vertex;
-use uniform::Uniforms;
 use framebuffer::attachments::Attachments;
+use uniform::Uniforms;
+use vertex::Vertex;
+use ContextState;
+use GLObject;
+use Handle;
 
-use std::mem;
-use std::rc::Rc;
-use std::marker::PhantomData;
+use std::{marker::PhantomData, mem, rc::Rc};
 
-pub use self::raw::{ShaderStage, VertexStage, GeometryStage, FragmentStage};
+pub use self::raw::{FragmentStage, GeometryStage, ShaderStage, VertexStage};
 
 /// User-defined code that represents a single stage of the rendering pipeline.
 ///
 /// See module-level documentation for information on shader types.
 pub struct Shader<S: ShaderStage> {
     raw: RawShader<S>,
-    state: Rc<ContextState>
+    state: Rc<ContextState>,
 }
 
 /// Compiled collection of shaders used by the GPU to render content.
@@ -82,21 +83,24 @@ pub struct Shader<S: ShaderStage> {
 /// [`FramebufferObject`]: ../framebuffer/struct.FramebufferObject.html
 /// [`FramebufferObjectAttached`]: ../framebuffer/struct.FramebufferObjectAttached.html
 /// [`VertexArrayObject`]: ../vertex/struct.VertexArrayObject.html
-pub struct Program<V, U=(), A=()>
-    where V: Vertex, U: 'static + Uniforms, A: 'static + Attachments
+pub struct Program<V, U = (), A = ()>
+where
+    V: Vertex,
+    U: 'static + Uniforms,
+    A: 'static + Attachments,
 {
     raw: RawProgram,
     uniform_locs: U::ULC,
     state: Rc<ContextState>,
-    _marker: PhantomData<(*const V, *const A)>
+    _marker: PhantomData<(*const V, *const A)>,
 }
 
 pub(crate) struct ProgramTarget(RawProgramTarget);
-pub(crate) struct BoundProgram<'a, V: 'a + Vertex, U: 'static + Uniforms, A: 'static + Attachments> {
+pub(crate) struct BoundProgram<'a, V: 'a + Vertex, U: 'static + Uniforms, A: 'static + Attachments>
+{
     raw: RawBoundProgram<'a>,
-    program: &'a Program<V, U, A>
+    program: &'a Program<V, U, A>,
 }
-
 
 impl<S: ShaderStage> Shader<S> {
     /// Create a new shader from the provided source code.
@@ -106,7 +110,7 @@ impl<S: ShaderStage> Shader<S> {
     pub fn new(source: &str, state: Rc<ContextState>) -> Result<Shader<S>, ShaderError> {
         Ok(Shader {
             raw: RawShader::new(source, &state.gl).map_err(|e| ShaderError(e))?,
-            state
+            state,
         })
     }
 }
@@ -116,7 +120,11 @@ impl<V: Vertex, U: Uniforms, A: Attachments> Program<V, U, A> {
     ///
     /// Returns `Ok(program)` if compilation succeeded. If it didn't, returns `Err(program_err)` with
     /// the reason for failure.
-    pub fn new(vert: &Shader<VertexStage<V>>, geom: Option<&Shader<GeometryStage>>, frag: &Shader<FragmentStage<A>>) -> Result<(Program<V, U, A>, Vec<ProgramWarning>), ProgramError> {
+    pub fn new(
+        vert: &Shader<VertexStage<V>>,
+        geom: Option<&Shader<GeometryStage>>,
+        frag: &Shader<FragmentStage<A>>,
+    ) -> Result<(Program<V, U, A>, Vec<ProgramWarning>), ProgramError> {
         // Temporary variables storing the pointers to the OpenGL state for each of the shaders.
         let vsp = vert.state.as_ref() as *const _;
         let fsp = frag.state.as_ref() as *const _;
@@ -126,21 +134,27 @@ impl<V: Vertex, U: Uniforms, A: Attachments> Program<V, U, A> {
             panic!("Shaders passed to Program creation are parts of different contexts!");
         }
 
-        let (raw, mut warnings) = RawProgram::new(|mut rpsa| {
-            rpsa.attach_shader(&vert.raw);
-            if let Some(ref geom) = geom {
-                rpsa.attach_shader(&geom.raw);
-            }
-            rpsa.attach_shader(&frag.raw);
-        }, &vert.state.gl)?;
+        let (raw, mut warnings) = RawProgram::new(
+            |mut rpsa| {
+                rpsa.attach_shader(&vert.raw);
+                if let Some(ref geom) = geom {
+                    rpsa.attach_shader(&geom.raw);
+                }
+                rpsa.attach_shader(&frag.raw);
+            },
+            &vert.state.gl,
+        )?;
 
         let uniform_locs = raw.get_uniform_locations::<U>(&vert.state.gl, &mut warnings);
-        Ok((Program {
-            uniform_locs,
-            raw,
-            state: vert.state.clone(),
-            _marker: PhantomData
-        }, warnings))
+        Ok((
+            Program {
+                uniform_locs,
+                raw,
+                state: vert.state.clone(),
+                _marker: PhantomData,
+            },
+            warnings,
+        ))
     }
 }
 
@@ -151,31 +165,41 @@ impl ProgramTarget {
     }
 
     #[inline]
-    pub unsafe fn bind<'a, V, U, A>(&'a self, program: &'a Program<V, U, A>) -> BoundProgram<'a, V, U, A>
-        where V: Vertex,
-              U: Uniforms,
-              A: Attachments
+    pub unsafe fn bind<'a, V, U, A>(
+        &'a self,
+        program: &'a Program<V, U, A>,
+    ) -> BoundProgram<'a, V, U, A>
+    where
+        V: Vertex,
+        U: Uniforms,
+        A: Attachments,
     {
         BoundProgram {
             raw: self.0.bind(&program.raw, &program.state.gl),
-            program
+            program,
         }
     }
 }
 
 impl<'a, V, U, A> BoundProgram<'a, V, U, A>
-    where V: Vertex,
-          U: Uniforms,
-          A: Attachments
+where
+    V: Vertex,
+    U: Uniforms,
+    A: Attachments,
 {
     #[inline]
     pub fn upload_uniforms<N>(&self, uniform: N)
-        where N: Uniforms<ULC=U::ULC, Static=U>
+    where
+        N: Uniforms<ULC = U::ULC, Static = U>,
     {
-        self.raw.upload_uniforms(uniform, self.program.uniform_locs.as_ref(), &self.program.state.image_units, &self.program.state.gl)
+        self.raw.upload_uniforms(
+            uniform,
+            self.program.uniform_locs.as_ref(),
+            &self.program.state.image_units,
+            &self.program.state.gl,
+        )
     }
 }
-
 
 impl<S: ShaderStage> GLObject for Shader<S> {
     #[inline]
@@ -189,9 +213,10 @@ impl<S: ShaderStage> GLObject for Shader<S> {
 }
 
 impl<V, U, A> GLObject for Program<V, U, A>
-    where V: Vertex,
-          U: Uniforms,
-          A: Attachments
+where
+    V: Vertex,
+    U: Uniforms,
+    A: Attachments,
 {
     #[inline]
     fn handle(&self) -> Handle {
@@ -205,19 +230,20 @@ impl<V, U, A> GLObject for Program<V, U, A>
 
 impl<S: ShaderStage> Drop for Shader<S> {
     fn drop(&mut self) {
-        let mut shader_raw = unsafe{ mem::uninitialized() };
+        let mut shader_raw = unsafe { mem::uninitialized() };
         mem::swap(&mut shader_raw, &mut self.raw);
         shader_raw.delete(&self.state.gl);
     }
 }
 
 impl<V, U, A> Drop for Program<V, U, A>
-    where V: Vertex,
-          U: Uniforms,
-          A: Attachments
+where
+    V: Vertex,
+    U: Uniforms,
+    A: Attachments,
 {
     fn drop(&mut self) {
-        let mut program_raw = unsafe{ mem::uninitialized() };
+        let mut program_raw = unsafe { mem::uninitialized() };
         mem::swap(&mut program_raw, &mut self.raw);
         program_raw.delete(&self.state);
     }
@@ -226,10 +252,10 @@ impl<V, U, A> Drop for Program<V, U, A>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_helper::{TestVertex, CONTEXT_STATE};
     use cgmath::Vector3;
-    use uniform::{Uniforms, UniformsMemberRegistry};
     use gl::types::*;
+    use test_helper::{TestVertex, CONTEXT_STATE};
+    use uniform::{Uniforms, UniformsMemberRegistry};
 
     const VERTEX_SHADER: &str = r#"
         #version 330
@@ -263,14 +289,15 @@ mod tests {
     #[derive(Clone, Copy)]
     struct TestUniforms {
         color_tint: Vector3<f32>,
-        offset: Vector3<f32>
+        offset: Vector3<f32>,
     }
 
     impl Uniforms for TestUniforms {
         type ULC = [GLint; 2];
         type Static = Self;
         fn members<R>(mut reg: R)
-            where R: UniformsMemberRegistry<Uniforms=TestUniforms>
+        where
+            R: UniformsMemberRegistry<Uniforms = TestUniforms>,
         {
             reg.add_member("color_tint", |t| t.color_tint);
             reg.add_member("offset", |t| t.offset);
@@ -283,15 +310,20 @@ mod tests {
             let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();
             let fragment_shader = Shader::new(FRAGMENT_SHADER, state.clone()).unwrap();
 
-            let (program, _) = Program::<TestVertex, TestUniforms, ()>::new(&vertex_shader, None, &fragment_shader).unwrap();
+            let (program, _) = Program::<TestVertex, TestUniforms, ()>::new(
+                &vertex_shader,
+                None,
+                &fragment_shader,
+            )
+            .unwrap();
             for loc in &program.uniform_locs {
                 assert_ne!(-1, *loc);
             }
 
-            let program_bind = unsafe{ state.program_target.bind(&program) };
+            let program_bind = unsafe { state.program_target.bind(&program) };
             program_bind.upload_uniforms(TestUniforms {
                 color_tint: Vector3::new(1.0, 1.0, 1.0),
-                offset: Vector3::new(0.0, 1.0, 0.0)
+                offset: Vector3::new(0.0, 1.0, 0.0),
             })
         })
     }

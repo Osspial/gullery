@@ -16,9 +16,11 @@
 
 use glsl::TypeTag;
 
-use std::io;
-use std::error::Error;
-use std::fmt::{self, Display};
+use std::{
+    error::Error,
+    fmt::{self, Display},
+    io,
+};
 
 /// Error reported by driver that occurred during shader compilation.
 #[derive(Debug, Clone)]
@@ -34,7 +36,7 @@ pub struct LinkError(pub String);
 pub struct MismatchedTypeError {
     pub ident: String,
     pub shader_ty: TypeTag,
-    pub rust_ty: TypeTag
+    pub rust_ty: TypeTag,
 }
 
 /// Error that occurred during program compilation.
@@ -46,7 +48,7 @@ pub enum ProgramError {
     ///
     /// Technically, OpenGL's API allow this to compile successfully. However it's also undefined
     /// behavior so a well-formed program *should* never do this.
-    MismatchedTypeError(Vec<MismatchedTypeError>)
+    MismatchedTypeError(Vec<MismatchedTypeError>),
 }
 
 /// Error detected by Gullery that could indicate a misbehaved program.
@@ -80,7 +82,11 @@ impl Display for LinkError {
 
 impl Display for MismatchedTypeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "Mismatched type in {}; shader has {}, but Rust repr has {}", self.ident, self.shader_ty, self.rust_ty)
+        write!(
+            f,
+            "Mismatched type in {}; shader has {}, but Rust repr has {}",
+            self.ident, self.shader_ty, self.rust_ty
+        )
     }
 }
 

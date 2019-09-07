@@ -16,15 +16,20 @@
 
 use gl::{self, types::*};
 
-use cgmath::{Vector1, Vector2, Vector3, Vector4, Point1, Point2, Point3, Matrix2, Matrix3, Matrix4};
+use cgmath::{
+    Matrix2, Matrix3, Matrix4, Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4,
+};
 
-use std::{mem};
-use std::fmt::{self, Display, Formatter};
-use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign, Rem, RemAssign};
+use std::{
+    fmt::{self, Display, Formatter},
+    mem,
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Sub, SubAssign},
+};
 
-
-use num_traits::Num;
-use num_traits::identities::{Zero, One};
+use num_traits::{
+    identities::{One, Zero},
+    Num,
+};
 
 /// Rust representation of a transparent GLSL type.
 pub unsafe trait TransparentType: 'static + Copy {
@@ -89,7 +94,9 @@ unsafe impl ScalarType for GLSLIntUnsigned {
 unsafe impl<S: Scalar> TransparentType for S {
     type Scalar = S;
     #[inline(always)]
-    fn prim_tag() -> TypeTagSingle {S::ScalarType::PRIM_TAG}
+    fn prim_tag() -> TypeTagSingle {
+        S::ScalarType::PRIM_TAG
+    }
 }
 
 /// A scalar that is also a number.
@@ -100,7 +107,7 @@ unsafe impl<S: Scalar + Num> ScalarNum for S {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TypeTag {
     Single(TypeTagSingle),
-    Array(TypeTagSingle, usize)
+    Array(TypeTagSingle, usize),
 }
 
 /// The GLSL type associated with a non-array rust type.
@@ -219,7 +226,7 @@ macro_rules! impl_glsl_matrix {
 // impl_glsl_array!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
 //     24, 25, 26, 27, 28, 29, 30, 31, 32);
 
-impl_glsl_vector!{
+impl_glsl_vector! {
     impl Vector1 1;
     impl Vector2 2;
     impl Vector3 3;
@@ -228,7 +235,7 @@ impl_glsl_vector!{
     impl Point2 2;
     impl Point3 3;
 }
-impl_glsl_matrix!{
+impl_glsl_matrix! {
     impl Matrix2 2;
     impl Matrix3 3;
     impl Matrix4 4;
@@ -246,7 +253,7 @@ macro_rules! impl_gl_scalar_nonorm {
     )*};
 }
 
-impl_gl_scalar_nonorm!{
+impl_gl_scalar_nonorm! {
     impl u8 = (gl::UNSIGNED_BYTE, true, false);
     impl u16 = (gl::UNSIGNED_SHORT, true, false);
     impl u32 = (gl::UNSIGNED_INT, true, false);
@@ -266,7 +273,7 @@ unsafe impl Scalar for bool {
 
 impl From<TypeTagSingle> for GLenum {
     fn from(tag: TypeTagSingle) -> GLenum {
-        unsafe{ mem::transmute(tag) }
+        unsafe { mem::transmute(tag) }
     }
 }
 
@@ -275,7 +282,7 @@ impl Display for TypeTag {
         use self::TypeTag::*;
         match *self {
             Single(tag) => tag.fmt(f),
-            Array(tag, len) => write!(f, "{}[{}]", tag, len)
+            Array(tag, len) => write!(f, "{}[{}]", tag, len),
         }
     }
 }
@@ -562,7 +569,7 @@ impl TypeTagSingle {
             // (Double, 2) => Some(DVec2),
             // (Double, 3) => Some(DVec3),
             // (Double, 4) => Some(DVec4),
-            _ => None
+            _ => None,
         }
     }
 
@@ -590,7 +597,7 @@ impl TypeTagSingle {
             // (Double, 3, 4) => Some(DMat3x4),
             // (Double, 4, 2) => Some(DMat4x2),
             // (Double, 4, 3) => Some(DMat4x3),
-            _ => None
+            _ => None,
         }
     }
 
@@ -672,11 +679,10 @@ impl TypeTagSingle {
             // gl::UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE_ARRAY => Some(USampler2DMSArray),
             // gl::UNSIGNED_INT_SAMPLER_BUFFER => Some(USamplerBuffer),
             gl::UNSIGNED_INT_SAMPLER_2D_RECT => Some(USampler2DRect),
-            _ => None
+            _ => None,
         }
     }
 }
-
 
 /// Wrapper type that causes GLSL to read the wrapped value as an integer.
 ///
@@ -684,10 +690,12 @@ impl TypeTagSingle {
 #[repr(transparent)]
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, From)]
 pub struct GLSLInt<I>(pub I)
-    where I: Num;
+where
+    I: Num;
 impl<I> Zero for GLSLInt<I>
-    where GLSLInt<I>: TransparentType,
-          I: Num
+where
+    GLSLInt<I>: TransparentType,
+    I: Num,
 {
     #[inline(always)]
     fn zero() -> Self {
@@ -699,8 +707,9 @@ impl<I> Zero for GLSLInt<I>
     }
 }
 impl<I> One for GLSLInt<I>
-    where GLSLInt<I>: TransparentType,
-          I: Num
+where
+    GLSLInt<I>: TransparentType,
+    I: Num,
 {
     #[inline(always)]
     fn one() -> Self {
@@ -712,8 +721,9 @@ impl<I> One for GLSLInt<I>
     }
 }
 impl<I> Num for GLSLInt<I>
-    where GLSLInt<I>: TransparentType,
-          I: Num
+where
+    GLSLInt<I>: TransparentType,
+    I: Num,
 {
     type FromStrRadixErr = I::FromStrRadixErr;
     #[inline(always)]
@@ -721,8 +731,6 @@ impl<I> Num for GLSLInt<I>
         Ok(GLSLInt(I::from_str_radix(str, radix)?))
     }
 }
-
-
 
 macro_rules! impl_glslint {
     ($(impl $scalar:ty = $prim_tag:ident;)*) => {$(
@@ -735,7 +743,7 @@ macro_rules! impl_glslint {
     )*}
 }
 
-impl_glslint!{
+impl_glslint! {
     impl u8 = GLSLIntUnsigned;
     impl u16 = GLSLIntUnsigned;
     impl u32 = GLSLIntUnsigned;
@@ -744,8 +752,9 @@ impl_glslint!{
     impl i32 = GLSLIntSigned;
 }
 impl<I> Add for GLSLInt<I>
-    where GLSLInt<I>: TransparentType,
-          I: Num
+where
+    GLSLInt<I>: TransparentType,
+    I: Num,
 {
     type Output = GLSLInt<I>;
 
@@ -755,8 +764,9 @@ impl<I> Add for GLSLInt<I>
     }
 }
 impl<I> AddAssign for GLSLInt<I>
-    where GLSLInt<I>: TransparentType,
-          I: Num
+where
+    GLSLInt<I>: TransparentType,
+    I: Num,
 {
     #[inline]
     fn add_assign(&mut self, rhs: GLSLInt<I>) {
@@ -764,8 +774,9 @@ impl<I> AddAssign for GLSLInt<I>
     }
 }
 impl<I> Sub for GLSLInt<I>
-    where GLSLInt<I>: TransparentType,
-          I: Num
+where
+    GLSLInt<I>: TransparentType,
+    I: Num,
 {
     type Output = GLSLInt<I>;
 
@@ -775,8 +786,9 @@ impl<I> Sub for GLSLInt<I>
     }
 }
 impl<I> SubAssign for GLSLInt<I>
-    where GLSLInt<I>: TransparentType,
-          I: Num
+where
+    GLSLInt<I>: TransparentType,
+    I: Num,
 {
     #[inline]
     fn sub_assign(&mut self, rhs: GLSLInt<I>) {
@@ -784,8 +796,9 @@ impl<I> SubAssign for GLSLInt<I>
     }
 }
 impl<I> Mul for GLSLInt<I>
-    where GLSLInt<I>: TransparentType,
-          I: Num
+where
+    GLSLInt<I>: TransparentType,
+    I: Num,
 {
     type Output = GLSLInt<I>;
 
@@ -795,8 +808,9 @@ impl<I> Mul for GLSLInt<I>
     }
 }
 impl<I> MulAssign for GLSLInt<I>
-    where GLSLInt<I>: TransparentType,
-          I: Num
+where
+    GLSLInt<I>: TransparentType,
+    I: Num,
 {
     #[inline]
     fn mul_assign(&mut self, rhs: GLSLInt<I>) {
@@ -823,8 +837,9 @@ impl<I> MulAssign for GLSLInt<I>
 //     }
 // }
 impl<I> Div for GLSLInt<I>
-    where GLSLInt<I>: TransparentType,
-          I: Num
+where
+    GLSLInt<I>: TransparentType,
+    I: Num,
 {
     type Output = GLSLInt<I>;
 
@@ -834,8 +849,9 @@ impl<I> Div for GLSLInt<I>
     }
 }
 impl<I> DivAssign for GLSLInt<I>
-    where GLSLInt<I>: TransparentType,
-          I: Num
+where
+    GLSLInt<I>: TransparentType,
+    I: Num,
 {
     #[inline]
     fn div_assign(&mut self, rhs: GLSLInt<I>) {
@@ -843,8 +859,9 @@ impl<I> DivAssign for GLSLInt<I>
     }
 }
 impl<I> Rem for GLSLInt<I>
-    where GLSLInt<I>: TransparentType,
-          I: Num
+where
+    GLSLInt<I>: TransparentType,
+    I: Num,
 {
     type Output = GLSLInt<I>;
 
@@ -854,8 +871,9 @@ impl<I> Rem for GLSLInt<I>
     }
 }
 impl<I> RemAssign for GLSLInt<I>
-    where GLSLInt<I>: TransparentType,
-          I: Num
+where
+    GLSLInt<I>: TransparentType,
+    I: Num,
 {
     #[inline]
     fn rem_assign(&mut self, rhs: GLSLInt<I>) {

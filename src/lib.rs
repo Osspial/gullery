@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #![feature(never_type)]
-#![recursion_limit="256"]
+#![recursion_limit = "256"]
 
 extern crate gullery_bindings as gl;
 #[macro_use]
@@ -31,9 +31,9 @@ extern crate quickcheck;
 extern crate glutin;
 
 pub mod buffer;
-pub mod image_format;
-pub mod glsl;
 pub mod framebuffer;
+pub mod glsl;
+pub mod image_format;
 pub mod program;
 pub mod texture;
 pub mod uniform;
@@ -41,10 +41,7 @@ pub mod vertex;
 
 use gl::Gl;
 
-use std::rc::Rc;
-use std::cell::Cell;
-use std::collections::Bound;
-use std::num::NonZeroU32;
+use std::{cell::Cell, collections::Bound, num::NonZeroU32, rc::Rc};
 
 pub type Handle = NonZeroU32;
 pub trait GLObject {
@@ -121,7 +118,7 @@ impl ContextState {
             render_state: Cell::new(framebuffer::render_state::RenderState::default()),
             image_units: texture::ImageUnits::new(&gl),
             renderbuffer_target: framebuffer::renderbuffer::RenderbufferTarget::new(),
-            gl
+            gl,
         })
     }
 }
@@ -129,23 +126,24 @@ impl ContextState {
 #[cfg(test)]
 mod test_helper {
     use super::*;
-    use vertex::{Vertex, VertexMemberRegistry};
-    use glutin::{ContextBuilder, Context, EventsLoop, GlRequest, GlContext, Api};
-    use quickcheck::{Arbitrary, Gen};
     use cgmath::{Point2, Point3};
+    use glutin::{Api, Context, ContextBuilder, EventsLoop, GlContext, GlRequest};
+    use quickcheck::{Arbitrary, Gen};
+    use vertex::{Vertex, VertexMemberRegistry};
 
     #[derive(Debug, Clone, Copy)]
     pub struct TestVertex {
         pos: Point2<f32>,
-        color: Point3<f32>
+        color: Point3<f32>,
     }
 
     impl Vertex for TestVertex {
         fn members<M>(mut attrib_builder: M)
-            where M: VertexMemberRegistry<Group=Self>
+        where
+            M: VertexMemberRegistry<Group = Self>,
         {
-            attrib_builder.add_member("pos", |t| unsafe{ &(*t).pos });
-            attrib_builder.add_member("color", |t| unsafe{ &(*t).color });
+            attrib_builder.add_member("pos", |t| unsafe { &(*t).pos });
+            attrib_builder.add_member("color", |t| unsafe { &(*t).color });
         }
     }
 
@@ -153,12 +151,12 @@ mod test_helper {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
             TestVertex {
                 pos: Point2::new(f32::arbitrary(g), f32::arbitrary(g)),
-                color: Point3::new(f32::arbitrary(g), f32::arbitrary(g), f32::arbitrary(g))
+                color: Point3::new(f32::arbitrary(g), f32::arbitrary(g), f32::arbitrary(g)),
             }
         }
     }
 
-    thread_local!{
+    thread_local! {
         static EVENT_LOOP: EventsLoop = EventsLoop::new();
         static CONTEXT: Context = {
             EVENT_LOOP.with(|el| {
@@ -185,7 +183,7 @@ fn bound_to_num_start(bound: Bound<&usize>, unbounded: usize) -> usize {
     match bound {
         Bound::Included(t) => *t,
         Bound::Excluded(t) => *t + 1,
-        Bound::Unbounded   => unbounded
+        Bound::Unbounded => unbounded,
     }
 }
 
@@ -194,6 +192,6 @@ fn bound_to_num_end(bound: Bound<&usize>, unbounded: usize) -> usize {
     match bound {
         Bound::Included(t) => *t + 1,
         Bound::Excluded(t) => *t,
-        Bound::Unbounded   => unbounded
+        Bound::Unbounded => unbounded,
     }
 }

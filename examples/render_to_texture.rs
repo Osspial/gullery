@@ -9,16 +9,21 @@ extern crate png;
 
 extern crate num_traits;
 
-use gullery::ContextState;
-use gullery::buffer::*;
-use gullery::texture::*;
-use gullery::framebuffer::{*, render_state::*};
-use gullery::program::*;
-use gullery::image_format::*;
-use gullery::vertex::VertexArrayObject;
+use gullery::{
+    buffer::*,
+    framebuffer::{render_state::*, *},
+    image_format::*,
+    program::*,
+    texture::*,
+    vertex::VertexArrayObject,
+    ContextState,
+};
 
-use cgmath_geometry::{cgmath, D2};
-use cgmath_geometry::rect::{DimsBox, OffsetBox};
+use cgmath_geometry::{
+    cgmath,
+    rect::{DimsBox, OffsetBox},
+    D2,
+};
 
 use cgmath::*;
 
@@ -27,12 +32,12 @@ use glutin::*;
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
     pos: Vector2<f32>,
-    color: Rgb<u8>
+    color: Rgb<u8>,
 }
 
 #[derive(Clone, Copy, Uniforms)]
 struct TriUniforms {
-    offset: Point2<u32>
+    offset: Point2<u32>,
 }
 
 #[derive(Attachments)]
@@ -49,27 +54,31 @@ fn main() {
         ContextBuilder::new()
             .with_gl_profile(GlProfile::Core)
             .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3))),
-        false
-    ).unwrap();
-    unsafe{ headless.make_current().unwrap() };
-    let state = unsafe{ ContextState::new(|addr| headless.get_proc_address(addr)) };
+        false,
+    )
+    .unwrap();
+    unsafe { headless.make_current().unwrap() };
+    let state = unsafe { ContextState::new(|addr| headless.get_proc_address(addr)) };
 
-    let vertex_buffer = Buffer::with_data(BufferUsage::StaticDraw, &[
-        Vertex {
-            pos: Vector2::new(-1.0, -1.0),
-            color: Rgb::new(255, 0, 0)
-        },
-        Vertex {
-            pos: Vector2::new( 0.0,  1.0),
-            color: Rgb::new(0, 255, 0)
-        },
-        Vertex {
-            pos: Vector2::new( 1.0,  -1.0),
-            color: Rgb::new(0, 0, 255)
-        },
-    ], state.clone());
+    let vertex_buffer = Buffer::with_data(
+        BufferUsage::StaticDraw,
+        &[
+            Vertex {
+                pos: Vector2::new(-1.0, -1.0),
+                color: Rgb::new(255, 0, 0),
+            },
+            Vertex {
+                pos: Vector2::new(0.0, 1.0),
+                color: Rgb::new(0, 255, 0),
+            },
+            Vertex {
+                pos: Vector2::new(1.0, -1.0),
+                color: Rgb::new(0, 0, 255),
+            },
+        ],
+        state.clone(),
+    );
     let vao = VertexArrayObject::<_, !>::new(vertex_buffer, None);
-
 
     let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();
     let fragment_shader = Shader::new(FRAGMENT_SHADER, state.clone()).unwrap();
@@ -78,17 +87,23 @@ fn main() {
         println!("Warning: {}", w);
     }
 
-    let mut texture = Texture::with_mip_count(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap();
+    let mut texture =
+        Texture::with_mip_count(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap();
     let mut fbo_attached = FramebufferObjectAttached {
         fbo: FramebufferObject::new(state.clone()),
         attachments: Attachments {
             color: &mut texture,
-            color_inverted: Texture::with_mip_count(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap(),
-        }
+            color_inverted: Texture::with_mip_count(
+                DimsBox::new2(size_x, size_y),
+                1,
+                state.clone(),
+            )
+            .unwrap(),
+        },
     };
 
     let uniform = TriUniforms {
-        offset: Point2::new(0, 0)
+        offset: Point2::new(0, 0),
     };
     let render_state = RenderState {
         srgb: true,
@@ -97,19 +112,26 @@ fn main() {
     };
     fbo_attached.clear_depth(1.0);
     fbo_attached.clear_color_all(Rgba::new(0.0, 0.0, 0.0, 1.0));
-    fbo_attached.draw(DrawMode::Triangles, .., &vao, &program, uniform, render_state);
+    fbo_attached.draw(
+        DrawMode::Triangles,
+        ..,
+        &vao,
+        &program,
+        uniform,
+        render_state,
+    );
 
     let (width, height) = (size_x, size_y);
     let mut data_buffer = vec![SRgb::new(0, 0, 0); (width * height) as usize * 2];
     fbo_attached.read_pixels_attachment(
         OffsetBox::new2(0, 0, width, height),
         &mut data_buffer[(width * height) as usize..],
-        |a| &a.color
+        |a| &a.color,
     );
     fbo_attached.read_pixels_attachment(
         OffsetBox::new2(0, 0, width, height),
         &mut data_buffer[0..(width * height) as usize],
-        |a| &a.color_inverted
+        |a| &a.color_inverted,
     );
 
     // OpenGL outputs the pixels with a top-left origin, but PNG exports then with a bottom-right
@@ -123,15 +145,16 @@ fn main() {
         }
     }
 
-    use std::fs::File;
-    use std::io::BufWriter;
     use png::HasParameters;
+    use std::{fs::File, io::BufWriter};
     let file = File::create("target/output_pixels.png").unwrap();
     let ref mut w = BufWriter::new(file);
     let mut encoder = png::Encoder::new(w, width, height * 2);
     encoder.set(png::ColorType::RGB).set(png::BitDepth::Eight);
     let mut writer = encoder.write_header().unwrap();
-    writer.write_image_data(SRgb::to_raw_slice(&data_buffer)).unwrap();
+    writer
+        .write_image_data(SRgb::to_raw_slice(&data_buffer))
+        .unwrap();
 }
 
 const VERTEX_SHADER: &str = r#"
