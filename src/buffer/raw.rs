@@ -203,15 +203,15 @@ impl<'a, T, B> RawBoundBuffer<'a, T, B>
           T: 'a + Copy
 {
     #[inline]
-    pub(crate) fn get_data(&self, offset: usize, buf: &mut [T]) {
+    pub(crate) unsafe fn get_data(&self, offset: usize, buf: &mut [T]) {
         if mem::size_of::<T>() != 0 {
             if offset + buf.len() <= self.buffer.size {
-                unsafe {self.gl.GetBufferSubData(
+                self.gl.GetBufferSubData(
                     B::TARGET,
                     offset as GLintptr,
                     (buf.len() * mem::size_of::<T>()) as GLsizeiptr,
                     buf.as_mut_ptr() as *mut GLvoid
-                )};
+                );
             } else {
                 panic!("Attempted to get data from buffer where offset + request length exceeded buffer length");
             }

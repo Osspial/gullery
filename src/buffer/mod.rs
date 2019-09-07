@@ -83,14 +83,10 @@ impl<T: 'static + Copy> Buffer<T> {
 
     /// Creates a new buffer that can hold the specified number of elements.
     ///
-    /// ## Safety
-    /// The data contained in the GPU buffer in unspecified, and reading the data before it has been
-    /// uploaded can potentially cause undefined behavior.
-    ///
     /// ## Panics
     /// Panics is GPU is out of memory.
     #[inline]
-    pub unsafe fn with_size(usage: BufferUsage, size: usize, state: Rc<ContextState>) -> Buffer<T> {
+    pub fn with_size(usage: BufferUsage, size: usize, state: Rc<ContextState>) -> Buffer<T> {
         let raw = {
             let ContextState {
                 ref buffer_binds,
@@ -99,7 +95,7 @@ impl<T: 'static + Copy> Buffer<T> {
             } = *state;
 
             let mut raw = RawBuffer::new(gl);
-            {
+            unsafe {
                 let mut bind = buffer_binds.copy_write.bind_mut(&mut raw, gl);
                 bind.alloc_size(size, usage)
             }
@@ -117,17 +113,24 @@ impl<T: 'static + Copy> Buffer<T> {
 
     /// Reads data from the GPU into `buf`, starting at `offset` elements into the buffer.
     ///
+    /// ## Safety
+    /// If no data has been uploaded to the GPU, the data contained in the GPU buffer in unspecified.
+    /// If your buffer type isn't valid for all possible byte configurations, reading the data before
+    /// it has been uploaded can potentially cause undefined behavior. See
+    /// [`mem::uninitialized()`](https://doc.rust-lang.org/std/mem/fn.uninitialized.html) for more
+    /// info on what unspecified data can do.
+    ///
     /// ## Panics
     /// Panics if `offset + buf.len() > self.len()`
     #[inline]
-    pub fn get_data(&self, offset: usize, buf: &mut [T]) {
+    pub unsafe fn get_data(&self, offset: usize, buf: &mut [T]) {
         let ContextState {
             ref buffer_binds,
             ref gl,
             ..
         } = *self.state;
 
-        let bind = unsafe{ buffer_binds.copy_read.bind(&self.raw, gl) };
+        let bind = buffer_binds.copy_read.bind(&self.raw, gl);
         bind.get_data(offset, buf);
     }
 
@@ -191,7 +194,7 @@ mod tests {
             CONTEXT_STATE.with(|context_state| {
                 let buffer = Buffer::with_data(BufferUsage::StaticDraw, &data, context_state.clone());
                 let mut buf_read = vec![0; data.len()];
-                buffer.get_data(0, &mut buf_read);
+                unsafe{ buffer.get_data(0, &mut buf_read) };
 
                 buf_read == data
             })
