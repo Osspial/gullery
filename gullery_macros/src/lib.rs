@@ -14,69 +14,50 @@
 
 #![recursion_limit = "128"]
 extern crate proc_macro;
-extern crate syn;
-#[macro_use]
-extern crate quote;
-
-use proc_macro::TokenStream;
 
 use syn::*;
-use quote::Tokens;
+use quote::{quote, ToTokens};
+use proc_macro2::Span;
 
 #[proc_macro_derive(Vertex)]
-pub fn derive_type_group(input_tokens: TokenStream) -> TokenStream {
-    let input = input_tokens.to_string();
-    let item = syn::parse_derive_input(&input).expect("Attempted derive on non-item");
-
-    let output = impl_type_group(&item).parse().unwrap();
-    output
+pub fn derive_vertex(input_tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let derive_input = parse_macro_input!(input_tokens as DeriveInput);
+    let output = impl_vertex(&derive_input);
+    proc_macro::TokenStream::from(output)
 }
 
 #[proc_macro_derive(Uniforms)]
-pub fn derive_uniforms(input_tokens: TokenStream) -> TokenStream {
-    let input = input_tokens.to_string();
-    let item = syn::parse_derive_input(&input).expect("Attempted derive on non-item");
-
-    let output = impl_uniforms(&item).parse().unwrap();
-    output
+pub fn derive_uniforms(input_tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let derive_input = parse_macro_input!(input_tokens as DeriveInput);
+    let output = impl_uniforms(&derive_input);
+    proc_macro::TokenStream::from(output)
 }
 
 #[proc_macro_derive(Attachments)]
-pub fn derive_attachments(input_tokens: TokenStream) -> TokenStream {
-    let input = input_tokens.to_string();
-    let item = syn::parse_derive_input(&input).expect("Attempted derive on non-item");
-
-    let output = impl_attachments(&item).parse().unwrap();
-    output
+pub fn derive_attachments(input_tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let derive_input = parse_macro_input!(input_tokens as DeriveInput);
+    let output = impl_attachments(&derive_input);
+    proc_macro::TokenStream::from(output)
 }
 
-fn impl_type_group(derive_input: &DeriveInput) -> Tokens {
+fn impl_vertex(derive_input: &DeriveInput) -> proc_macro2::TokenStream {
     let DeriveInput {
         ref ident,
         ref generics,
-        ref body,
+        ref data,
         ..
     } = *derive_input;
 
-    match *body {
-        Body::Enum(..) => panic!("Vertex can only be derived on structs"),
-        Body::Struct(ref variant) => {
+    match *data {
+        Data::Enum(..) |
+        Data::Union(..) => panic!("Vertex can only be derived on structs"),
+        Data::Struct(ref variant) => {
             let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-            let gen_idents = || variant.fields().iter()
-                .cloned()
-                .enumerate()
-                .map(|(index, mut variant)| {
-                    variant.ident = variant.ident.or(Some(Ident::new(index)));
-                    variant.ident
-                });
-            let idents = gen_idents();
-            let idents_1 = gen_idents();
-
-            let dummy_const = Ident::new(format!("_IMPL_TYPE_GROUP_FOR_{}", ident));
+            let idents = idents(variant.fields.iter().cloned());
 
             quote!{
                 #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
-                const #dummy_const: () = {
+                const _: () = {
                     extern crate gullery as _gullery;
                     #[automatically_derived]
                     impl #impl_generics _gullery::vertex::Vertex for #ident #ty_generics #where_clause {
@@ -85,7 +66,7 @@ fn impl_type_group(derive_input: &DeriveInput) -> Tokens {
                             where M: _gullery::vertex::VertexMemberRegistry<Group=Self>
                         {
                             #(
-                                reg.add_member(stringify!(#idents), |t| unsafe{ &(*t).#idents_1 });
+                                reg.add_member(stringify!(#idents), |t| unsafe{ &(*t).#idents });
                             )*
                         }
                     }
@@ -95,50 +76,37 @@ fn impl_type_group(derive_input: &DeriveInput) -> Tokens {
     }
 }
 
-fn impl_uniforms(derive_input: &DeriveInput) -> Tokens {
+fn impl_uniforms(derive_input: &DeriveInput) -> proc_macro2::TokenStream {
     let DeriveInput {
         ref ident,
         ref generics,
-        ref body,
+        ref data,
         ..
     } = *derive_input;
 
-    match *body {
-        Body::Enum(..) => panic!("Uniforms can only be derived on structs"),
-        Body::Struct(ref variant) => {
+    match *data {
+        Data::Enum(..) |
+        Data::Union(..) => panic!("Uniforms can only be derived on structs"),
+        Data::Struct(ref variant) => {
             let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-            let static_generics = Generics {
-                lifetimes: generics.lifetimes.iter().cloned().map(|mut ld| {ld.lifetime = Lifetime::new("'static"); ld}).collect(),
-                ..generics.clone()
-            };
-            let (_, static_ty_generics, _) = static_generics.split_for_impl();
-            let gen_idents = || variant.fields().iter()
-                .cloned()
-                .enumerate()
-                .map(|(index, mut variant)| {
-                    variant.ident = variant.ident.or(Some(Ident::new(index)));
-                    variant.ident
-                });
-            let idents = gen_idents();
-            let idents_1 = gen_idents();
-            let num_members = variant.fields().len();
-
-            let dummy_const = Ident::new(format!("_IMPL_UNIFORMS_FOR_{}", ident));
+            let static_type_generics = static_type_generics(generics);
+            let idents = idents(variant.fields.iter().cloned());
+            let num_members = variant.fields.iter().len();
 
             quote!{
                 #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
-                const #dummy_const: () = {
+                const _: () = {
                     extern crate gullery as _gullery;
                     #[automatically_derived]
                     impl #impl_generics _gullery::uniform::Uniforms for #ident #ty_generics #where_clause {
                         type ULC = [i32; #num_members];
-                        type Static = #ident #static_ty_generics;
+                        type Static = #ident #static_type_generics;
                         #[inline]
                         fn members<M>(mut reg: M)
                             where M: _gullery::uniform::UniformsMemberRegistry<Uniforms=Self>
                         {
                             #(
-                                reg.add_member(stringify!(#idents), |t| t.#idents_1);
+                                reg.add_member(stringify!(#idents), |t| t.#idents);
                             )*
                         }
                     }
@@ -148,48 +116,36 @@ fn impl_uniforms(derive_input: &DeriveInput) -> Tokens {
     }
 }
 
-fn impl_attachments(derive_input: &DeriveInput) -> Tokens {
+fn impl_attachments(derive_input: &DeriveInput) -> proc_macro2::TokenStream {
     let DeriveInput {
         ref ident,
         ref generics,
-        ref body,
+        ref data,
         ..
     } = *derive_input;
 
-    match *body {
-        Body::Enum(..) => panic!("Attachments can only be derived on structs"),
-        Body::Struct(ref variant) => {
+    match *data {
+        Data::Enum(..) |
+        Data::Union(..) => panic!("Attachments can only be derived on structs"),
+        Data::Struct(ref variant) => {
             let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-            let static_generics = Generics {
-                lifetimes: generics.lifetimes.iter().cloned().map(|mut ld| {ld.lifetime = Lifetime::new("'static"); ld}).collect(),
-                ..generics.clone()
-            };
-            let (_, static_ty_generics, _) = static_generics.split_for_impl();
-            let gen_idents = || variant.fields().iter()
-                .cloned()
-                .enumerate()
-                .map(|(index, mut variant)| {
-                    variant.ident = variant.ident.or(Some(Ident::new(index)));
-                    variant.ident
-                });
-            let gen_types = || variant.fields().iter().cloned()
+            let static_type_generics = static_type_generics(generics);
+            let idents = idents(variant.fields.iter().cloned());
+            let types = variant.fields.iter().cloned()
                 .map(|mut variant| {
-                    if let Ty::Rptr(ref mut lifetime, _) = variant.ty {
+                    if let Type::Reference(TypeReference{ref mut lifetime, ..}) = variant.ty {
                         if let Some(_) = *lifetime {
                             *lifetime = None;
                         }
                     }
                     variant.ty
                 });
-            let (idents, idents_1) = (gen_idents(), gen_idents());
-            let (types, types_1) = (gen_types(), gen_types());
-            let num_members = variant.fields().len();
-
-            let dummy_const = Ident::new(format!("_IMPL_ATTACHMENTS_FOR_{}", ident));
+            let types_1 = types.clone();
+            let num_members = variant.fields.iter().len();
 
             quote!{
                 #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
-                const #dummy_const: () = {
+                const _: () = {
                     extern crate gullery as _gullery;
 
                     impl #impl_generics #ident #ty_generics #where_clause {
@@ -217,13 +173,13 @@ fn impl_attachments(derive_input: &DeriveInput) -> Tokens {
                     #[automatically_derived]
                     impl #impl_generics _gullery::framebuffer::attachments::Attachments for #ident #ty_generics #where_clause {
                         type AHC = [Option<_gullery::Handle>; #num_members];
-                        type Static = #ident #static_ty_generics;
+                        type Static = #ident #static_type_generics;
                         #[inline]
                         fn members<M>(mut reg: M)
                             where M: _gullery::framebuffer::attachments::AttachmentsMemberRegistry<Attachments=Self>
                         {
                             #(
-                                <#types_1 as _gullery::framebuffer::attachments::AttachmentType>::add_to_registry(&mut reg, stringify!(#idents), |t| &t.#idents_1, Default::default());
+                                <#types_1 as _gullery::framebuffer::attachments::AttachmentType>::add_to_registry(&mut reg, stringify!(#idents), |t| &t.#idents, Default::default());
                             )*
                         }
                     }
@@ -231,4 +187,27 @@ fn impl_attachments(derive_input: &DeriveInput) -> Tokens {
             }
         }
     }
+}
+
+fn idents(fields: impl Iterator<Item=Field>) -> impl Iterator<Item=proc_macro2::TokenStream> {
+    fields
+        .enumerate()
+        .map(|(index, variant)| {
+            variant.ident.map(|i| i.into_token_stream())
+                .unwrap_or_else(|| Index{ index: index as u32, span: Span::call_site()}.into_token_stream())
+        })
+}
+
+fn static_type_generics(generics: &Generics) -> proc_macro2::TokenStream {
+    let static_generics = Generics {
+        params: generics.params.iter().cloned().map(|mut p| {
+            if let GenericParam::Lifetime(ref mut ld) = p {
+                ld.lifetime = Lifetime::new("'static", Span::call_site());
+            }
+            p
+        }).collect(),
+        ..generics.clone()
+    };
+    let (_, type_generics, _) = static_generics.split_for_impl();
+    type_generics.into_token_stream()
 }
