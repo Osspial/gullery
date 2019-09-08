@@ -98,7 +98,7 @@ pub enum CullFace {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FrontFace {
     Clockwise = gl::CW,
-    CounterCw = gl::CCW,
+    CounterClockwise = gl::CCW,
 }
 
 #[repr(u32)]
