@@ -85,28 +85,28 @@ fn main() {
         BufferUsage::StaticDraw,
         &[
             Vertex {
-                pos: Point3::new(1.0, -1.0, -1.0),
-            },
-            Vertex {
-                pos: Point3::new(1.0, -1.0, 1.0),
+                pos: Point3::new(-1.0, -1.0, -1.0),
             },
             Vertex {
                 pos: Point3::new(-1.0, -1.0, 1.0),
             },
             Vertex {
-                pos: Point3::new(-1.0, -1.0, -1.0),
+                pos: Point3::new(1.0, -1.0, 1.0),
             },
             Vertex {
-                pos: Point3::new(1.0, 1.0, -1.0),
+                pos: Point3::new(1.0, -1.0, -1.0),
             },
             Vertex {
-                pos: Point3::new(1.0, 1.0, 1.0),
+                pos: Point3::new(-1.0, 1.0, -1.0),
             },
             Vertex {
                 pos: Point3::new(-1.0, 1.0, 1.0),
             },
             Vertex {
-                pos: Point3::new(-1.0, 1.0, -1.0),
+                pos: Point3::new(1.0, 1.0, 1.0),
+            },
+            Vertex {
+                pos: Point3::new(1.0, 1.0, -1.0),
             },
         ],
         state.clone(),
@@ -157,7 +157,7 @@ fn main() {
     let mut render_state = RenderState {
         srgb: true,
         texture_cubemap_seamless: true,
-        cull: Some((CullFace::Front, FrontFace::Clockwise)),
+        cull: Some((CullFace::Front, FrontFace::CounterClockwise)),
         viewport: OffsetBox {
             origin: Point2::new(0, 0),
             dims: Vector2::new(512, 512),
@@ -184,42 +184,19 @@ fn main() {
             physical_size.height as u32,
         );
         let scale = 1.0 / (fov.to_radians() / 2.0).tan();
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let perspective_matrix = match use_perspective {
             true => Matrix4::new(
-                scale / aspect_ratio,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                scale,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                (z_near + z_far) / (z_near - z_far),
-                -1.0,
-                0.0,
-                0.0,
-                (2.0 * z_far * z_near) / (z_near - z_far),
-                0.0,
+                scale / aspect_ratio, 0.0,   0.0,                                       0.0,
+                0.0,                  scale, 0.0,                                       0.0,
+                0.0,                  0.0,   (z_near + z_far) / (z_near - z_far),      -1.0,
+                0.0,                  0.0,   (2.0 * z_far * z_near) / (z_near - z_far), 0.0,
             ),
             false => Matrix4::new(
-                scale / aspect_ratio,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                scale,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                (z_near + z_far) / (z_near - z_far),
-                -1.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
+                scale / aspect_ratio, 0.0, 0.0, 0.0,
+                0.0, scale, 0.0, 0.0,
+                0.0, 0.0, (z_near + z_far) / (z_near - z_far), -1.0,
+                0.0, 0.0, 0.0, 1.0,
             ),
         };
         let uniform = Uniforms {
