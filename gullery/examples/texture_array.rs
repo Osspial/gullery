@@ -7,16 +7,15 @@ extern crate png;
 
 extern crate num_traits;
 
+mod helper;
+
 use gullery::{
     buffer::*,
     framebuffer::{render_state::*, *},
     glsl::GLSLFloat,
     image_format::*,
     program::*,
-    texture::{
-        types::{CubemapImage, CubemapTex},
-        *,
-    },
+    texture::{types::ArrayTex, *},
     vertex::VertexArrayObject,
     ContextState,
 };
@@ -26,8 +25,6 @@ use cgmath_geometry::{
     rect::{DimsBox, OffsetBox},
     D2,
 };
-
-use std::{fs::File, io};
 
 use cgmath::*;
 
@@ -44,16 +41,8 @@ struct Vertex {
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    tex: &'a Texture<D2, CubemapTex<dyn ImageFormat<ScalarType = GLSLFloat>>>,
+    tex: &'a Texture<D2, ArrayTex<dyn ImageFormat<ScalarType = GLSLFloat>>>,
     array_index: u32,
-}
-
-fn load_image_from_file(path: &str) -> Result<(Vec<u8>, DimsBox<D2, u32>), io::Error> {
-    let decoder = png::Decoder::new(File::open(path)?);
-    let (info, mut reader) = decoder.read_info()?;
-    let mut buf = vec![0; info.buffer_size()];
-    reader.next_frame(&mut buf)?;
-    Ok((buf, DimsBox::new2(info.width, info.height)))
 }
 
 fn main() {
@@ -101,36 +90,25 @@ fn main() {
     );
     let vao = VertexArrayObject::new(vertex_buffer, Some(index_buffer));
     println!("vao created");
-    let (pos_x, pos_x_dims) =
-        load_image_from_file("./examples/textures/cubemap/pos_x.png").unwrap();
-    let (pos_y, pos_y_dims) =
-        load_image_from_file("./examples/textures/cubemap/pos_y.png").unwrap();
-    let (pos_z, pos_z_dims) =
-        load_image_from_file("./examples/textures/cubemap/pos_z.png").unwrap();
-    let (neg_x, neg_x_dims) =
-        load_image_from_file("./examples/textures/cubemap/neg_x.png").unwrap();
-    let (neg_y, neg_y_dims) =
-        load_image_from_file("./examples/textures/cubemap/neg_y.png").unwrap();
-    let (neg_z, neg_z_dims) =
-        load_image_from_file("./examples/textures/cubemap/neg_z.png").unwrap();
-    assert_eq!(pos_x_dims.width(), pos_x_dims.height());
-    assert_eq!(pos_x_dims, pos_y_dims);
-    assert_eq!(pos_y_dims, pos_z_dims);
-    assert_eq!(pos_z_dims, neg_x_dims);
-    assert_eq!(neg_x_dims, neg_y_dims);
-    assert_eq!(neg_y_dims, neg_z_dims);
+    let (ferris_normal_image, ferris_normal_dims) =
+        helper::load_png("./textures/ferris_normal.png").unwrap();
+    println!("ferris_normal loaded");
+    let (ferris_gesture_image, ferris_gesture_dims) =
+        helper::load_png("./textures/ferris_gesture.png").unwrap();
+    println!("ferris_gesture loaded");
+    let (ferris_happy_image, ferris_happy_dims) =
+        helper::load_png("./textures/ferris_happy.png").unwrap();
+    println!("ferris_happy loaded");
+    assert_eq!(ferris_happy_dims, ferris_gesture_dims);
+    assert_eq!(ferris_happy_dims, ferris_normal_dims);
+    let mut image_combined = Vec::new();
+    image_combined.extend_from_slice(&ferris_normal_image);
+    image_combined.extend_from_slice(&ferris_gesture_image);
+    image_combined.extend_from_slice(&ferris_happy_image);
 
-    println!("texture loaded");
-    let ferris_texture: Texture<D2, CubemapTex<SRgb>> = Texture::with_images(
-        DimsSquare::new(pos_x_dims.width()),
-        Some(CubemapImage {
-            pos_x: SRgb::slice_from_raw(&pos_x),
-            pos_y: SRgb::slice_from_raw(&pos_y),
-            pos_z: SRgb::slice_from_raw(&pos_z),
-            neg_x: SRgb::slice_from_raw(&neg_x),
-            neg_y: SRgb::slice_from_raw(&neg_y),
-            neg_z: SRgb::slice_from_raw(&neg_z),
-        }),
+    let ferris_texture: Texture<D2, ArrayTex<SRgba>> = Texture::with_images(
+        DimsBox::new3(ferris_happy_dims.width(), ferris_happy_dims.height(), 3),
+        Some(SRgba::slice_from_raw(&image_combined)),
         state.clone(),
     )
     .unwrap();

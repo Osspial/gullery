@@ -7,11 +7,13 @@ extern crate png;
 
 extern crate num_traits;
 
+mod helper;
+
 use gullery::{
     buffer::*,
     framebuffer::{render_state::*, *},
     glsl::GLSLFloat,
-    image_format::{compressed::DXT1, ConcreteImageFormat, ImageFormat, Rgba, SRgb},
+    image_format::{compressed::DXT1, ImageFormat, Rgba, SRgb},
     program::*,
     texture::{
         types::{CubemapImage, CubemapTex},
@@ -21,13 +23,7 @@ use gullery::{
     ContextState,
 };
 
-use cgmath_geometry::{
-    cgmath,
-    rect::{DimsBox, OffsetBox},
-    D2,
-};
-
-use std::{fs::File, io::BufReader};
+use cgmath_geometry::{cgmath, rect::OffsetBox, D2};
 
 use cgmath::*;
 
@@ -42,27 +38,6 @@ struct Vertex {
 struct Uniforms<'a> {
     tex: &'a Texture<D2, CubemapTex<dyn ImageFormat<ScalarType = GLSLFloat>>>,
     matrix: Matrix4<f32>,
-}
-
-fn load_image_from_file(path: &str) -> (Vec<Vec<DXT1<SRgb>>>, DimsBox<D2, u32>) {
-    let mut file = BufReader::new(File::open(path).unwrap());
-    let dds = ddsfile::Dds::read(&mut file).unwrap();
-
-    let mut data = DXT1::<SRgb>::slice_from_raw(&dds.data);
-    let mut mips = Vec::with_capacity(dds.header.mip_map_count.unwrap() as usize);
-    println!("mip levels: {}", dds.header.mip_map_count.unwrap());
-    println!("{:?}", data.len());
-    for i in 0..dds.header.mip_map_count.unwrap() {
-        let div = 2_u32.pow(i);
-        let dims = DimsBox::new3(dds.header.width / div, dds.header.height / div, 1);
-        let split_index = DXT1::<SRgb>::blocks_for_dims(dims);
-        println!("{:?} {:?} {}", i, dims, split_index);
-        let mip = &data[..split_index];
-        data = &data[split_index..];
-        mips.push(mip.to_vec());
-    }
-
-    (mips, DimsBox::new2(dds.header.width, dds.header.height))
 }
 
 fn main() {
@@ -121,12 +96,12 @@ fn main() {
     );
     let vao = VertexArrayObject::new(vertex_buffer, Some(index_buffer));
     println!("vao created");
-    let (pos_x_mips, pos_x_dims) = load_image_from_file("./examples/textures/cubemap/pos_x.dds");
-    let (pos_y_mips, pos_y_dims) = load_image_from_file("./examples/textures/cubemap/pos_y.dds");
-    let (pos_z_mips, pos_z_dims) = load_image_from_file("./examples/textures/cubemap/pos_z.dds");
-    let (neg_x_mips, neg_x_dims) = load_image_from_file("./examples/textures/cubemap/neg_x.dds");
-    let (neg_y_mips, neg_y_dims) = load_image_from_file("./examples/textures/cubemap/neg_y.dds");
-    let (neg_z_mips, neg_z_dims) = load_image_from_file("./examples/textures/cubemap/neg_z.dds");
+    let (pos_x_mips, pos_x_dims) = helper::load_dxt1_from_dds("./textures/cubemap/pos_x.dds");
+    let (pos_y_mips, pos_y_dims) = helper::load_dxt1_from_dds("./textures/cubemap/pos_y.dds");
+    let (pos_z_mips, pos_z_dims) = helper::load_dxt1_from_dds("./textures/cubemap/pos_z.dds");
+    let (neg_x_mips, neg_x_dims) = helper::load_dxt1_from_dds("./textures/cubemap/neg_x.dds");
+    let (neg_y_mips, neg_y_dims) = helper::load_dxt1_from_dds("./textures/cubemap/neg_y.dds");
+    let (neg_z_mips, neg_z_dims) = helper::load_dxt1_from_dds("./textures/cubemap/neg_z.dds");
     assert_eq!(pos_x_dims.width(), pos_x_dims.height());
     assert_eq!(pos_x_dims, pos_y_dims);
     assert_eq!(pos_y_dims, pos_z_dims);

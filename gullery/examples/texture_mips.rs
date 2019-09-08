@@ -7,6 +7,8 @@ extern crate png;
 
 extern crate num_traits;
 
+mod helper;
+
 use gullery::{
     buffer::*,
     framebuffer::{render_state::*, *},
@@ -18,13 +20,7 @@ use gullery::{
     ContextState,
 };
 
-use cgmath_geometry::{
-    cgmath,
-    rect::{DimsBox, OffsetBox},
-    D2,
-};
-
-use std::{fs::File, io};
+use cgmath_geometry::{cgmath, rect::OffsetBox, D2};
 
 use cgmath::*;
 
@@ -42,14 +38,6 @@ struct Vertex {
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
     tex: &'a Texture<D2, dyn ImageFormat<ScalarType = GLSLFloat>>,
-}
-
-fn load_image_from_file(path: &str) -> Result<(Vec<u8>, DimsBox<D2, u32>), io::Error> {
-    let decoder = png::Decoder::new(File::open(path)?);
-    let (info, mut reader) = decoder.read_info()?;
-    let mut buf = vec![0; info.buffer_size()];
-    reader.next_frame(&mut buf)?;
-    Ok((buf, DimsBox::new2(info.width, info.height)))
 }
 
 fn main() {
@@ -98,13 +86,13 @@ fn main() {
     let vao = VertexArrayObject::new(vertex_buffer, Some(index_buffer));
     println!("vao created");
     let images = [
-        load_image_from_file("./examples/textures/mips/512.png").unwrap(),
-        load_image_from_file("./examples/textures/mips/256.png").unwrap(),
-        load_image_from_file("./examples/textures/mips/128.png").unwrap(),
-        load_image_from_file("./examples/textures/mips/64.png").unwrap(),
-        load_image_from_file("./examples/textures/mips/32.png").unwrap(),
-        load_image_from_file("./examples/textures/mips/16.png").unwrap(),
-        load_image_from_file("./examples/textures/mips/8.png").unwrap(),
+        helper::load_png("./textures/mips/512.png").unwrap(),
+        helper::load_png("./textures/mips/256.png").unwrap(),
+        helper::load_png("./textures/mips/128.png").unwrap(),
+        helper::load_png("./textures/mips/64.png").unwrap(),
+        helper::load_png("./textures/mips/32.png").unwrap(),
+        helper::load_png("./textures/mips/16.png").unwrap(),
+        helper::load_png("./textures/mips/8.png").unwrap(),
     ];
     let dims = images[0].1;
     println!("texture loaded");

@@ -7,6 +7,8 @@ extern crate png;
 
 extern crate num_traits;
 
+mod helper;
+
 use gullery::{
     buffer::*,
     framebuffer::{render_state::*, *},
@@ -17,11 +19,7 @@ use gullery::{
     ContextState,
 };
 
-use cgmath_geometry::{
-    cgmath,
-    rect::{DimsBox, OffsetBox},
-    D2,
-};
+use cgmath_geometry::{cgmath, rect::OffsetBox, D2};
 
 use cgmath::*;
 
@@ -29,8 +27,6 @@ use glutin::{
     dpi::LogicalSize, ContextBuilder, ControlFlow, ElementState, Event, EventsLoop, GlContext,
     GlRequest, GlWindow, VirtualKeyCode, WindowBuilder, WindowEvent,
 };
-
-use std::{fs::File, io, rc::Rc};
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
@@ -43,23 +39,6 @@ struct Uniforms<'a> {
     tex: SampledTexture<'a, D2, SRgba>,
     offset: Vector2<f32>,
     scale: Vector2<f32>,
-}
-
-fn load_texture_from_file(
-    path: &str,
-    state: &Rc<ContextState>,
-) -> Result<Texture<D2, SRgba>, io::Error> {
-    let (image, dims) = {
-        let decoder = png::Decoder::new(File::open(path)?);
-        let (info, mut reader) = decoder.read_info()?;
-        let mut buf = vec![0; info.buffer_size()];
-        reader.next_frame(&mut buf)?;
-        (buf, DimsBox::new2(info.width, info.height))
-    };
-    println!("texture loaded: {}", path);
-    let texture = Texture::with_images(dims, Some(SRgba::slice_from_raw(&image)), state.clone())?;
-    println!("texture uploaded: {}", path);
-    Ok(texture)
 }
 
 fn main() {
@@ -107,10 +86,25 @@ fn main() {
     );
     let vao = VertexArrayObject::new(vertex_buffer, Some(index_buffer));
     println!("vao created");
-    let ferris_normal_texture =
-        load_texture_from_file("./examples/textures/ferris_normal.png", &state).unwrap();
-    let ferris_happy_texture =
-        load_texture_from_file("./examples/textures/ferris_happy.png", &state).unwrap();
+    let (ferris_normal_image, ferris_normal_dims) =
+        helper::load_png("./textures/ferris_normal.png").unwrap();
+    println!("ferris normal loaded");
+    let (ferris_happy_image, ferris_happy_dims) =
+        helper::load_png("./textures/ferris_happy.png").unwrap();
+    println!("ferris happy loaded");
+    let ferris_normal_texture = Texture::with_images(
+        ferris_normal_dims,
+        Some(SRgba::slice_from_raw(&ferris_normal_image)),
+        state.clone(),
+    )
+    .unwrap();
+    let ferris_happy_texture = Texture::with_images(
+        ferris_happy_dims,
+        Some(SRgba::slice_from_raw(&ferris_happy_image)),
+        state.clone(),
+    )
+    .unwrap();
+    println!("textures uploaded");
     let mut sampler = Sampler::new(state.clone());
     sampler.sample_parameters.filter_mag = FilterMag::Nearest;
 
