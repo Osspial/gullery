@@ -26,7 +26,7 @@ pub fn load_dxt1_from_dds(path: &str) -> (Vec<Vec<DXT1<SRgb>>>, DimsBox<D2, u32>
     let mut file = BufReader::new(File::open(path).unwrap());
     let dds = ddsfile::Dds::read(&mut file).unwrap();
 
-    let mut data = DXT1::<SRgb>::slice_from_raw(&dds.data);
+    let mut data = DXT1::<SRgb>::from_raw_slice(&dds.data);
     let mut mips = Vec::with_capacity(dds.header.mip_map_count.unwrap() as usize);
     println!("mip levels: {}", dds.header.mip_map_count.unwrap());
     println!("{:?}", data.len());

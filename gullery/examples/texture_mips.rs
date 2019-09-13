@@ -98,7 +98,7 @@ fn main() {
     println!("texture loaded");
     let mip_texture: Texture<D2, Rgba> = Texture::with_images(
         dims,
-        images.iter().map(|(mip, _)| Rgba::slice_from_raw(&mip[..])),
+        images.iter().map(|(mip, _)| Rgba::from_raw_slice(&mip[..])),
         state.clone(),
     )
     .unwrap();

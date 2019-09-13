@@ -99,7 +99,7 @@ fn main() {
     println!("texture loaded");
     let ferris_texture: Texture<D2, SRgb> = Texture::with_images(
         ferris_dims,
-        Some(SRgb::slice_from_raw(&ferris_image)),
+        Some(SRgb::from_raw_slice(&ferris_image)),
         state.clone(),
     )
     .unwrap();

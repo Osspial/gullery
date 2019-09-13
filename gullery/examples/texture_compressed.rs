@@ -102,7 +102,7 @@ fn main() {
     };
     println!("texture loaded");
     let texture =
-        Texture::with_images(dims, Some(RGTC::slice_from_raw(&image)), state.clone()).unwrap();
+        Texture::with_images(dims, Some(RGTC::from_raw_slice(&image)), state.clone()).unwrap();
     println!("texture uploaded");
 
     let vertex_shader = Shader::new(VERTEX_SHADER, state.clone()).unwrap();

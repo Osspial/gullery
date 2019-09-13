@@ -108,7 +108,7 @@ fn main() {
 
     let ferris_texture: Texture<D2, ArrayTex<SRgba>> = Texture::with_images(
         DimsBox::new3(ferris_happy_dims.width(), ferris_happy_dims.height(), 3),
-        Some(SRgba::slice_from_raw(&image_combined)),
+        Some(SRgba::from_raw_slice(&image_combined)),
         state.clone(),
     )
     .unwrap();

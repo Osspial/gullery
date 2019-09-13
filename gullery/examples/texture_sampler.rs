@@ -94,13 +94,13 @@ fn main() {
     println!("ferris happy loaded");
     let ferris_normal_texture = Texture::with_images(
         ferris_normal_dims,
-        Some(SRgba::slice_from_raw(&ferris_normal_image)),
+        Some(SRgba::from_raw_slice(&ferris_normal_image)),
         state.clone(),
     )
     .unwrap();
     let ferris_happy_texture = Texture::with_images(
         ferris_happy_dims,
-        Some(SRgba::slice_from_raw(&ferris_happy_image)),
+        Some(SRgba::from_raw_slice(&ferris_happy_image)),
         state.clone(),
     )
     .unwrap();
