@@ -75,7 +75,7 @@ pub enum DrawMode {
     LineStrip = gl::LINE_STRIP,
     LineLoop = gl::LINE_LOOP,
     Lines = gl::LINES,
-    LineStripadjacency = gl::LINE_STRIP_ADJACENCY,
+    LineStripAdjacency = gl::LINE_STRIP_ADJACENCY,
     LinesAdjacency = gl::LINES_ADJACENCY,
     TriangleStrip = gl::TRIANGLE_STRIP,
     TriangleFan = gl::TRIANGLE_FAN,
