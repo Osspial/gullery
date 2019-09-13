@@ -31,7 +31,7 @@ pub struct RenderState {
     pub dither: bool,
     pub srgb: bool,
     pub multisample: bool,
-    pub primitive_restart: Option<u32>,
+    pub primitive_restart_index: Option<u32>,
     pub rasterizer_discard: bool,
     pub stencil_test: Option<StencilTest>,
     pub texture_cubemap_seamless: bool,
@@ -68,8 +68,8 @@ impl RenderState {
         if self.multisample != old_state.multisample {
             raw::set_gl_cap(gl, Capability::Multisample(self.multisample));
         }
-        if self.primitive_restart != old_state.primitive_restart {
-            raw::set_gl_cap(gl, Capability::PrimitiveRestart(self.primitive_restart));
+        if self.primitive_restart_index != old_state.primitive_restart_index {
+            raw::set_gl_cap(gl, Capability::PrimitiveRestart(self.primitive_restart_index));
         }
         if self.rasterizer_discard != old_state.rasterizer_discard {
             raw::set_gl_cap(gl, Capability::RasterizerDiscard(self.rasterizer_discard));
@@ -112,7 +112,7 @@ impl Default for RenderState {
             dither: true,
             srgb: false,
             multisample: true,
-            primitive_restart: None,
+            primitive_restart_index: None,
             rasterizer_discard: false,
             stencil_test: None,
             texture_cubemap_seamless: false,
