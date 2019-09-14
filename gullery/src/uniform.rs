@@ -163,9 +163,6 @@ impl_glsl_type_uniform! {
     GLMat4r2c<f32>, (m, loc, gl) => gl.UniformMatrix2x4fv(loc, 1, gl::FALSE, &m.x.x),
     GLMat4r3c<f32>, (m, loc, gl) => gl.UniformMatrix3x4fv(loc, 1, gl::FALSE, &m.x.x),
 
-    u8, (u, loc, gl) => gl.Uniform1ui(loc, u as u32),
-    u16, (u, loc, gl) => gl.Uniform1ui(loc, u as u32),
-    u32, (u, loc, gl) => gl.Uniform1ui(loc, u as u32),
     GLInt<u8  , NonNormalized>, (u, loc, gl) => gl.Uniform1ui(loc, u.0 as u32),
     GLInt<u16 , NonNormalized>, (u, loc, gl) => gl.Uniform1ui(loc, u.0 as u32),
     GLInt<u32 , NonNormalized>, (u, loc, gl) => gl.Uniform1ui(loc, u.0 as u32),
@@ -179,6 +176,9 @@ impl_glsl_type_uniform! {
     GLVec4<u16, NonNormalized>, (v, loc, gl) => gl.Uniform4ui(loc, v.x as u32, v.y as u32, v.z as u32, v.w as u32),
     GLVec4<u32, NonNormalized>, (v, loc, gl) => gl.Uniform4ui(loc, v.x as u32, v.y as u32, v.z as u32, v.w as u32),
 
+    u8, (u, loc, gl) => gl.Uniform1f(loc, nu8(u)),
+    u16, (u, loc, gl) => gl.Uniform1f(loc, nu16(u)),
+    u32, (u, loc, gl) => gl.Uniform1f(loc, nu32(u)),
     GLInt<u8  , Normalized>, (u, loc, gl) => gl.Uniform1f(loc, nu8(u.0)),
     GLInt<u16 , Normalized>, (u, loc, gl) => gl.Uniform1f(loc, nu16(u.0)),
     GLInt<u32 , Normalized>, (u, loc, gl) => gl.Uniform1f(loc, nu32(u.0)),
@@ -192,9 +192,6 @@ impl_glsl_type_uniform! {
     GLVec4<u16, Normalized>, (v, loc, gl) => gl.Uniform4f(loc, nu16(v.x), nu16(v.y), nu16(v.z), nu16(v.w)),
     GLVec4<u32, Normalized>, (v, loc, gl) => gl.Uniform4f(loc, nu32(v.x), nu32(v.y), nu32(v.z), nu32(v.w)),
 
-    i8, (u, loc, gl) => gl.Uniform1i(loc, u as i32),
-    i16, (u, loc, gl) => gl.Uniform1i(loc, u as i32),
-    i32, (u, loc, gl) => gl.Uniform1i(loc, u as i32),
     GLInt<i8  , NonNormalized>, (u, loc, gl) => gl.Uniform1i(loc, u.0 as i32),
     GLInt<i16 , NonNormalized>, (u, loc, gl) => gl.Uniform1i(loc, u.0 as i32),
     GLInt<i32 , NonNormalized>, (u, loc, gl) => gl.Uniform1i(loc, u.0 as i32),
@@ -208,6 +205,9 @@ impl_glsl_type_uniform! {
     GLVec4<i16, NonNormalized>, (v, loc, gl) => gl.Uniform4i(loc, v.x as i32, v.y as i32, v.z as i32, v.w as i32),
     GLVec4<i32, NonNormalized>, (v, loc, gl) => gl.Uniform4i(loc, v.x as i32, v.y as i32, v.z as i32, v.w as i32),
 
+    i8, (u, loc, gl) => gl.Uniform1f(loc, ni8(u)),
+    i16, (u, loc, gl) => gl.Uniform1f(loc, ni16(u)),
+    i32, (u, loc, gl) => gl.Uniform1f(loc, ni32(u)),
     GLInt<i8  , Normalized>, (u, loc, gl) => gl.Uniform1f(loc, ni8(u.0)),
     GLInt<i16 , Normalized>, (u, loc, gl) => gl.Uniform1f(loc, ni16(u.0)),
     GLInt<i32 , Normalized>, (u, loc, gl) => gl.Uniform1f(loc, ni32(u.0)),
