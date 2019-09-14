@@ -30,62 +30,9 @@
 //! render targets. Compressed texture types can be found in the [`compressed`](./compressed/index.html)
 //! module.
 
-macro_rules! impl_slice_conversions {
-    ($ty:ty) => {
-        #[inline(always)]
-        fn size() -> usize {
-            use std::mem;
-            let size = mem::size_of::<Self>() / mem::size_of::<$ty>();
-            assert_eq!(0, mem::size_of::<Self>() % mem::size_of::<$ty>());
-            size
-        }
-
-        #[inline(always)]
-        pub fn from_raw_slice(raw: &[$ty]) -> &[Self] {
-            let size = Self::size();
-            assert_eq!(
-                0,
-                raw.len() % size,
-                "raw slice length not multiple of {}",
-                size
-            );
-            unsafe { ::std::slice::from_raw_parts(raw.as_ptr() as *const Self, raw.len() / size) }
-        }
-
-        #[inline(always)]
-        pub fn from_raw_slice_mut(raw: &mut [$ty]) -> &mut [Self] {
-            let size = Self::size();
-            assert_eq!(
-                0,
-                raw.len() % size,
-                "raw slice length not multiple of {}",
-                size
-            );
-            unsafe {
-                ::std::slice::from_raw_parts_mut(raw.as_mut_ptr() as *mut Self, raw.len() / size)
-            }
-        }
-
-        #[inline(always)]
-        pub fn to_raw_slice(slice: &[Self]) -> &[$ty] {
-            let size = Self::size();
-            unsafe {
-                ::std::slice::from_raw_parts(slice.as_ptr() as *const $ty, slice.len() * size)
-            }
-        }
-
-        #[inline(always)]
-        pub fn to_raw_slice_mut(slice: &mut [Self]) -> &mut [$ty] {
-            let size = Self::size();
-            unsafe {
-                ::std::slice::from_raw_parts_mut(slice.as_mut_ptr() as *mut $ty, slice.len() * size)
-            }
-        }
-    };
-}
-
 pub mod compressed;
 
+use std::marker::PhantomData;
 use crate::gl::{self, types::*};
 
 use crate::glsl::*;
@@ -185,7 +132,8 @@ impl FormatType for DepthFormat {
 }
 
 pub trait ColorComponents {
-    type Scalar: Scalar;
+    type Normalization: Normalization;
+    type Scalar: Scalar<Self::Normalization>;
 }
 
 /// 16-bit unsigned depth format.
@@ -213,7 +161,7 @@ unsafe impl ConcreteImageFormat for Depth16 {
     const FORMAT: FormatAttributes = FormatAttributes::Uncompressed {
         internal_format: gl::DEPTH_COMPONENT16,
         pixel_format: gl::DEPTH_COMPONENT,
-        pixel_type: <u16 as Scalar>::GL_ENUM,
+        pixel_type: <u16 as ScalarBase>::GL_ENUM,
     };
 }
 
@@ -227,7 +175,7 @@ unsafe impl ConcreteImageFormat for Depth32F {
     const FORMAT: FormatAttributes = FormatAttributes::Uncompressed {
         internal_format: gl::DEPTH_COMPONENT32F,
         pixel_format: gl::DEPTH_COMPONENT,
-        pixel_type: <f32 as Scalar>::GL_ENUM,
+        pixel_type: <f32 as ScalarBase>::GL_ENUM,
     };
 }
 
@@ -240,11 +188,12 @@ unsafe impl ConcreteImageFormat for Depth32F {
 /// [`GLSLInt`]: ../glsl/struct.GLSLInt.html
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Rgba<S = u8> {
+pub struct Rgba<S: Scalar<N> = u8, N: Normalization = <S as ScalarBase>::DefaultNormalization> {
     pub r: S,
     pub g: S,
     pub b: S,
     pub a: S,
+    pub _normalization: PhantomData<N>,
 }
 
 /// Linear three-channel RGB color format.
@@ -256,10 +205,11 @@ pub struct Rgba<S = u8> {
 /// [`GLSLInt`]: ../glsl/struct.GLSLInt.html
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Rgb<S = u8> {
+pub struct Rgb<S: Scalar<N> = u8, N: Normalization = <S as ScalarBase>::DefaultNormalization> {
     pub r: S,
     pub g: S,
     pub b: S,
+    pub _normalization: PhantomData<N>,
 }
 
 /// Linear two-channel RG color format.
@@ -271,9 +221,10 @@ pub struct Rgb<S = u8> {
 /// [`GLSLInt`]: ../glsl/struct.GLSLInt.html
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Rg<S = u8> {
+pub struct Rg<S: Scalar<N> = u8, N: Normalization = <S as ScalarBase>::DefaultNormalization> {
     pub r: S,
     pub g: S,
+    pub _normalization: PhantomData<N>,
 }
 
 /// Linear single-channel red color format.
@@ -285,8 +236,9 @@ pub struct Rg<S = u8> {
 /// [`GLSLInt`]: ../glsl/struct.GLSLInt.html
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Red<S = u8> {
+pub struct Red<S: Scalar<N> = u8, N: Normalization = <S as ScalarBase>::DefaultNormalization> {
     pub r: S,
+    pub _normalization: PhantomData<N>,
 }
 
 /// Four-channel sRGBA color format.
@@ -316,14 +268,14 @@ pub struct SRgb {
 
 macro_rules! impl_color {
     ($(impl $name:ident<S>($len:expr, color: $($channel:ident),+);)*) => {$(
-        impl<S> $name<S> {
+        impl<S: Scalar<N>, N: Normalization> $name<S, N> {
             impl_color!{impl body $name<S>($len, color: $($channel),+)}
         }
     )*};
     (impl body $name:ident<$ty:ty>($len:expr, color: $($channel:ident),+)) => {
         #[inline]
         pub fn new($($channel: $ty),*) -> Self {
-            $name{ $($channel),* }
+            $name{ $($channel,)* _normalization: PhantomData, }
         }
 
         impl_slice_conversions!($ty);
@@ -338,181 +290,200 @@ impl_color! {
 }
 
 impl SRgba {
-    impl_color! {impl body SRgba<u8>(4, color: r, g, b, a)}
+    #[inline]
+    pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
+        SRgba {r, g, b, a}
+    }
+
+    impl_slice_conversions!(SRgba);
 }
 
 impl SRgb {
-    impl_color! {impl body SRgb<u8>(3, color: r, g, b)}
+    #[inline]
+    pub fn new(r: u8, g: u8, b: u8) -> Self {
+        SRgb {r, g, b}
+    }
+
+    impl_slice_conversions!(SRgb);
 }
 
-impl<S: ScalarNum> From<Rgb<S>> for Rgba<S> {
+impl<S: ScalarNum<N>, N: Normalization> From<Rgb<S, N>> for Rgba<S, N> {
     #[inline]
-    fn from(color: Rgb<S>) -> Rgba<S> {
+    fn from(color: Rgb<S, N>) -> Rgba<S, N> {
         Rgba::new(color.r, color.g, color.b, S::one())
     }
 }
-impl<S: ScalarNum> From<Rg<S>> for Rgba<S> {
+impl<S: ScalarNum<N>, N: Normalization> From<Rg<S, N>> for Rgba<S, N> {
     #[inline]
-    fn from(color: Rg<S>) -> Rgba<S> {
+    fn from(color: Rg<S, N>) -> Rgba<S, N> {
         Rgba::new(color.r, color.g, S::zero(), S::one())
     }
 }
-impl<S: ScalarNum> From<Red<S>> for Rgba<S> {
+impl<S: ScalarNum<N>, N: Normalization> From<Red<S, N>> for Rgba<S, N> {
     #[inline]
-    fn from(color: Red<S>) -> Rgba<S> {
+    fn from(color: Red<S, N>) -> Rgba<S, N> {
         Rgba::new(color.r, S::zero(), S::zero(), S::one())
     }
 }
 
-unsafe impl<S: ScalarNum> TransparentType for Rgba<S> {
+unsafe impl<S: ScalarNum<N>, N: Normalization> TransparentType for Rgba<S, N> {
+    type Normalization = N;
     type Scalar = S;
     #[inline]
     fn prim_tag() -> TypeTagSingle {
-        Self::Scalar::prim_tag().vectorize(4).unwrap()
+        <S as Scalar<N>>::ScalarType::PRIM_TAG.vectorize(4).unwrap()
     }
 }
-unsafe impl<S: ScalarNum> TransparentType for Rgb<S> {
+unsafe impl<S: ScalarNum<N>, N: Normalization> TransparentType for Rgb<S, N> {
+    type Normalization = N;
     type Scalar = S;
     #[inline]
     fn prim_tag() -> TypeTagSingle {
-        Self::Scalar::prim_tag().vectorize(3).unwrap()
+        <S as Scalar<N>>::ScalarType::PRIM_TAG.vectorize(3).unwrap()
     }
 }
-unsafe impl<S: ScalarNum> TransparentType for Rg<S> {
+unsafe impl<S: ScalarNum<N>, N: Normalization> TransparentType for Rg<S, N> {
+    type Normalization = N;
     type Scalar = S;
     #[inline]
     fn prim_tag() -> TypeTagSingle {
-        Self::Scalar::prim_tag().vectorize(2).unwrap()
+        <S as Scalar<N>>::ScalarType::PRIM_TAG.vectorize(2).unwrap()
     }
 }
-unsafe impl<S: ScalarNum> TransparentType for Red<S> {
+unsafe impl<S: ScalarNum<N>, N: Normalization> TransparentType for Red<S, N> {
+    type Normalization = N;
     type Scalar = S;
     #[inline]
     fn prim_tag() -> TypeTagSingle {
-        Self::Scalar::prim_tag().vectorize(1).unwrap()
+        <S as Scalar<N>>::ScalarType::PRIM_TAG.vectorize(1).unwrap()
     }
 }
-impl<S: ScalarNum> Into<Vector4<S>> for Rgba<S> {
+impl<S: ScalarNum<N>, N: Normalization> Into<Vector4<S>> for Rgba<S, N> {
     #[inline]
-    fn into(self: Rgba<S>) -> Vector4<S> {
+    fn into(self: Rgba<S, N>) -> Vector4<S> {
         Vector4::new(self.r, self.g, self.b, self.a)
     }
 }
-impl<S: ScalarNum> Into<Vector3<S>> for Rgb<S> {
+impl<S: ScalarNum<N>, N: Normalization> Into<Vector3<S>> for Rgb<S, N> {
     #[inline]
-    fn into(self: Rgb<S>) -> Vector3<S> {
+    fn into(self: Rgb<S, N>) -> Vector3<S> {
         Vector3::new(self.r, self.g, self.b)
     }
 }
-impl<S: ScalarNum> Into<Vector2<S>> for Rg<S> {
+impl<S: ScalarNum<N>, N: Normalization> Into<Vector2<S>> for Rg<S, N> {
     #[inline]
-    fn into(self: Rg<S>) -> Vector2<S> {
+    fn into(self: Rg<S, N>) -> Vector2<S> {
         Vector2::new(self.r, self.g)
     }
 }
-impl<S: ScalarNum> Into<Vector1<S>> for Red<S> {
+impl<S: ScalarNum<N>, N: Normalization> Into<Vector1<S>> for Red<S, N> {
     #[inline]
-    fn into(self: Red<S>) -> Vector1<S> {
+    fn into(self: Red<S, N>) -> Vector1<S> {
         Vector1::new(self.r)
     }
 }
 
 macro_rules! if_integer {
-    (if $prim:ty => ($t:expr) else ($f:expr)) => {{
-        (<$prim as Scalar>::ScalarType::IS_INTEGER as GLenum * $t)
-            + (!<$prim as Scalar>::ScalarType::IS_INTEGER as GLenum * $f)
+    (if $prim:ty, $normalized:ty => ($t:expr) else ($f:expr)) => {{
+        (<$prim as Scalar<$normalized>>::ScalarType::IS_INTEGER as GLenum * $t)
+            + (!<$prim as Scalar<$normalized>>::ScalarType::IS_INTEGER as GLenum * $f)
     }};
 }
 
 macro_rules! basic_format {
     ($(
-        $prim:ty = ($rgba_enum:ident, $rgb_enum:ident, $rg_enum:ident, $r_enum:ident);)
+        $prim:ty, $normalized:ty = ($rgba_enum:ident, $rgb_enum:ident, $rg_enum:ident, $r_enum:ident);)
     *) => {$(
-        impl ColorComponents for Rgba<$prim> {
+        impl ColorComponents for Rgba<$prim, $normalized> {
+            type Normalization = $normalized;
             type Scalar = $prim;
         }
-        unsafe impl ImageFormat for Rgba<$prim> {
-            type ScalarType = <$prim as Scalar>::ScalarType;
+        unsafe impl ImageFormat for Rgba<$prim, $normalized> {
+            type ScalarType = <$prim as Scalar<$normalized>>::ScalarType;
         }
-        unsafe impl ImageFormatRenderable for Rgba<$prim> {
+        unsafe impl ImageFormatRenderable for Rgba<$prim, $normalized> {
             type FormatType = ColorFormat;
         }
-        unsafe impl ConcreteImageFormat for Rgba<$prim> {
+        unsafe impl ConcreteImageFormat for Rgba<$prim, $normalized> {
             const FORMAT: FormatAttributes = FormatAttributes::Uncompressed {
                 internal_format: gl::$rgba_enum,
-                pixel_format: if_integer!(if $prim => (gl::RGBA_INTEGER) else (gl::RGBA)),
-                pixel_type: <$prim as Scalar>::GL_ENUM,
+                pixel_format: if_integer!(if $prim, $normalized => (gl::RGBA_INTEGER) else (gl::RGBA)),
+                pixel_type: <$prim as ScalarBase>::GL_ENUM,
             };
         }
-        impl ColorComponents for Rgb<$prim> {
+        impl ColorComponents for Rgb<$prim, $normalized> {
+            type Normalization = $normalized;
             type Scalar = $prim;
         }
-        unsafe impl ImageFormat for Rgb<$prim> {
-            type ScalarType = <$prim as Scalar>::ScalarType;
+        unsafe impl ImageFormat for Rgb<$prim, $normalized> {
+            type ScalarType = <$prim as Scalar<$normalized>>::ScalarType;
         }
-        unsafe impl ImageFormatRenderable for Rgb<$prim> {
+        unsafe impl ImageFormatRenderable for Rgb<$prim, $normalized> {
             type FormatType = ColorFormat;
         }
-        unsafe impl ConcreteImageFormat for Rgb<$prim> {
+        unsafe impl ConcreteImageFormat for Rgb<$prim, $normalized> {
             const FORMAT: FormatAttributes = FormatAttributes::Uncompressed {
                 internal_format: gl::$rgb_enum,
-                pixel_format: if_integer!(if $prim => (gl::RGB_INTEGER) else (gl::RGB)),
-                pixel_type: <$prim as Scalar>::GL_ENUM,
+                pixel_format: if_integer!(if $prim, $normalized => (gl::RGB_INTEGER) else (gl::RGB)),
+                pixel_type: <$prim as ScalarBase>::GL_ENUM,
             };
         }
-        impl ColorComponents for Rg<$prim> {
+        impl ColorComponents for Rg<$prim, $normalized> {
+            type Normalization = $normalized;
             type Scalar = $prim;
         }
-        unsafe impl ImageFormat for Rg<$prim> {
-            type ScalarType = <$prim as Scalar>::ScalarType;
+        unsafe impl ImageFormat for Rg<$prim, $normalized> {
+            type ScalarType = <$prim as Scalar<$normalized>>::ScalarType;
         }
-        unsafe impl ImageFormatRenderable for Rg<$prim> {
+        unsafe impl ImageFormatRenderable for Rg<$prim, $normalized> {
             type FormatType = ColorFormat;
         }
-        unsafe impl ConcreteImageFormat for Rg<$prim> {
+        unsafe impl ConcreteImageFormat for Rg<$prim, $normalized> {
             const FORMAT: FormatAttributes = FormatAttributes::Uncompressed {
                 internal_format: gl::$rg_enum,
-                pixel_format: if_integer!(if $prim => (gl::RG_INTEGER) else (gl::RG)),
-                pixel_type: <$prim as Scalar>::GL_ENUM,
+                pixel_format: if_integer!(if $prim, $normalized => (gl::RG_INTEGER) else (gl::RG)),
+                pixel_type: <$prim as ScalarBase>::GL_ENUM,
             };
         }
-        impl ColorComponents for Red<$prim> {
+        impl ColorComponents for Red<$prim, $normalized> {
+            type Normalization = $normalized;
             type Scalar = $prim;
         }
-        unsafe impl ImageFormat for Red<$prim> {
-            type ScalarType = <$prim as Scalar>::ScalarType;
+        unsafe impl ImageFormat for Red<$prim, $normalized> {
+            type ScalarType = <$prim as Scalar<$normalized>>::ScalarType;
         }
-        unsafe impl ImageFormatRenderable for Red<$prim> {
+        unsafe impl ImageFormatRenderable for Red<$prim, $normalized> {
             type FormatType = ColorFormat;
         }
-        unsafe impl ConcreteImageFormat for Red<$prim> {
+        unsafe impl ConcreteImageFormat for Red<$prim, $normalized> {
             const FORMAT: FormatAttributes = FormatAttributes::Uncompressed {
                 internal_format: gl::$r_enum,
-                pixel_format: if_integer!(if $prim => (gl::RED_INTEGER) else (gl::RED)),
-                pixel_type: <$prim as Scalar>::GL_ENUM,
+                pixel_format: if_integer!(if $prim, $normalized => (gl::RED_INTEGER) else (gl::RED)),
+                pixel_type: <$prim as ScalarBase>::GL_ENUM,
             };
         }
     )*}
 }
 
 basic_format! {
-    u8 = (RGBA8, RGB8, RG8, R8);
-    u16 = (RGBA16, RGB16, RG16, R16);
+    u8, Normalized = (RGBA8, RGB8, RG8, R8);
+    u16, Normalized = (RGBA16, RGB16, RG16, R16);
 
-    i8 = (RGBA8_SNORM, RGB8_SNORM, RG8_SNORM, R8_SNORM);
-    i16 = (RGBA16_SNORM, RGB16_SNORM, RG16_SNORM, R16_SNORM);
+    i8, Normalized = (RGBA8_SNORM, RGB8_SNORM, RG8_SNORM, R8_SNORM);
+    i16, Normalized = (RGBA16_SNORM, RGB16_SNORM, RG16_SNORM, R16_SNORM);
 
-    f32 = (RGBA32F, RGB32F, RG32F, R32F);
+    f32, NonNormalized = (RGBA32F, RGB32F, RG32F, R32F);
 
-    GLSLInt<u8> = (RGBA8UI, RGB8UI, RG8UI, R8UI);
-    GLSLInt<u16> = (RGBA16UI, RGB16UI, RG16UI, R16UI);
-    GLSLInt<u32> = (RGBA32UI, RGB32UI, RG32UI, R32UI);
+    u8, NonNormalized = (RGBA8UI, RGB8UI, RG8UI, R8UI);
+    u16, NonNormalized = (RGBA16UI, RGB16UI, RG16UI, R16UI);
+    u32, NonNormalized = (RGBA32UI, RGB32UI, RG32UI, R32UI);
 
-    GLSLInt<i8> = (RGBA8I, RGB8I, RG8I, R8I);
-    GLSLInt<i16> = (RGBA16I, RGB16I, RG16I, R16I);
-    GLSLInt<i32> = (RGBA32I, RGB32I, RG32I, R32I);
+    i8, NonNormalized = (RGBA8I, RGB8I, RG8I, R8I);
+    i16, NonNormalized = (RGBA16I, RGB16I, RG16I, R16I);
+    i32, NonNormalized = (RGBA32I, RGB32I, RG32I, R32I);
 }
 impl ColorComponents for SRgba {
+    type Normalization = Normalized;
     type Scalar = u8;
 }
 unsafe impl ImageFormat for SRgba {
@@ -525,10 +496,11 @@ unsafe impl ConcreteImageFormat for SRgba {
     const FORMAT: FormatAttributes = FormatAttributes::Uncompressed {
         internal_format: gl::SRGB8_ALPHA8,
         pixel_format: gl::RGBA,
-        pixel_type: <u8 as Scalar>::GL_ENUM,
+        pixel_type: <u8 as ScalarBase>::GL_ENUM,
     };
 }
 impl ColorComponents for SRgb {
+    type Normalization = Normalized;
     type Scalar = u8;
 }
 unsafe impl ImageFormat for SRgb {
@@ -541,6 +513,6 @@ unsafe impl ConcreteImageFormat for SRgb {
     const FORMAT: FormatAttributes = FormatAttributes::Uncompressed {
         internal_format: gl::SRGB8,
         pixel_format: gl::RGB,
-        pixel_type: <u8 as Scalar>::GL_ENUM,
+        pixel_type: <u8 as ScalarBase>::GL_ENUM,
     };
 }

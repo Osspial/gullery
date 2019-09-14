@@ -15,10 +15,7 @@
 use crate::gl::{self, types::*, Gl};
 
 use crate::{
-    cgmath::{
-        Matrix2, Matrix3, Matrix4, Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4,
-    },
-    glsl::{TransparentType, TypeTag},
+    glsl::*,
     image_format::{Red, Rg, Rgb, Rgba},
     texture::{ImageUnits, Sampler, Texture, TextureType},
 };
@@ -110,13 +107,6 @@ impl Uniforms for () {
 
 macro_rules! impl_glsl_type_uniform {
     () => ();
-    ($ty_base:ident<$gen0:ty>$(<$gen_more:ty>)+, ($self:ident, $loc:pat, $gl:pat) => $expr:expr, $($rest:tt)*) => {
-        impl_glsl_type_uniform!(
-            $ty_base<$gen0>, ($self, $loc, $gl) => $expr,
-            $ty_base$(<$gen_more>)+, ($self, $loc, $gl) => $expr,
-            $($rest)*
-        );
-    };
     ($ty:ty, ($self:ident, $loc:pat, $gl:pat) => $expr:expr, $($rest:tt)*) => {
         unsafe impl UniformType for $ty {
             #[inline]
@@ -132,68 +122,103 @@ macro_rules! impl_glsl_type_uniform {
         impl_glsl_type_uniform!($($rest)*);
     };
 }
+
+#[inline(always)] fn nu8(i: u8) -> f32 {(i as f32 / u8::max_value() as f32) as f32}
+#[inline(always)] fn nu16(i: u16) -> f32 {(i as f32 / u16::max_value() as f32) as f32}
+#[inline(always)] fn nu32(i: u32) -> f32 {(i as f64 / u32::max_value() as f64) as f32}
+#[inline(always)] fn ni8(i: i8) -> f32 {f32::max(-1.0, (i as f32 / i8::max_value() as f32) as f32)}
+#[inline(always)] fn ni16(i: i16) -> f32 {f32::max(-1.0, (i as f32 / i16::max_value() as f32) as f32)}
+#[inline(always)] fn ni32(i: i32) -> f32 {f32::max(-1.0, (i as f64 / i32::max_value() as f64) as f32)}
+
 impl_glsl_type_uniform! {
     f32, (f, loc, gl) => gl.Uniform1f(loc, f),
-    Vector1<f32>, (v, loc, gl) => gl.Uniform1f(loc, v.x),
-    Vector2<f32>, (v, loc, gl) => gl.Uniform2f(loc, v.x, v.y),
-    Vector3<f32>, (v, loc, gl) => gl.Uniform3f(loc, v.x, v.y, v.z),
-    Vector4<f32>, (v, loc, gl) => gl.Uniform4f(loc, v.x, v.y, v.z, v.w),
-    Point1<f32>, (p, loc, gl) => gl.Uniform1f(loc, p.x),
-    Point2<f32>, (p, loc, gl) => gl.Uniform2f(loc, p.x, p.y),
-    Point3<f32>, (p, loc, gl) => gl.Uniform3f(loc, p.x, p.y, p.z),
-    Matrix2<f32>, (m, loc, gl) => gl.UniformMatrix2fv(loc, 1, gl::FALSE, &m.x.x),
-    Matrix3<f32>, (m, loc, gl) => gl.UniformMatrix3fv(loc, 1, gl::FALSE, &m.x.x),
-    Matrix4<f32>, (m, loc, gl) => gl.UniformMatrix4fv(loc, 1, gl::FALSE, &m.x.x),
+    GLVec2<f32, NonNormalized>, (v, loc, gl) => gl.Uniform2f(loc, v.x, v.y),
+    GLVec3<f32, NonNormalized>, (v, loc, gl) => gl.Uniform3f(loc, v.x, v.y, v.z),
+    GLVec4<f32, NonNormalized>, (v, loc, gl) => gl.Uniform4f(loc, v.x, v.y, v.z, v.w),
+    GLMat2r2c<f32>, (m, loc, gl) => gl.UniformMatrix2fv(loc, 1, gl::FALSE, &m.x.x),
+    GLMat3r3c<f32>, (m, loc, gl) => gl.UniformMatrix3fv(loc, 1, gl::FALSE, &m.x.x),
+    GLMat4r4c<f32>, (m, loc, gl) => gl.UniformMatrix4fv(loc, 1, gl::FALSE, &m.x.x),
+    GLMat2r3c<f32>, (m, loc, gl) => gl.UniformMatrix3x2fv(loc, 1, gl::FALSE, &m.x.x),
+    GLMat2r4c<f32>, (m, loc, gl) => gl.UniformMatrix4x2fv(loc, 1, gl::FALSE, &m.x.x),
+    GLMat3r2c<f32>, (m, loc, gl) => gl.UniformMatrix2x3fv(loc, 1, gl::FALSE, &m.x.x),
+    GLMat3r4c<f32>, (m, loc, gl) => gl.UniformMatrix4x3fv(loc, 1, gl::FALSE, &m.x.x),
+    GLMat4r2c<f32>, (m, loc, gl) => gl.UniformMatrix2x4fv(loc, 1, gl::FALSE, &m.x.x),
+    GLMat4r3c<f32>, (m, loc, gl) => gl.UniformMatrix3x4fv(loc, 1, gl::FALSE, &m.x.x),
 
-    bool, (u, loc, gl) => gl.Uniform1ui(loc, u as u32),
-    u32, (u, loc, gl) => gl.Uniform1ui(loc, u),
-    Vector1<u32><bool>, (v, loc, gl) => gl.Uniform1ui(loc, v.x as u32),
-    Vector2<u32><bool>, (v, loc, gl) => gl.Uniform2ui(loc, v.x as u32, v.y as u32),
-    Vector3<u32><bool>, (v, loc, gl) => gl.Uniform3ui(loc, v.x as u32, v.y as u32, v.z as u32),
-    Vector4<u32><bool>, (v, loc, gl) => gl.Uniform4ui(loc, v.x as u32, v.y as u32, v.z as u32, v.w as u32),
-    Point1<u32><bool>, (p, loc, gl) => gl.Uniform1ui(loc, p.x as u32),
-    Point2<u32><bool>, (p, loc, gl) => gl.Uniform2ui(loc, p.x as u32, p.y as u32),
-    Point3<u32><bool>, (p, loc, gl) => gl.Uniform3ui(loc, p.x as u32, p.y as u32, p.z as u32),
+    u8, (u, loc, gl) => gl.Uniform1ui(loc, u as u32),
+    u16, (u, loc, gl) => gl.Uniform1ui(loc, u as u32),
+    u32, (u, loc, gl) => gl.Uniform1ui(loc, u as u32),
+    GLInt<u8  , NonNormalized>, (u, loc, gl) => gl.Uniform1ui(loc, u.0 as u32),
+    GLInt<u16 , NonNormalized>, (u, loc, gl) => gl.Uniform1ui(loc, u.0 as u32),
+    GLInt<u32 , NonNormalized>, (u, loc, gl) => gl.Uniform1ui(loc, u.0 as u32),
+    GLVec2<u8 , NonNormalized>, (v, loc, gl) => gl.Uniform2ui(loc, v.x as u32, v.y as u32),
+    GLVec2<u16, NonNormalized>, (v, loc, gl) => gl.Uniform2ui(loc, v.x as u32, v.y as u32),
+    GLVec2<u32, NonNormalized>, (v, loc, gl) => gl.Uniform2ui(loc, v.x as u32, v.y as u32),
+    GLVec3<u8 , NonNormalized>, (v, loc, gl) => gl.Uniform3ui(loc, v.x as u32, v.y as u32, v.z as u32),
+    GLVec3<u16, NonNormalized>, (v, loc, gl) => gl.Uniform3ui(loc, v.x as u32, v.y as u32, v.z as u32),
+    GLVec3<u32, NonNormalized>, (v, loc, gl) => gl.Uniform3ui(loc, v.x as u32, v.y as u32, v.z as u32),
+    GLVec4<u8 , NonNormalized>, (v, loc, gl) => gl.Uniform4ui(loc, v.x as u32, v.y as u32, v.z as u32, v.w as u32),
+    GLVec4<u16, NonNormalized>, (v, loc, gl) => gl.Uniform4ui(loc, v.x as u32, v.y as u32, v.z as u32, v.w as u32),
+    GLVec4<u32, NonNormalized>, (v, loc, gl) => gl.Uniform4ui(loc, v.x as u32, v.y as u32, v.z as u32, v.w as u32),
 
-    i32, (u, loc, gl) => gl.Uniform1i(loc, u),
-    Vector1<i32>, (v, loc, gl) => gl.Uniform1i(loc, v.x),
-    Vector2<i32>, (v, loc, gl) => gl.Uniform2i(loc, v.x, v.y),
-    Vector3<i32>, (v, loc, gl) => gl.Uniform3i(loc, v.x, v.y, v.z),
-    Vector4<i32>, (v, loc, gl) => gl.Uniform4i(loc, v.x, v.y, v.z, v.w),
-    Point1<i32>, (p, loc, gl) => gl.Uniform1i(loc, p.x),
-    Point2<i32>, (p, loc, gl) => gl.Uniform2i(loc, p.x, p.y),
-    Point3<i32>, (p, loc, gl) => gl.Uniform3i(loc, p.x, p.y, p.z),
+    GLInt<u8  , Normalized>, (u, loc, gl) => gl.Uniform1f(loc, nu8(u.0)),
+    GLInt<u16 , Normalized>, (u, loc, gl) => gl.Uniform1f(loc, nu16(u.0)),
+    GLInt<u32 , Normalized>, (u, loc, gl) => gl.Uniform1f(loc, nu32(u.0)),
+    GLVec2<u8 , Normalized>, (v, loc, gl) => gl.Uniform2f(loc, nu8(v.x) , nu8(v.y)),
+    GLVec2<u16, Normalized>, (v, loc, gl) => gl.Uniform2f(loc, nu16(v.x), nu16(v.y)),
+    GLVec2<u32, Normalized>, (v, loc, gl) => gl.Uniform2f(loc, nu32(v.x), nu32(v.y)),
+    GLVec3<u8 , Normalized>, (v, loc, gl) => gl.Uniform3f(loc, nu8(v.x) , nu8(v.y) , nu8(v.z)),
+    GLVec3<u16, Normalized>, (v, loc, gl) => gl.Uniform3f(loc, nu16(v.x), nu16(v.y), nu16(v.z)),
+    GLVec3<u32, Normalized>, (v, loc, gl) => gl.Uniform3f(loc, nu32(v.x), nu32(v.y), nu32(v.z)),
+    GLVec4<u8 , Normalized>, (v, loc, gl) => gl.Uniform4f(loc, nu8(v.x) , nu8(v.y) , nu8(v.z) , nu8(v.w)),
+    GLVec4<u16, Normalized>, (v, loc, gl) => gl.Uniform4f(loc, nu16(v.x), nu16(v.y), nu16(v.z), nu16(v.w)),
+    GLVec4<u32, Normalized>, (v, loc, gl) => gl.Uniform4f(loc, nu32(v.x), nu32(v.y), nu32(v.z), nu32(v.w)),
+
+    i8, (u, loc, gl) => gl.Uniform1i(loc, u as i32),
+    i16, (u, loc, gl) => gl.Uniform1i(loc, u as i32),
+    i32, (u, loc, gl) => gl.Uniform1i(loc, u as i32),
+    GLInt<i8  , NonNormalized>, (u, loc, gl) => gl.Uniform1i(loc, u.0 as i32),
+    GLInt<i16 , NonNormalized>, (u, loc, gl) => gl.Uniform1i(loc, u.0 as i32),
+    GLInt<i32 , NonNormalized>, (u, loc, gl) => gl.Uniform1i(loc, u.0 as i32),
+    GLVec2<i8 , NonNormalized>, (v, loc, gl) => gl.Uniform2i(loc, v.x as i32, v.y as i32),
+    GLVec2<i16, NonNormalized>, (v, loc, gl) => gl.Uniform2i(loc, v.x as i32, v.y as i32),
+    GLVec2<i32, NonNormalized>, (v, loc, gl) => gl.Uniform2i(loc, v.x as i32, v.y as i32),
+    GLVec3<i8 , NonNormalized>, (v, loc, gl) => gl.Uniform3i(loc, v.x as i32, v.y as i32, v.z as i32),
+    GLVec3<i16, NonNormalized>, (v, loc, gl) => gl.Uniform3i(loc, v.x as i32, v.y as i32, v.z as i32),
+    GLVec3<i32, NonNormalized>, (v, loc, gl) => gl.Uniform3i(loc, v.x as i32, v.y as i32, v.z as i32),
+    GLVec4<i8 , NonNormalized>, (v, loc, gl) => gl.Uniform4i(loc, v.x as i32, v.y as i32, v.z as i32, v.w as i32),
+    GLVec4<i16, NonNormalized>, (v, loc, gl) => gl.Uniform4i(loc, v.x as i32, v.y as i32, v.z as i32, v.w as i32),
+    GLVec4<i32, NonNormalized>, (v, loc, gl) => gl.Uniform4i(loc, v.x as i32, v.y as i32, v.z as i32, v.w as i32),
+
+    GLInt<i8  , Normalized>, (u, loc, gl) => gl.Uniform1f(loc, ni8(u.0)),
+    GLInt<i16 , Normalized>, (u, loc, gl) => gl.Uniform1f(loc, ni16(u.0)),
+    GLInt<i32 , Normalized>, (u, loc, gl) => gl.Uniform1f(loc, ni32(u.0)),
+    GLVec2<i8 , Normalized>, (v, loc, gl) => gl.Uniform2f(loc, ni8(v.x) , ni8(v.y)),
+    GLVec2<i16, Normalized>, (v, loc, gl) => gl.Uniform2f(loc, ni16(v.x), ni16(v.y)),
+    GLVec2<i32, Normalized>, (v, loc, gl) => gl.Uniform2f(loc, ni32(v.x), ni32(v.y)),
+    GLVec3<i8 , Normalized>, (v, loc, gl) => gl.Uniform3f(loc, ni8(v.x) , ni8(v.y) , ni8(v.z)),
+    GLVec3<i16, Normalized>, (v, loc, gl) => gl.Uniform3f(loc, ni16(v.x), ni16(v.y), ni16(v.z)),
+    GLVec3<i32, Normalized>, (v, loc, gl) => gl.Uniform3f(loc, ni32(v.x), ni32(v.y), ni32(v.z)),
+    GLVec4<i8 , Normalized>, (v, loc, gl) => gl.Uniform4f(loc, ni8(v.x) , ni8(v.y) , ni8(v.z) , ni8(v.w)),
+    GLVec4<i16, Normalized>, (v, loc, gl) => gl.Uniform4f(loc, ni16(v.x), ni16(v.y), ni16(v.z), ni16(v.w)),
+    GLVec4<i32, Normalized>, (v, loc, gl) => gl.Uniform4f(loc, ni32(v.x), ni32(v.y), ni32(v.z), ni32(v.w)),
 
     Rgba<f32>, (c, loc, gl) => gl.Uniform4f(loc, c.r, c.g, c.b, c.a),
-    Rgba<u8>, (c, loc, gl) => gl.Uniform4f(loc, c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0, c.a as f32 / 255.0),
-    Rgba<u16>, (c, loc, gl) => gl.Uniform4f(loc, c.r as f32 / 65536.0, c.g as f32 / 65536.0, c.b as f32 / 65536.0, c.a as f32 / 65536.0),
-    Rgba<u32>, (c, loc, gl) => gl.Uniform4f(loc,
-        (c.r as f64 / u32::max_value() as f64) as f32,
-        (c.g as f64 / u32::max_value() as f64) as f32,
-        (c.b as f64 / u32::max_value() as f64) as f32,
-        (c.a as f64 / u32::max_value() as f64) as f32,
-    ),
+    Rgba<u8, Normalized>, (c, loc, gl) => gl.Uniform4f(loc, nu8(c.r), nu8(c.g), nu8(c.b), nu8(c.a)),
+    Rgba<u16, Normalized>, (c, loc, gl) => gl.Uniform4f(loc, nu16(c.r), nu16(c.g), nu16(c.b), nu16(c.a)),
+    Rgba<u32, Normalized>, (c, loc, gl) => gl.Uniform4f(loc, nu32(c.r), nu32(c.g), nu32(c.b), nu32(c.a)),
     Rgb<f32>, (c, loc, gl) => gl.Uniform3f(loc, c.r, c.g, c.b),
-    Rgb<u8>, (c, loc, gl) => gl.Uniform3f(loc, c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0),
-    Rgb<u16>, (c, loc, gl) => gl.Uniform3f(loc, c.r as f32 / 65536.0, c.g as f32 / 65536.0, c.b as f32 / 65536.0),
-    Rgb<u32>, (c, loc, gl) => gl.Uniform3f(loc,
-        (c.r as f64 / u32::max_value() as f64) as f32,
-        (c.g as f64 / u32::max_value() as f64) as f32,
-        (c.b as f64 / u32::max_value() as f64) as f32,
-    ),
+    Rgb<u8, Normalized>, (c, loc, gl) => gl.Uniform3f(loc, nu8(c.r), nu8(c.g), nu8(c.b)),
+    Rgb<u16, Normalized>, (c, loc, gl) => gl.Uniform3f(loc, nu16(c.r), nu16(c.g), nu16(c.b)),
+    Rgb<u32, Normalized>, (c, loc, gl) => gl.Uniform3f(loc, nu32(c.r), nu32(c.g), nu32(c.b)),
     Rg<f32>, (c, loc, gl) => gl.Uniform2f(loc, c.r, c.g),
-    Rg<u8>, (c, loc, gl) => gl.Uniform2f(loc, c.r as f32 / 255.0, c.g as f32 / 255.0),
-    Rg<u16>, (c, loc, gl) => gl.Uniform2f(loc, c.r as f32 / 65536.0, c.g as f32 / 65536.0),
-    Rg<u32>, (c, loc, gl) => gl.Uniform2f(loc,
-        (c.r as f64 / u32::max_value() as f64) as f32,
-        (c.g as f64 / u32::max_value() as f64) as f32,
-    ),
+    Rg<u8, Normalized>, (c, loc, gl) => gl.Uniform2f(loc, nu8(c.r), nu8(c.g)),
+    Rg<u16, Normalized>, (c, loc, gl) => gl.Uniform2f(loc, nu16(c.r), nu16(c.g)),
+    Rg<u32, Normalized>, (c, loc, gl) => gl.Uniform2f(loc, nu32(c.r), nu32(c.g)),
     Red<f32>, (c, loc, gl) => gl.Uniform1f(loc, c.r),
-    Red<u8>, (c, loc, gl) => gl.Uniform1f(loc, c.r as f32 / 255.0),
-    Red<u16>, (c, loc, gl) => gl.Uniform1f(loc, c.r as f32 / 65536.0),
-    Red<u32>, (c, loc, gl) => gl.Uniform1f(loc,
-        (c.r as f64 / u32::max_value() as f64) as f32,
-    ),
+    Red<u8, Normalized>, (c, loc, gl) => gl.Uniform1f(loc, nu8(c.r)),
+    Red<u16, Normalized>, (c, loc, gl) => gl.Uniform1f(loc, nu16(c.r)),
+    Red<u32, Normalized>, (c, loc, gl) => gl.Uniform1f(loc, nu32(c.r)),
 }
 
 macro_rules! impl_ulc_array {

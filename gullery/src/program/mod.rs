@@ -251,8 +251,8 @@ where
 mod tests {
     use super::*;
     use crate::{
-        cgmath::Vector3,
         gl::types::*,
+        glsl::GLVec3,
         test_helper::{TestVertex, CONTEXT_STATE},
         uniform::{Uniforms, UniformsMemberRegistry},
     };
@@ -288,8 +288,8 @@ mod tests {
 
     #[derive(Clone, Copy)]
     struct TestUniforms {
-        color_tint: Vector3<f32>,
-        offset: Vector3<f32>,
+        color_tint: GLVec3<f32>,
+        offset: GLVec3<f32>,
     }
 
     impl Uniforms for TestUniforms {
@@ -322,8 +322,8 @@ mod tests {
 
             let program_bind = unsafe { state.program_target.bind(&program) };
             program_bind.upload_uniforms(TestUniforms {
-                color_tint: Vector3::new(1.0, 1.0, 1.0),
-                offset: Vector3::new(0.0, 1.0, 0.0),
+                color_tint: GLVec3::new(1.0, 1.0, 1.0),
+                offset: GLVec3::new(0.0, 1.0, 0.0),
             })
         })
     }

@@ -13,29 +13,142 @@
 // limitations under the License.
 
 //! Types used to interface with GLSL.
+//!
+//! # Thinking about matrix layout
+//!
+//! So, you're programming your game's mathematics. You've gotten to the point where you're using
+//! matrices to do transformations quickly, and you're trying to figure out where to put the numbers
+//! on the screen so that everything works out correctly. This, somehow, has ended up being confusing
+//! and you're trying to figure out why you can't just lay out your numbers in the source code the
+//! same way they're laid out in your linear algebra textbook or whatever webpage you found that
+//! explains matrices. This explanation will attempt to make sense of that.
+//!
+//! Say you have a 3D vector at point `(0x, 1y, 2z)`. If you were a mathematician, you would write
+//! that out as a vertical box, like this:
+//!
+//! ```text
+//! ___
+//! |0|
+//! |1|
+//! |2|
+//! ‾‾‾
+//! ```
+//!
+//! However, you're reading the documentation for a Rust crate, so it's not much of a stretch to
+//! assume that you're a programmer, not a mathematician. With that in mind, if you wanted to write
+//! out that vector in your source code (assuming you're using our handy [`GLVec3`] type), you'd
+//! probably do so like this:
+//!
+//! ```rust
+//! let vector = GLVec3::new(0, 1, 2);
+//! ```
+//!
+//! In memory, that corresponds to an array of three numbers:
+//!
+//! ```rust
+//! let vector_array = [0, 1, 2];
+//! ```
+//!
+//! Let's return to the (admittedly debunked) assumption that you're a mathematician. Mathematician
+//! you may be aware of the fact that vectors are just single-column matrices. Indeed, you can form
+//! a matrix by just taking a bunch of vectors (I've commonly heard these referred to as "basis
+//! vectors" in this context):
+//!
+//! ```text
+//! ___ ___ ___
+//! |0| |2| |4|
+//! |1| |3| |5|
+//! ‾‾‾ ‾‾‾ ‾‾‾
+//! ```
+//!
+//! and gluing them together:
+//!
+//! ```text
+//! _______
+//! |0 2 4|
+//! |1 3 5|
+//! ‾‾‾‾‾‾‾
+//! ```
+//!
+//! Just like that, we've created a `2x3` matrix via judicious application of Elmer's. (I'll note
+//! that "gluing vectors together" isn't a mathematically rigorous operation. However, I don't have
+//! a formal background in math, so I don't know anyone who will complain at me for doing that.)
+//! Conceptually, we can think of that as an array of vectors:
+//!
+//! ```text
+//! ___
+//! |0|
+//! |1|
+//! ‾‾‾
+//! ___
+//! |2|
+//! |3|
+//! ‾‾‾
+//! ___
+//! |4|
+//! |5|
+//! ‾‾‾
+//! ```
+//!
+//! Re-donning our programmer hats, we would express an array of arrays like this:
+//!
+//! ```rust
+//! let matrix_array = [
+//!     [0, 1],
+//!     [2, 3],
+//!     [4, 5],
+//! ];
+//! ```
+//!
+//! Or, with one of Gullery's matrix types, like this:
+//!
+//! ```rust
+//! let matrix = GLMat2r3c {
+//!     x: GLVec2::new(0, 1),
+//!     y: GLVec2::new(2, 3),
+//!     z: GLVec2::new(4, 5),
+//! }
+//! ```
+//!
+//! We've recreated the mismatch. This style of layout is referred to as "column major", and most
+//! Rust mathematics libraries (and this crate) use that convention. Unfortunately, it means that
+//! our source code layout doesn't correspond with mathematical layout. Hopefully, understanding
+//! that will help you avoid mixing up your numbers in your code.
+//!
+//! ----
+//!
+//! As an aside, you may be aware of the fact that the size of a matrix is written as
+//! `rows x columns`. Indeed, we used that notation above to denote the size of our 2 row, 3 column
+//! matrix above. GLSL doesn't do that. Instead, it writes matrix size as `columns x rows`, such
+//! that our previous `2x3` matrix would have a GLSL type of `mat3x2`. The only sensible reason I
+//! can think of for this is that God hates OpenGL programmers, and He worked his best to make
+//! matricies as confusing as possible. This is consistent with the rest of OpenGL's raw API, so
+//! I'd consider that relatively plausible.
+//!
+//! Good luck.
 
 use crate::gl::{self, types::*};
-
-use crate::cgmath::{
-    Matrix2, Matrix3, Matrix4, Point1, Point2, Point3, Vector1, Vector2, Vector3, Vector4,
-};
 
 use std::{
     fmt::{self, Display, Formatter},
     mem,
-    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Sub, SubAssign},
+    marker::PhantomData,
 };
 
-use num_traits::{
-    identities::{One, Zero},
-    Num,
-};
+use num_traits::Num;
 
 /// Rust representation of a transparent GLSL type.
 pub unsafe trait TransparentType: 'static + Copy {
-    type Scalar: Scalar;
+    type Normalization: Normalization;
+    type Scalar: Scalar<Self::Normalization>;
     /// The OpenGL constant associated with this type.
     fn prim_tag() -> TypeTagSingle;
+}
+
+pub trait ScalarBase: 'static + Copy {
+    type DefaultNormalization: Normalization;
+    const GL_ENUM: GLenum;
+    const SIGNED: bool;
 }
 
 /// Scalar that OpenGL can read.
@@ -44,11 +157,9 @@ pub unsafe trait TransparentType: 'static + Copy {
 /// integers.
 ///
 /// [`GLSLInt`]: ./struct.GLSLInt.html
-pub unsafe trait Scalar: TransparentType {
+pub unsafe trait Scalar<N: Normalization>: ScalarBase {
     type ScalarType: ScalarType;
-    const GL_ENUM: GLenum;
-    const NORMALIZED: bool;
-    const SIGNED: bool;
+    const NORMALIZED: bool = N::NORMALIZED;
 }
 
 /// Marker trait that indicates the type GLSL reads a scalar value as.
@@ -74,6 +185,23 @@ pub enum GLSLIntSigned {}
 /// Used in conjunction with [`Scalar::ScalarType`](./trait.Scalar.html#associatedtype.ScalarType)
 pub enum GLSLIntUnsigned {}
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Normalized {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum NonNormalized {}
+
+pub trait Normalization: 'static + std::fmt::Debug + Clone + Copy + std::cmp::PartialEq + std::cmp::Eq + std::cmp::PartialOrd + std::cmp::Ord + std::hash::Hash {
+    const NORMALIZED: bool;
+}
+
+impl Normalization for Normalized {
+    const NORMALIZED: bool = true;
+}
+
+impl Normalization for NonNormalized {
+    const NORMALIZED: bool = false;
+}
+
 unsafe impl ScalarType for GLSLFloat {
     const PRIM_TAG: TypeTagSingle = TypeTagSingle::Float;
     const IS_INTEGER: bool = false;
@@ -91,17 +219,9 @@ unsafe impl ScalarType for GLSLIntUnsigned {
     const IS_INTEGER: bool = true;
 }
 
-unsafe impl<S: Scalar> TransparentType for S {
-    type Scalar = S;
-    #[inline(always)]
-    fn prim_tag() -> TypeTagSingle {
-        S::ScalarType::PRIM_TAG
-    }
-}
-
 /// A scalar that is also a number.
-pub unsafe trait ScalarNum: Scalar + Num {}
-unsafe impl<S: Scalar + Num> ScalarNum for S {}
+pub unsafe trait ScalarNum<N: Normalization>: Scalar<N> + Num {}
+unsafe impl<N: Normalization, S: Scalar<N> + Num> ScalarNum<N> for S {}
 
 /// The GLSL type associated with a rust type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -137,12 +257,12 @@ pub enum TypeTagSingle {
     Mat2 = gl::FLOAT_MAT2,
     Mat3 = gl::FLOAT_MAT3,
     Mat4 = gl::FLOAT_MAT4,
-    // Mat2x3 = gl::FLOAT_MAT2x3,
-    // Mat2x4 = gl::FLOAT_MAT2x4,
-    // Mat3x2 = gl::FLOAT_MAT3x2,
-    // Mat3x4 = gl::FLOAT_MAT3x4,
-    // Mat4x2 = gl::FLOAT_MAT4x2,
-    // Mat4x3 = gl::FLOAT_MAT4x3,
+    Mat2x3 = gl::FLOAT_MAT2x3,
+    Mat2x4 = gl::FLOAT_MAT2x4,
+    Mat3x2 = gl::FLOAT_MAT3x2,
+    Mat3x4 = gl::FLOAT_MAT3x4,
+    Mat4x2 = gl::FLOAT_MAT4x2,
+    Mat4x3 = gl::FLOAT_MAT4x3,
     // DMat2 = gl::DOUBLE_MAT2,
     // DMat3 = gl::DOUBLE_MAT3,
     // DMat4 = gl::DOUBLE_MAT4,
@@ -190,26 +310,215 @@ pub enum TypeTagSingle {
     USampler2DRect = gl::UNSIGNED_INT_SAMPLER_2D_RECT,
 }
 
-macro_rules! impl_glsl_vector {
-    ($(impl $vector:ident $num:expr;)*) => {$(
-        unsafe impl<P: Scalar> TransparentType for $vector<P> {
-            type Scalar = P;
-            #[inline]
-            fn prim_tag() -> TypeTagSingle {Self::Scalar::prim_tag().vectorize($num).unwrap()}
-        }
-    )*}
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct GLInt<S: Scalar<N>, N: Normalization = <S as ScalarBase>::DefaultNormalization>(pub S, pub PhantomData<N>);
+
+impl<S: Scalar<N>, N: Normalization> GLInt<S, N> {
+    pub fn new(i: S) -> GLInt<S, N> {
+        GLInt(i, PhantomData)
+    }
+
+    impl_slice_conversions!(S);
 }
-macro_rules! impl_glsl_matrix {
-    ($(impl $matrix:ident $num:expr;)*) => {$(
+
+impl<S: Scalar<N>, N: Normalization> From<S> for GLInt<S, N> {
+    fn from(i: S) -> GLInt<S, N> {
+        Self::new(i)
+    }
+}
+
+unsafe impl<N: Normalization, S: Scalar<N>> TransparentType for GLInt<S, N> {
+    type Normalization = N;
+    type Scalar = S;
+    #[inline]
+    fn prim_tag() -> TypeTagSingle {S::ScalarType::PRIM_TAG}
+}
+
+macro_rules! impl_array_conversions {
+    ($({$($generics:tt)+})? [$s:ty; $i:expr] -> $t:ty) => {
+        impl $(<$($generics)+>)? From<[$s; $i]> for $t {
+            fn from(array: [$s; $i]) -> $t {
+                use std::mem;
+                assert_eq!(mem::size_of::<[$s; $i]>(), mem::size_of::<$t>());
+                let r = unsafe{ mem::transmute_copy(&array) };
+                mem::forget(array);
+                r
+            }
+        }
+
+        impl $(<$($generics)+>)? Into<[$s; $i]> for $t {
+            fn into(self) -> [$s; $i] {
+                use std::mem;
+                assert_eq!(mem::size_of::<[$s; $i]>(), mem::size_of::<$t>());
+                let r = unsafe{ mem::transmute_copy(&self) };
+                mem::forget(self);
+                r
+            }
+        }
+    };
+}
+
+macro_rules! impl_array_deref {
+    ($({$($generics:tt)+})? [$s:ty; $i:expr] -> $t:ty) => {
+        impl $(<$($generics)+>)? std::ops::Deref for $t {
+            type Target = [$s; $i];
+            fn deref(&self) -> &[$s; $i] {
+                use std::mem;
+                assert_eq!(mem::size_of::<[$s; $i]>(), mem::size_of::<$t>());
+                unsafe{ &*(self as *const Self as *const [$s; $i]) }
+            }
+        }
+
+        impl $(<$($generics)+>)? std::ops::DerefMut for $t {
+            fn deref_mut(&mut self) -> &mut [$s; $i] {
+                use std::mem;
+                assert_eq!(mem::size_of::<[$s; $i]>(), mem::size_of::<$t>());
+                unsafe{ &mut *(self as *mut Self as *mut [$s; $i]) }
+            }
+        }
+    };
+}
+
+
+macro_rules! vector_struct {
+    ($(#[$meta:meta])* struct $Vector:ident($($dim:ident),+): $len:expr;) => {
+        $(#[$meta])*
+        #[repr(C)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        pub struct $Vector<S: Scalar<N>, N: Normalization = <S as ScalarBase>::DefaultNormalization> {
+            $(pub $dim: S,)+
+            pub _normalization: PhantomData<N>,
+        }
+
+        impl<S: Scalar<N>, N: Normalization> $Vector<S, N> {
+            pub const LEN: usize = $len;
+
+            pub fn new($($dim: S),+) -> $Vector<S, N> {
+                $Vector {$($dim,)+ _normalization: PhantomData}
+            }
+
+            impl_slice_conversions!(S);
+        }
+
+        impl_array_conversions!({S: Scalar<N>, N: Normalization} [S; $len] -> $Vector<S, N>);
+        impl_array_deref!({S: Scalar<N>, N: Normalization} [S; $len] -> $Vector<S, N>);
+
+        unsafe impl<N: Normalization, S: Scalar<N>> TransparentType for $Vector<S, N> {
+            type Normalization = N;
+            type Scalar = S;
+            #[inline]
+            fn prim_tag() -> TypeTagSingle {S::ScalarType::PRIM_TAG.vectorize($len).unwrap()}
+        }
+    }
+}
+
+vector_struct!{
+    struct GLVec2(x, y): 2;
+}
+vector_struct!{
+    struct GLVec3(x, y, z): 3;
+}
+vector_struct!{
+    struct GLVec4(x, y, z, w): 4;
+}
+
+macro_rules! matrix_struct {
+    ($(#[$meta:meta])* struct $Matrix:ident($($dim:ident),+): $Vector:ident, ($rows:expr, $cols:expr);) => {
+        $(#[$meta])*
+        #[repr(C)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        pub struct $Matrix<S: Scalar<NonNormalized>> {
+            $(pub $dim: $Vector<S, NonNormalized>),+
+        }
+
+        impl<S: Scalar<NonNormalized>> $Matrix<S> {
+            pub const ROWS: usize = $rows;
+            pub const COLUMNS: usize = $cols;
+
+            pub fn from_columns(
+                $($dim: $Vector<S, NonNormalized>),+
+            ) -> $Matrix<S> {
+                $Matrix {
+                    $($dim),+
+                }
+            }
+
+            impl_slice_conversions!(S);
+        }
+
+        impl_array_conversions!({S: Scalar<NonNormalized>} [S; $rows * $cols] -> $Matrix<S>);
+        impl_array_conversions!({S: Scalar<NonNormalized>} [[S; $cols]; $rows] -> $Matrix<S>);
+        impl_array_deref!({S: Scalar<NonNormalized>} [S; $rows * $cols] -> $Matrix<S>);
+
         // We aren't implementing matrix for normalized integers because that complicates uniform
         // upload. No idea if OpenGL actually supports it either.
-        unsafe impl TransparentType for $matrix<f32> {
+        unsafe impl TransparentType for $Matrix<f32> {
+            type Normalization = <f32 as ScalarBase>::DefaultNormalization;
             type Scalar = f32;
             #[inline]
-            fn prim_tag() -> TypeTagSingle {Self::Scalar::prim_tag().matricize($num, $num).unwrap()}
+            fn prim_tag() -> TypeTagSingle {<f32 as Scalar<<f32 as ScalarBase>::DefaultNormalization>>::ScalarType::PRIM_TAG.matricize($cols, $rows).unwrap()}
         }
-    )*}
+    }
 }
+
+matrix_struct!{
+    /// A column-major, 2-row, 2-column matrix.
+    ///
+    /// This corresponds to `mat2` in GLSL and a `2x2` matrix in math.
+    struct GLMat2r2c(x, y): GLVec2, (2, 2);
+}
+matrix_struct!{
+    /// A column-major, 2-row, 3-column matrix.
+    ///
+    /// This corresponds to `mat3x2` in GLSL and a `2x3` matrix literally everywhere else.
+    struct GLMat2r3c(x, y, z): GLVec2, (2, 3);
+}
+matrix_struct!{
+    /// A column-major, 2-row, 4-column matrix.
+    ///
+    /// This corresponds to `mat4x2` in GLSL and a `2x4` matrix literally everywhere else.
+    struct GLMat2r4c(x, y, z, w): GLVec2, (2, 4);
+}
+
+matrix_struct!{
+    /// A column-major, 3-row, 2-column matrix.
+    ///
+    /// This corresponds to `mat2x3` in GLSL and a `3x2` matrix literally everywhere else.
+    struct GLMat3r2c(x, y): GLVec3, (3, 2);
+}
+matrix_struct!{
+    /// A column-major, 3-row, 3-column matrix.
+    ///
+    /// This corresponds to `mat3` in GLSL and a `3x3` matrix in math.
+    struct GLMat3r3c(x, y, z): GLVec3, (3, 3);
+}
+matrix_struct!{
+    /// A column-major, 3-row, 4-column matrix.
+    ///
+    /// This corresponds to `mat4x3` in GLSL and a `3x4` matrix literally everywhere else.
+    struct GLMat3r4c(x, y, z, w): GLVec3, (3, 4);
+}
+
+matrix_struct!{
+    /// A column-major, 4-row, 2-column matrix.
+    ///
+    /// This corresponds to `mat2x4` in GLSL and a `4x2` matrix literally everywhere else.
+    struct GLMat4r2c(x, y): GLVec4, (4, 2);
+}
+matrix_struct!{
+    /// A column-major, 4-row, 3-column matrix.
+    ///
+    /// This corresponds to `mat3x4` in GLSL and a `4x3` matrix literally everywhere else.
+    struct GLMat4r3c(x, y, z): GLVec4, (4, 3);
+}
+matrix_struct!{
+    /// A column-major, 4-row, 4-column matrix.
+    ///
+    /// This corresponds to `mat4` in GLSL and a `4x4` matrix in math.
+    struct GLMat4r4c(x, y, z, w): GLVec4, (4, 4);
+}
+
 // I'm not implementing arrays right now because that's kinda complicated and I'm not convinced
 // it's worth the effort rn.
 // macro_rules! impl_glsl_array {
@@ -226,48 +535,63 @@ macro_rules! impl_glsl_matrix {
 // impl_glsl_array!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
 //     24, 25, 26, 27, 28, 29, 30, 31, 32);
 
-impl_glsl_vector! {
-    impl Vector1 1;
-    impl Vector2 2;
-    impl Vector3 3;
-    impl Vector4 4;
-    impl Point1 1;
-    impl Point2 2;
-    impl Point3 3;
-}
-impl_glsl_matrix! {
-    impl Matrix2 2;
-    impl Matrix3 3;
-    impl Matrix4 4;
-}
-
-macro_rules! impl_gl_scalar_nonorm {
-    ($(impl $scalar:ty = ($gl_enum:expr, $normalized:expr, $signed:expr);)*) => {$(
-        unsafe impl Scalar for $scalar {
+macro_rules! impl_gl_scalar_float {
+    ($(impl $scalar:ty = ($gl_enum:expr, $normalized:ty, $signed:expr);)*) => {$(
+        impl ScalarBase for $scalar {
+            type DefaultNormalization = $normalized;
+            const GL_ENUM: GLenum = $gl_enum;
+            const SIGNED: bool = $signed;
+        }
+        unsafe impl Scalar<$normalized> for $scalar {
             // We treat raw integers as normalized, so every base scalar is technically a float.
             type ScalarType = GLSLFloat;
-            const GL_ENUM: GLenum = $gl_enum;
-            const NORMALIZED: bool = $normalized;
-            const SIGNED: bool = $signed;
+        }
+        unsafe impl TransparentType for $scalar
+        {
+            type Normalization = $normalized;
+            type Scalar = $scalar;
+            #[inline(always)]
+            fn prim_tag() -> TypeTagSingle {
+                <$scalar as Scalar<$normalized>>::ScalarType::PRIM_TAG
+            }
         }
     )*};
 }
 
-impl_gl_scalar_nonorm! {
-    impl u8 = (gl::UNSIGNED_BYTE, true, false);
-    impl u16 = (gl::UNSIGNED_SHORT, true, false);
-    impl u32 = (gl::UNSIGNED_INT, true, false);
-    impl i8 = (gl::BYTE, true, true);
-    impl i16 = (gl::SHORT, true, true);
-    impl i32 = (gl::INT, true, true);
-    impl f32 = (gl::FLOAT, false, true);
-    // impl f64 = (gl::DOUBLE, false);
+impl_gl_scalar_float! {
+    impl u8 = (gl::UNSIGNED_BYTE, Normalized, false);
+    impl u16 = (gl::UNSIGNED_SHORT, Normalized, false);
+    impl u32 = (gl::UNSIGNED_INT, Normalized, false);
+    impl i8 = (gl::BYTE, Normalized, true);
+    impl i16 = (gl::SHORT, Normalized, true);
+    impl i32 = (gl::INT, Normalized, true);
+    impl f32 = (gl::FLOAT, NonNormalized, true);
+    // impl f64 = (gl::DOUBLE, NonNormalized, true);
 }
 
-unsafe impl Scalar for bool {
+macro_rules! impl_gl_scalar_int {
+    ($(impl $scalar:ty = $prim_tag:ident;)*) => {$(
+        unsafe impl Scalar<NonNormalized> for $scalar {
+            type ScalarType = $prim_tag;
+        }
+    )*}
+}
+
+impl_gl_scalar_int! {
+    impl u8 = GLSLIntUnsigned;
+    impl u16 = GLSLIntUnsigned;
+    impl u32 = GLSLIntUnsigned;
+    impl i8 = GLSLIntSigned;
+    impl i16 = GLSLIntSigned;
+    impl i32 = GLSLIntSigned;
+}
+
+unsafe impl Scalar<NonNormalized> for bool {
     type ScalarType = GLSLBool;
+}
+impl ScalarBase for bool {
+    type DefaultNormalization = NonNormalized;
     const GL_ENUM: GLenum = gl::BOOL;
-    const NORMALIZED: bool = false;
     const SIGNED: bool = false;
 }
 
@@ -314,12 +638,12 @@ impl Display for TypeTagSingle {
             Mat2 => "mat2",
             Mat3 => "mat3",
             Mat4 => "mat4",
-            // Mat2x3 => "mat2x3",
-            // Mat2x4 => "mat2x4",
-            // Mat3x2 => "mat3x2",
-            // Mat3x4 => "mat3x4",
-            // Mat4x2 => "mat4x2",
-            // Mat4x3 => "mat4x3",
+            Mat2x3 => "mat2x3",
+            Mat2x4 => "mat2x4",
+            Mat3x2 => "mat3x2",
+            Mat3x4 => "mat3x4",
+            Mat4x2 => "mat4x2",
+            Mat4x3 => "mat4x3",
             // DMat2 => "dmat2",
             // DMat3 => "dmat3",
             // DMat4 => "dmat4",
@@ -408,16 +732,16 @@ impl TypeTagSingle {
             Mat4 => 16,
             // DMat2x3 |
             // DMat3x2 |
-            // Mat3x2  |
-            // Mat2x3 => 6,
+            Mat3x2  |
+            Mat2x3 => 6,
             // DMat2x4 |
             // DMat4x2 |
-            // Mat4x2  |
-            // Mat2x4 => 8,
+            Mat4x2  |
+            Mat2x4 => 8,
             // DMat3x4 |
             // DMat4x3 |
-            // Mat3x4  |
-            // Mat4x3 => 12,
+            Mat3x4  |
+            Mat4x3 => 12,
             Sampler1D |
             Sampler2D |
             Sampler3D |
@@ -462,21 +786,21 @@ impl TypeTagSingle {
         use self::TypeTagSingle::*;
         match self {
             // DMat2x3 |
-            // Mat2x3  |
+            Mat2x3  |
             // DMat2x4 |
-            // Mat2x4  |
+            Mat2x4  |
             // DMat2   |
             Mat2   => 2,
             // DMat3x2 |
-            // Mat3x2  |
+            Mat3x2  |
             // DMat3x4 |
-            // Mat3x4  |
+            Mat3x4  |
             // DMat3   |
             Mat3   => 3,
             // DMat4x2 |
-            // Mat4x2  |
+            Mat4x2  |
             // DMat4x3 |
-            // Mat4x3  |
+            Mat4x3  |
             // DMat4   |
             Mat4   => 4,
 
@@ -582,12 +906,12 @@ impl TypeTagSingle {
             (Float, 2, 2) => Some(Mat2),
             (Float, 3, 3) => Some(Mat3),
             (Float, 4, 4) => Some(Mat4),
-            // (Float, 2, 3) => Some(Mat2x3),
-            // (Float, 2, 4) => Some(Mat2x4),
-            // (Float, 3, 2) => Some(Mat3x2),
-            // (Float, 3, 4) => Some(Mat3x4),
-            // (Float, 4, 2) => Some(Mat4x2),
-            // (Float, 4, 3) => Some(Mat4x3),
+            (Float, 2, 3) => Some(Mat2x3),
+            (Float, 2, 4) => Some(Mat2x4),
+            (Float, 3, 2) => Some(Mat3x2),
+            (Float, 3, 4) => Some(Mat3x4),
+            (Float, 4, 2) => Some(Mat4x2),
+            (Float, 4, 3) => Some(Mat4x3),
             // (Double, 2, 2) => Some(DMat2),
             // (Double, 3, 3) => Some(DMat3),
             // (Double, 4, 4) => Some(DMat4),
@@ -681,202 +1005,5 @@ impl TypeTagSingle {
             gl::UNSIGNED_INT_SAMPLER_2D_RECT => Some(USampler2DRect),
             _ => None,
         }
-    }
-}
-
-/// Wrapper type that causes GLSL to read the wrapped value as an integer.
-///
-/// Can wrap `u8`, `u16`, `u32`, `i8`, `i16`, and `i32`.
-#[repr(transparent)]
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, From)]
-pub struct GLSLInt<I>(pub I)
-where
-    I: Num;
-impl<I> Zero for GLSLInt<I>
-where
-    GLSLInt<I>: TransparentType,
-    I: Num,
-{
-    #[inline(always)]
-    fn zero() -> Self {
-        GLSLInt(I::zero())
-    }
-    #[inline(always)]
-    fn is_zero(&self) -> bool {
-        self.0.is_zero()
-    }
-}
-impl<I> One for GLSLInt<I>
-where
-    GLSLInt<I>: TransparentType,
-    I: Num,
-{
-    #[inline(always)]
-    fn one() -> Self {
-        GLSLInt(I::one())
-    }
-    #[inline(always)]
-    fn is_one(&self) -> bool {
-        self.0.is_one()
-    }
-}
-impl<I> Num for GLSLInt<I>
-where
-    GLSLInt<I>: TransparentType,
-    I: Num,
-{
-    type FromStrRadixErr = I::FromStrRadixErr;
-    #[inline(always)]
-    fn from_str_radix(str: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr> {
-        Ok(GLSLInt(I::from_str_radix(str, radix)?))
-    }
-}
-
-macro_rules! impl_glslint {
-    ($(impl $scalar:ty = $prim_tag:ident;)*) => {$(
-        unsafe impl Scalar for GLSLInt<$scalar> {
-            type ScalarType = $prim_tag;
-            const GL_ENUM: GLenum = <$scalar as Scalar>::GL_ENUM;
-            const NORMALIZED: bool = false;
-            const SIGNED: bool = <$scalar as Scalar>::SIGNED;
-        }
-    )*}
-}
-
-impl_glslint! {
-    impl u8 = GLSLIntUnsigned;
-    impl u16 = GLSLIntUnsigned;
-    impl u32 = GLSLIntUnsigned;
-    impl i8 = GLSLIntSigned;
-    impl i16 = GLSLIntSigned;
-    impl i32 = GLSLIntSigned;
-}
-impl<I> Add for GLSLInt<I>
-where
-    GLSLInt<I>: TransparentType,
-    I: Num,
-{
-    type Output = GLSLInt<I>;
-
-    #[inline]
-    fn add(self, rhs: GLSLInt<I>) -> GLSLInt<I> {
-        GLSLInt(self.0 + rhs.0)
-    }
-}
-impl<I> AddAssign for GLSLInt<I>
-where
-    GLSLInt<I>: TransparentType,
-    I: Num,
-{
-    #[inline]
-    fn add_assign(&mut self, rhs: GLSLInt<I>) {
-        *self = *self + rhs;
-    }
-}
-impl<I> Sub for GLSLInt<I>
-where
-    GLSLInt<I>: TransparentType,
-    I: Num,
-{
-    type Output = GLSLInt<I>;
-
-    #[inline]
-    fn sub(self, rhs: GLSLInt<I>) -> GLSLInt<I> {
-        GLSLInt(self.0 - rhs.0)
-    }
-}
-impl<I> SubAssign for GLSLInt<I>
-where
-    GLSLInt<I>: TransparentType,
-    I: Num,
-{
-    #[inline]
-    fn sub_assign(&mut self, rhs: GLSLInt<I>) {
-        *self = *self - rhs;
-    }
-}
-impl<I> Mul for GLSLInt<I>
-where
-    GLSLInt<I>: TransparentType,
-    I: Num,
-{
-    type Output = GLSLInt<I>;
-
-    #[inline]
-    fn mul(self, rhs: GLSLInt<I>) -> GLSLInt<I> {
-        GLSLInt(self.0 * rhs.0)
-    }
-}
-impl<I> MulAssign for GLSLInt<I>
-where
-    GLSLInt<I>: TransparentType,
-    I: Num,
-{
-    #[inline]
-    fn mul_assign(&mut self, rhs: GLSLInt<I>) {
-        *self = *self * rhs;
-    }
-}
-// impl<I> Mul<GLSLInt<I>> for $inner
-//     where GLSLInt<I>: TransparentType,
-//           I: Num
-// {
-//     type Output = $inner;
-//     #[inline]
-//     fn mul(self, rhs: GLSLInt<I>) -> $inner {
-//         (GLSLInt(self) * rhs).0
-//     }
-// }
-// impl<I> MulAssign<GLSLInt<I>> for $inner
-//     where GLSLInt<I>: TransparentType,
-//           I: Num
-// {
-//     #[inline]
-//     fn mul_assign(&mut self, rhs: GLSLInt<I>) {
-//         *self = *self * rhs
-//     }
-// }
-impl<I> Div for GLSLInt<I>
-where
-    GLSLInt<I>: TransparentType,
-    I: Num,
-{
-    type Output = GLSLInt<I>;
-
-    #[inline]
-    fn div(self, rhs: GLSLInt<I>) -> GLSLInt<I> {
-        GLSLInt(self.0 / rhs.0)
-    }
-}
-impl<I> DivAssign for GLSLInt<I>
-where
-    GLSLInt<I>: TransparentType,
-    I: Num,
-{
-    #[inline]
-    fn div_assign(&mut self, rhs: GLSLInt<I>) {
-        *self = *self / rhs;
-    }
-}
-impl<I> Rem for GLSLInt<I>
-where
-    GLSLInt<I>: TransparentType,
-    I: Num,
-{
-    type Output = GLSLInt<I>;
-
-    #[inline]
-    fn rem(self, rhs: GLSLInt<I>) -> GLSLInt<I> {
-        GLSLInt(self.0 % rhs.0)
-    }
-}
-impl<I> RemAssign for GLSLInt<I>
-where
-    GLSLInt<I>: TransparentType,
-    I: Num,
-{
-    #[inline]
-    fn rem_assign(&mut self, rhs: GLSLInt<I>) {
-        *self = *self % rhs;
     }
 }

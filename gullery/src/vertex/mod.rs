@@ -17,7 +17,7 @@ pub use self::vao::VertexArrayObject;
 
 use crate::{
     gl::types::GLenum,
-    glsl::{Scalar, TransparentType},
+    glsl::{ScalarBase, TransparentType},
 };
 use std::marker::PhantomData;
 
@@ -28,13 +28,13 @@ unsafe impl Index for ! {
     const INDEX_GL_ENUM: Option<GLenum> = None;
 }
 unsafe impl Index for u8 {
-    const INDEX_GL_ENUM: Option<GLenum> = Some(u8::GL_ENUM);
+    const INDEX_GL_ENUM: Option<GLenum> = Some(<u8 as ScalarBase>::GL_ENUM);
 }
 unsafe impl Index for u16 {
-    const INDEX_GL_ENUM: Option<GLenum> = Some(u16::GL_ENUM);
+    const INDEX_GL_ENUM: Option<GLenum> = Some(<u16 as ScalarBase>::GL_ENUM);
 }
 unsafe impl Index for u32 {
-    const INDEX_GL_ENUM: Option<GLenum> = Some(u32::GL_ENUM);
+    const INDEX_GL_ENUM: Option<GLenum> = Some(<u32 as ScalarBase>::GL_ENUM);
 }
 
 pub trait VertexMemberRegistry {

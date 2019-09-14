@@ -16,7 +16,7 @@ use crate::gl::{self, types::*, Gl};
 
 use crate::{
     buffer::Buffer,
-    glsl::{Scalar, TransparentType, TypeTagSingle},
+    glsl::{Scalar, ScalarType, TransparentType, TypeTagSingle, ScalarBase},
     vertex::{Index, Vertex, VertexMemberRegistry},
     ContextState, GLObject, Handle,
 };
@@ -171,7 +171,7 @@ impl<'a, V: Vertex> VertexMemberRegistry for VertexAttribBuilder<'a, V> {
                     gl.EnableVertexAttribArray(self.attrib_loc + slot);
                     let slot_offset = slot as usize * attrib_size;
 
-                    match T::Scalar::prim_tag() {
+                    match <T::Scalar as Scalar<T::Normalization>>::ScalarType::PRIM_TAG {
                         TypeTagSingle::Float => gl.VertexAttribPointer(
                             self.attrib_loc + slot,
                             attrib_len as GLint,

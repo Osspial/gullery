@@ -2,7 +2,6 @@
 
 use crate::{
     gl::{self, types::*},
-    image_format::Rgba,
 };
 
 /// Value read from texture, when swizzled.
@@ -242,12 +241,5 @@ impl From<TextureWrapAxis> for GLenum {
             ClampToEdge => gl::CLAMP_TO_EDGE,
             // ClampToBorder = gl::CLAMP_TO_BORDER,
         }
-    }
-}
-
-impl Default for Rgba<Swizzle> {
-    #[inline]
-    fn default() -> Rgba<Swizzle> {
-        Rgba::new(Swizzle::Red, Swizzle::Green, Swizzle::Blue, Swizzle::Alpha)
     }
 }

@@ -16,8 +16,6 @@
 #![recursion_limit = "256"]
 
 extern crate gullery_bindings as gl;
-#[macro_use]
-extern crate derive_more;
 extern crate num_traits;
 use cgmath_geometry::cgmath;
 extern crate cgmath_geometry;
@@ -30,6 +28,8 @@ extern crate quickcheck;
 #[cfg(test)]
 extern crate glutin;
 
+#[macro_use]
+mod macros;
 pub mod buffer;
 pub mod framebuffer;
 pub mod glsl;
@@ -127,7 +127,7 @@ impl ContextState {
 mod test_helper {
     use super::*;
     use crate::{
-        cgmath::{Point2, Point3},
+        glsl::{GLVec2, GLVec3},
         vertex::{Vertex, VertexMemberRegistry},
     };
     use glutin::{Api, Context, ContextBuilder, EventsLoop, GlContext, GlRequest};
@@ -135,8 +135,8 @@ mod test_helper {
 
     #[derive(Debug, Clone, Copy)]
     pub struct TestVertex {
-        pos: Point2<f32>,
-        color: Point3<f32>,
+        pos: GLVec2<f32>,
+        color: GLVec3<f32>,
     }
 
     impl Vertex for TestVertex {
@@ -152,8 +152,8 @@ mod test_helper {
     impl Arbitrary for TestVertex {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
             TestVertex {
-                pos: Point2::new(f32::arbitrary(g), f32::arbitrary(g)),
-                color: Point3::new(f32::arbitrary(g), f32::arbitrary(g), f32::arbitrary(g)),
+                pos: GLVec2::new(f32::arbitrary(g), f32::arbitrary(g)),
+                color: GLVec3::new(f32::arbitrary(g), f32::arbitrary(g), f32::arbitrary(g)),
             }
         }
     }
