@@ -8,6 +8,7 @@ gullery_bindings = {path = "../gullery_bindings"}
 num-traits = "0.2"
 cgmath-geometry = { git = "https://github.com/Osspial/cgmath-geometry" }
 bitflags = "1.0"
+mint = "0.5"
 
 [dev-dependencies]
 glutin = "0.19"

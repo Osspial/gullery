@@ -21,6 +21,7 @@ use cgmath_geometry::cgmath;
 extern crate cgmath_geometry;
 #[macro_use]
 extern crate bitflags;
+extern crate mint;
 
 #[cfg(test)]
 #[macro_use]

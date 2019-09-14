@@ -134,6 +134,7 @@ use std::{
     marker::PhantomData,
     mem,
 };
+use mint::{ColumnMatrix2, ColumnMatrix3, ColumnMatrix4, ColumnMatrix2x3, ColumnMatrix3x2, ColumnMatrix3x4, ColumnMatrix4x3};
 
 use num_traits::Num;
 
@@ -350,27 +351,47 @@ unsafe impl<N: Normalization, S: Scalar<N>> TransparentType for GLInt<S, N> {
     }
 }
 
-macro_rules! impl_array_conversions {
-    ($({$($generics:tt)+})? [$s:ty; $i:expr] -> $t:ty) => {
-        impl $(<$($generics)+>)? From<[$s; $i]> for $t {
-            fn from(array: [$s; $i]) -> $t {
+macro_rules! impl_mint_conversions {
+    ($({$($generics:tt)+})? $mint:ty => $t:ty) => {
+        impl<M: Into<$mint> $(, $($generics)+)?> From<M> for $t {
+            fn from(mint: M) -> $t {
                 use std::mem;
-                assert_eq!(mem::size_of::<[$s; $i]>(), mem::size_of::<$t>());
-                let r = unsafe{ mem::transmute_copy(&array) };
-                mem::forget(array);
+                let mint: $mint = mint.into();
+                assert_eq!(mem::size_of::<$mint>(), mem::size_of::<$t>());
+                let r = unsafe{ mem::transmute_copy(&mint) };
+                mem::forget(mint);
                 r
             }
         }
 
-        impl $(<$($generics)+>)? Into<[$s; $i]> for $t {
-            fn into(self) -> [$s; $i] {
+        impl$(<$($generics)+>)? $t
+        {
+            /// Ideally this would be a plain `Into` implementation but implementation shadowing
+            /// rules disallow that.
+            pub fn into<M>(self) -> M
+                where $mint: Into<M>
+            {
                 use std::mem;
-                assert_eq!(mem::size_of::<[$s; $i]>(), mem::size_of::<$t>());
-                let r = unsafe{ mem::transmute_copy(&self) };
+                assert_eq!(mem::size_of::<$mint>(), mem::size_of::<$t>());
+                let r: $mint = unsafe{ mem::transmute_copy(&self) };
                 mem::forget(self);
-                r
+                r.into()
             }
         }
+
+        // This implementation doesn't work because we can't specialize `core`'s generic `From`
+        // and `Into` implementations.
+        // impl<M $(, $($generics)+)?> Into<M> for $t
+        //     where $mint: Into<M>
+        // {
+        //     fn into(self) -> M {
+        //         // use std::mem;
+        //         // assert_eq!(mem::size_of::<$mint>(), mem::size_of::<$t>());
+        //         // let r: $mint = unsafe{ mem::transmute_copy(&self) };
+        //         // mem::forget(self);
+        //         // r.into()
+        //     }
+        // }
     };
 }
 
@@ -415,7 +436,7 @@ macro_rules! vector_struct {
             impl_slice_conversions!(S);
         }
 
-        impl_array_conversions!({S: Scalar<N>, N: Normalization} [S; $len] -> $Vector<S, N>);
+        impl_mint_conversions!({S: Scalar<N>, N: Normalization} [S; $len] => $Vector<S, N>);
         impl_array_deref!({S: Scalar<N>, N: Normalization} [S; $len] -> $Vector<S, N>);
 
         unsafe impl<N: Normalization, S: Scalar<N>> TransparentType for $Vector<S, N> {
@@ -426,6 +447,7 @@ macro_rules! vector_struct {
         }
     }
 }
+
 
 vector_struct! {
     struct GLVec2(x, y): 2;
@@ -438,7 +460,7 @@ vector_struct! {
 }
 
 macro_rules! matrix_struct {
-    ($(#[$meta:meta])* struct $Matrix:ident($($dim:ident),+): $Vector:ident, ($rows:expr, $cols:expr);) => {
+    ($(#[$meta:meta])* struct $(: $mint:ident ->)? $Matrix:ident($($dim:ident),+): $Vector:ident, ($rows:expr, $cols:expr);) => {
         $(#[$meta])*
         #[repr(C)]
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -461,8 +483,7 @@ macro_rules! matrix_struct {
             impl_slice_conversions!(S);
         }
 
-        impl_array_conversions!({S: Scalar<NonNormalized>} [S; $rows * $cols] -> $Matrix<S>);
-        impl_array_conversions!({S: Scalar<NonNormalized>} [[S; $cols]; $rows] -> $Matrix<S>);
+        $(impl_mint_conversions!({S: Scalar<NonNormalized>} $mint<S> => $Matrix<S>);)?
         impl_array_deref!({S: Scalar<NonNormalized>} [S; $rows * $cols] -> $Matrix<S>);
 
         // We aren't implementing matrix for normalized integers because that complicates uniform
@@ -480,57 +501,57 @@ matrix_struct! {
     /// A column-major, 2-row, 2-column matrix.
     ///
     /// This corresponds to `mat2` in GLSL and a `2x2` matrix in math.
-    struct GLMat2r2c(x, y): GLVec2, (2, 2);
+    struct : ColumnMatrix2 -> GLMat2r2c(x, y): GLVec2, (2, 2);
 }
 matrix_struct! {
     /// A column-major, 2-row, 3-column matrix.
     ///
     /// This corresponds to `mat3x2` in GLSL and a `2x3` matrix literally everywhere else.
-    struct GLMat2r3c(x, y, z): GLVec2, (2, 3);
+    struct : ColumnMatrix2x3 -> GLMat2r3c(x, y, z): GLVec2, (2, 3);
 }
 matrix_struct! {
     /// A column-major, 2-row, 4-column matrix.
     ///
     /// This corresponds to `mat4x2` in GLSL and a `2x4` matrix literally everywhere else.
-    struct GLMat2r4c(x, y, z, w): GLVec2, (2, 4);
+    struct /*ColumnMatrix2x4 ->*/ GLMat2r4c(x, y, z, w): GLVec2, (2, 4);
 }
 
 matrix_struct! {
     /// A column-major, 3-row, 2-column matrix.
     ///
     /// This corresponds to `mat2x3` in GLSL and a `3x2` matrix literally everywhere else.
-    struct GLMat3r2c(x, y): GLVec3, (3, 2);
+    struct : ColumnMatrix3x2 -> GLMat3r2c(x, y): GLVec3, (3, 2);
 }
 matrix_struct! {
     /// A column-major, 3-row, 3-column matrix.
     ///
     /// This corresponds to `mat3` in GLSL and a `3x3` matrix in math.
-    struct GLMat3r3c(x, y, z): GLVec3, (3, 3);
+    struct : ColumnMatrix3 -> GLMat3r3c(x, y, z): GLVec3, (3, 3);
 }
 matrix_struct! {
     /// A column-major, 3-row, 4-column matrix.
     ///
     /// This corresponds to `mat4x3` in GLSL and a `3x4` matrix literally everywhere else.
-    struct GLMat3r4c(x, y, z, w): GLVec3, (3, 4);
+    struct : ColumnMatrix3x4 -> GLMat3r4c(x, y, z, w): GLVec3, (3, 4);
 }
 
 matrix_struct! {
     /// A column-major, 4-row, 2-column matrix.
     ///
     /// This corresponds to `mat2x4` in GLSL and a `4x2` matrix literally everywhere else.
-    struct GLMat4r2c(x, y): GLVec4, (4, 2);
+    struct /*ColumnMatrix4x2 ->*/ GLMat4r2c(x, y): GLVec4, (4, 2);
 }
 matrix_struct! {
     /// A column-major, 4-row, 3-column matrix.
     ///
     /// This corresponds to `mat3x4` in GLSL and a `4x3` matrix literally everywhere else.
-    struct GLMat4r3c(x, y, z): GLVec4, (4, 3);
+    struct : ColumnMatrix4x3 -> GLMat4r3c(x, y, z): GLVec4, (4, 3);
 }
 matrix_struct! {
     /// A column-major, 4-row, 4-column matrix.
     ///
     /// This corresponds to `mat4` in GLSL and a `4x4` matrix in math.
-    struct GLMat4r4c(x, y, z, w): GLVec4, (4, 4);
+    struct : ColumnMatrix4 -> GLMat4r4c(x, y, z, w): GLVec4, (4, 4);
 }
 
 // I'm not implementing arrays right now because that's kinda complicated and I'm not convinced
