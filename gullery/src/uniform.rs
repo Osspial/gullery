@@ -123,12 +123,30 @@ macro_rules! impl_glsl_type_uniform {
     };
 }
 
-#[inline(always)] fn nu8(i: u8) -> f32 {(i as f32 / u8::max_value() as f32) as f32}
-#[inline(always)] fn nu16(i: u16) -> f32 {(i as f32 / u16::max_value() as f32) as f32}
-#[inline(always)] fn nu32(i: u32) -> f32 {(i as f64 / u32::max_value() as f64) as f32}
-#[inline(always)] fn ni8(i: i8) -> f32 {f32::max(-1.0, (i as f32 / i8::max_value() as f32) as f32)}
-#[inline(always)] fn ni16(i: i16) -> f32 {f32::max(-1.0, (i as f32 / i16::max_value() as f32) as f32)}
-#[inline(always)] fn ni32(i: i32) -> f32 {f32::max(-1.0, (i as f64 / i32::max_value() as f64) as f32)}
+#[inline(always)]
+fn nu8(i: u8) -> f32 {
+    (i as f32 / u8::max_value() as f32) as f32
+}
+#[inline(always)]
+fn nu16(i: u16) -> f32 {
+    (i as f32 / u16::max_value() as f32) as f32
+}
+#[inline(always)]
+fn nu32(i: u32) -> f32 {
+    (i as f64 / u32::max_value() as f64) as f32
+}
+#[inline(always)]
+fn ni8(i: i8) -> f32 {
+    f32::max(-1.0, (i as f32 / i8::max_value() as f32) as f32)
+}
+#[inline(always)]
+fn ni16(i: i16) -> f32 {
+    f32::max(-1.0, (i as f32 / i16::max_value() as f32) as f32)
+}
+#[inline(always)]
+fn ni32(i: i32) -> f32 {
+    f32::max(-1.0, (i as f64 / i32::max_value() as f64) as f32)
+}
 
 impl_glsl_type_uniform! {
     f32, (f, loc, gl) => gl.Uniform1f(loc, f),

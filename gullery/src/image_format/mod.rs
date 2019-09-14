@@ -32,8 +32,8 @@
 
 pub mod compressed;
 
-use std::marker::PhantomData;
 use crate::gl::{self, types::*};
+use std::marker::PhantomData;
 
 use crate::glsl::*;
 
@@ -292,7 +292,7 @@ impl_color! {
 impl SRgba {
     #[inline]
     pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
-        SRgba {r, g, b, a}
+        SRgba { r, g, b, a }
     }
 
     impl_slice_conversions!(SRgba);
@@ -301,7 +301,7 @@ impl SRgba {
 impl SRgb {
     #[inline]
     pub fn new(r: u8, g: u8, b: u8) -> Self {
-        SRgb {r, g, b}
+        SRgb { r, g, b }
     }
 
     impl_slice_conversions!(SRgb);

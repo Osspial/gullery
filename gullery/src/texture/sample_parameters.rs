@@ -1,8 +1,6 @@
 //! Parameters used to control how a texture gets sampled by shaders.
 
-use crate::{
-    gl::{self, types::*},
-};
+use crate::gl::{self, types::*};
 
 /// Value read from texture, when swizzled.
 #[repr(u8)]

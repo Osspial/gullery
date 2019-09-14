@@ -16,7 +16,7 @@ use crate::gl::{self, types::*, Gl};
 
 use crate::{
     buffer::Buffer,
-    glsl::{Scalar, ScalarType, TransparentType, TypeTagSingle, ScalarBase},
+    glsl::{Scalar, ScalarBase, ScalarType, TransparentType, TypeTagSingle},
     vertex::{Index, Vertex, VertexMemberRegistry},
     ContextState, GLObject, Handle,
 };

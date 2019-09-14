@@ -131,8 +131,8 @@ use crate::gl::{self, types::*};
 
 use std::{
     fmt::{self, Display, Formatter},
-    mem,
     marker::PhantomData,
+    mem,
 };
 
 use num_traits::Num;
@@ -190,7 +190,17 @@ pub enum Normalized {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum NonNormalized {}
 
-pub trait Normalization: 'static + std::fmt::Debug + Clone + Copy + std::cmp::PartialEq + std::cmp::Eq + std::cmp::PartialOrd + std::cmp::Ord + std::hash::Hash {
+pub trait Normalization:
+    'static
+    + std::fmt::Debug
+    + Clone
+    + Copy
+    + std::cmp::PartialEq
+    + std::cmp::Eq
+    + std::cmp::PartialOrd
+    + std::cmp::Ord
+    + std::hash::Hash
+{
     const NORMALIZED: bool;
 }
 
@@ -312,7 +322,10 @@ pub enum TypeTagSingle {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct GLInt<S: Scalar<N>, N: Normalization = <S as ScalarBase>::DefaultNormalization>(pub S, pub PhantomData<N>);
+pub struct GLInt<S: Scalar<N>, N: Normalization = <S as ScalarBase>::DefaultNormalization>(
+    pub S,
+    pub PhantomData<N>,
+);
 
 impl<S: Scalar<N>, N: Normalization> GLInt<S, N> {
     pub fn new(i: S) -> GLInt<S, N> {
@@ -332,7 +345,9 @@ unsafe impl<N: Normalization, S: Scalar<N>> TransparentType for GLInt<S, N> {
     type Normalization = N;
     type Scalar = S;
     #[inline]
-    fn prim_tag() -> TypeTagSingle {S::ScalarType::PRIM_TAG}
+    fn prim_tag() -> TypeTagSingle {
+        S::ScalarType::PRIM_TAG
+    }
 }
 
 macro_rules! impl_array_conversions {
@@ -380,7 +395,6 @@ macro_rules! impl_array_deref {
     };
 }
 
-
 macro_rules! vector_struct {
     ($(#[$meta:meta])* struct $Vector:ident($($dim:ident),+): $len:expr;) => {
         $(#[$meta])*
@@ -413,13 +427,13 @@ macro_rules! vector_struct {
     }
 }
 
-vector_struct!{
+vector_struct! {
     struct GLVec2(x, y): 2;
 }
-vector_struct!{
+vector_struct! {
     struct GLVec3(x, y, z): 3;
 }
-vector_struct!{
+vector_struct! {
     struct GLVec4(x, y, z, w): 4;
 }
 
@@ -462,57 +476,57 @@ macro_rules! matrix_struct {
     }
 }
 
-matrix_struct!{
+matrix_struct! {
     /// A column-major, 2-row, 2-column matrix.
     ///
     /// This corresponds to `mat2` in GLSL and a `2x2` matrix in math.
     struct GLMat2r2c(x, y): GLVec2, (2, 2);
 }
-matrix_struct!{
+matrix_struct! {
     /// A column-major, 2-row, 3-column matrix.
     ///
     /// This corresponds to `mat3x2` in GLSL and a `2x3` matrix literally everywhere else.
     struct GLMat2r3c(x, y, z): GLVec2, (2, 3);
 }
-matrix_struct!{
+matrix_struct! {
     /// A column-major, 2-row, 4-column matrix.
     ///
     /// This corresponds to `mat4x2` in GLSL and a `2x4` matrix literally everywhere else.
     struct GLMat2r4c(x, y, z, w): GLVec2, (2, 4);
 }
 
-matrix_struct!{
+matrix_struct! {
     /// A column-major, 3-row, 2-column matrix.
     ///
     /// This corresponds to `mat2x3` in GLSL and a `3x2` matrix literally everywhere else.
     struct GLMat3r2c(x, y): GLVec3, (3, 2);
 }
-matrix_struct!{
+matrix_struct! {
     /// A column-major, 3-row, 3-column matrix.
     ///
     /// This corresponds to `mat3` in GLSL and a `3x3` matrix in math.
     struct GLMat3r3c(x, y, z): GLVec3, (3, 3);
 }
-matrix_struct!{
+matrix_struct! {
     /// A column-major, 3-row, 4-column matrix.
     ///
     /// This corresponds to `mat4x3` in GLSL and a `3x4` matrix literally everywhere else.
     struct GLMat3r4c(x, y, z, w): GLVec3, (3, 4);
 }
 
-matrix_struct!{
+matrix_struct! {
     /// A column-major, 4-row, 2-column matrix.
     ///
     /// This corresponds to `mat2x4` in GLSL and a `4x2` matrix literally everywhere else.
     struct GLMat4r2c(x, y): GLVec4, (4, 2);
 }
-matrix_struct!{
+matrix_struct! {
     /// A column-major, 4-row, 3-column matrix.
     ///
     /// This corresponds to `mat3x4` in GLSL and a `4x3` matrix literally everywhere else.
     struct GLMat4r3c(x, y, z): GLVec4, (4, 3);
 }
-matrix_struct!{
+matrix_struct! {
     /// A column-major, 4-row, 4-column matrix.
     ///
     /// This corresponds to `mat4` in GLSL and a `4x4` matrix in math.

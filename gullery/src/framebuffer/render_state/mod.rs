@@ -69,7 +69,10 @@ impl RenderState {
             raw::set_gl_cap(gl, Capability::Multisample(self.multisample));
         }
         if self.primitive_restart_index != old_state.primitive_restart_index {
-            raw::set_gl_cap(gl, Capability::PrimitiveRestart(self.primitive_restart_index));
+            raw::set_gl_cap(
+                gl,
+                Capability::PrimitiveRestart(self.primitive_restart_index),
+            );
         }
         if self.rasterizer_discard != old_state.rasterizer_discard {
             raw::set_gl_cap(gl, Capability::RasterizerDiscard(self.rasterizer_discard));
