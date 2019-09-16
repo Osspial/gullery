@@ -57,7 +57,7 @@ pub enum ProgramWarning {
     /// A uniform was specified, but is unused by OpenGL.
     ///
     /// Includes the uniform's identifier.
-    UnusedRustUniform(String),
+    UnusedUniform(String),
     /// A vertex attribute was specified, but is unused by OpenGL.
     ///
     /// Includes the attribute's identifier.
@@ -115,7 +115,7 @@ impl Display for ProgramWarning {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         use self::ProgramWarning::*;
         match *self {
-            UnusedRustUniform(ref ident) => write!(f, "Uniform uniform `{}`", ident),
+            UnusedUniform(ref ident) => write!(f, "Uniform uniform `{}`", ident),
             UnusedVertexAttribute(ref ident) => write!(f, "Unused vertex attribute `{}`", ident),
             UnusedColorAttachment(ref ident) => write!(f, "Unused color attachment `{}`", ident),
         }

@@ -159,7 +159,7 @@ impl<S: ShaderStage> RawShader<S> {
 }
 
 impl RawProgram {
-    pub fn new<'b, F>(
+    pub fn new<'b, F, U: Uniforms>(
         attach_shaders: F,
         gl: &Gl,
     ) -> Result<(RawProgram, Vec<ProgramWarning>), ProgramError>
@@ -198,6 +198,8 @@ impl RawProgram {
                     gl.DetachShader(program.handle.get(), shader_handle.get());
                     post_link_hook(&program, gl, &mut warnings, &mut errors);
                 }
+
+                program.type_check_uniforms::<U>(gl, &mut errors);
 
                 match errors.len() {
                     0 => Ok((program, warnings)),
@@ -271,7 +273,7 @@ impl RawProgram {
 
                     if loc == -1 {
                         self.warnings
-                            .push(ProgramWarning::UnusedRustUniform(name.to_string()));
+                            .push(ProgramWarning::UnusedUniform(name.to_string()));
                     }
                 }
                 self.locs.as_mut()[self.locs_index] = loc;
@@ -293,6 +295,31 @@ impl RawProgram {
             gl,
         });
         locs
+    }
+
+    fn type_check_uniforms<U: Uniforms>(
+        &self,
+        gl: &Gl,
+        errors: &mut Vec<MismatchedTypeError>,
+    ) {
+        let mut uniform_attrib_types = unsafe{ build_info_buffer(
+            self,
+            gl,
+            gl::ACTIVE_UNIFORMS,
+            gl::ACTIVE_UNIFORM_MAX_LENGTH,
+            Gl::GetActiveUniform
+        ) };
+
+        U::members(AttribTypeChecker {
+            attrib_types: &mut uniform_attrib_types,
+            errors,
+            _marker: PhantomData,
+        });
+
+        // We already do the unused uniform check in `get_uniform_locations` so we don't have to do this here.
+        // for (name, _) in uniform_attrib_types {
+        //     warnings.push(ProgramWarning::UnusedUniform(name));
+        // }
     }
 
     pub fn handle(&self) -> Handle {
@@ -367,7 +394,6 @@ impl<'a> RawBoundProgram<'a> {
         impl<'a, U: Uniforms> UniformsMemberRegistry for UniformsUploader<'a, U> {
             type Uniforms = U;
             fn add_member<T: UniformType>(&mut self, _: &str, get_member: fn(U) -> T) {
-                // TODO: TYPE-CHECK UNIFORMS
                 let loc = self.locs[self.loc_index];
                 if loc != -1 {
                     let mut binder = TextureUniformBinder {
@@ -392,6 +418,110 @@ impl<'a> RawBoundProgram<'a> {
             gl,
             uniform,
         })
+    }
+}
+
+pub unsafe fn build_info_buffer(
+    program: &RawProgram,
+    gl: &Gl,
+    active_enum: GLenum,
+    active_name_enum: GLenum,
+    info_fn: InfoFn
+) -> Vec<(String, TypeTag)> {
+    let (mut num_attribs, mut max_name_buffer_len) = (0, 0);
+    gl.GetProgramiv(
+        program.handle.get(),
+        active_enum,
+        &mut num_attribs,
+    );
+    gl.GetProgramiv(
+        program.handle.get(),
+        active_name_enum,
+        &mut max_name_buffer_len,
+    );
+    let mut attrib_types = Vec::with_capacity(num_attribs as usize);
+
+    for attrib in 0..num_attribs {
+        let (mut size, mut ty, mut name_len) = (0, 0, 0);
+        let mut name_buffer: Vec<u8> = vec![0; max_name_buffer_len as usize];
+
+        info_fn(
+            &gl,
+            program.handle.get(),
+            attrib as GLuint,
+            max_name_buffer_len,
+            &mut name_len,
+            &mut size,
+            &mut ty,
+            name_buffer.as_mut_ptr() as *mut GLchar,
+        );
+        name_buffer.truncate(name_len as usize);
+        let name = String::from_utf8(name_buffer).unwrap();
+        let prim_tag = TypeTagSingle::from_gl_enum(ty)
+            .expect(&format!("unsupported GLSL type in attribute {}", name));
+        let shader_ty = match size {
+            1 => TypeTag::Single(prim_tag),
+            _ => TypeTag::Array(prim_tag, size as usize),
+        };
+
+        attrib_types.push((name, shader_ty));
+    }
+
+    attrib_types
+}
+
+struct AttribTypeChecker<'a, T> {
+    attrib_types: &'a mut Vec<(String, TypeTag)>,
+    errors: &'a mut Vec<MismatchedTypeError>,
+    _marker: PhantomData<T>,
+}
+type InfoFn = unsafe fn(
+    gl: &Gl,
+    program: GLuint,
+    index: GLuint,
+    bufSize: GLsizei,
+    length: *mut GLsizei,
+    size: *mut GLint,
+    type_: *mut GLenum,
+    name: *mut GLchar
+);
+impl<T> AttribTypeChecker<'_, T> {
+    fn check_type(&mut self, name: &str, tag: TypeTag) {
+        let mut attrib_index = None;
+        for (i, &(ref attrib_name, shader_ty)) in self.attrib_types.iter().enumerate() {
+            if attrib_name.as_str() == name {
+                let rust_ty = tag;
+                attrib_index = Some(i);
+
+                if shader_ty != rust_ty {
+                    self.errors.push(MismatchedTypeError {
+                        ident: name.to_string(),
+                        shader_ty,
+                        rust_ty,
+                    });
+                }
+                break;
+            }
+        }
+
+        if let Some(index) = attrib_index {
+            self.attrib_types.remove(index);
+        }
+    }
+}
+impl<'a, V: Vertex> VertexMemberRegistry for AttribTypeChecker<'a, V> {
+    type Group = V;
+    fn add_member<T>(&mut self, name: &str, _: fn(*const V) -> *const T)
+    where
+        T: TransparentType,
+    {
+        self.check_type(name, TypeTag::Single(T::prim_tag()));
+    }
+}
+impl<'a, U: Uniforms> UniformsMemberRegistry for AttribTypeChecker<'a, U> {
+    type Uniforms = U;
+    fn add_member<T: UniformType>(&mut self, name: &str, _: fn(U) -> T) {
+        self.check_type(name, T::uniform_tag());
     }
 }
 
@@ -458,85 +588,21 @@ unsafe impl<V: Vertex> ShaderStage for VertexStage<V> {
         warnings: &mut Vec<ProgramWarning>,
         errors: &mut Vec<MismatchedTypeError>,
     ) {
-        struct VertexAttribTypeChecker<'a, V: Vertex> {
-            attrib_types: &'a mut Vec<(String, TypeTag)>,
-            errors: &'a mut Vec<MismatchedTypeError>,
-            _marker: PhantomData<V>,
-        }
-        impl<'a, V: Vertex> VertexMemberRegistry for VertexAttribTypeChecker<'a, V> {
-            type Group = V;
-            fn add_member<T>(&mut self, name: &str, _: fn(*const V) -> *const T)
-            where
-                T: TransparentType,
-            {
-                let mut attrib_index = None;
-                for (i, &(ref attrib_name, shader_ty)) in self.attrib_types.iter().enumerate() {
-                    if attrib_name.as_str() == name {
-                        let rust_ty = TypeTag::Single(T::prim_tag());
-                        attrib_index = Some(i);
+        let mut vertex_attrib_types = build_info_buffer(program, gl, gl::ACTIVE_ATTRIBUTES, gl::ACTIVE_ATTRIBUTE_MAX_LENGTH, Gl::GetActiveAttrib);
+        // let mut uniform_attrib_types = build_info_buffer(gl::ACTIVE_UNIFORMS, gl::ACTIVE_UNIFORM_MAX_LENGTH, Gl::GetActiveUniform);
 
-                        if shader_ty != rust_ty {
-                            self.errors.push(MismatchedTypeError {
-                                ident: name.to_string(),
-                                shader_ty,
-                                rust_ty,
-                            });
-                        }
-                        break;
-                    }
-                }
-
-                if let Some(index) = attrib_index {
-                    self.attrib_types.remove(index);
-                }
-            }
-        }
-
-        let (mut num_attribs, mut max_name_buffer_len) = (0, 0);
-        gl.GetProgramiv(
-            program.handle.get(),
-            gl::ACTIVE_ATTRIBUTES,
-            &mut num_attribs,
-        );
-        gl.GetProgramiv(
-            program.handle.get(),
-            gl::ACTIVE_ATTRIBUTE_MAX_LENGTH,
-            &mut max_name_buffer_len,
-        );
-        let mut attrib_types = Vec::with_capacity(num_attribs as usize);
-
-        for attrib in 0..num_attribs {
-            let (mut size, mut ty, mut name_len) = (0, 0, 0);
-            let mut name_buffer: Vec<u8> = vec![0; max_name_buffer_len as usize];
-
-            gl.GetActiveAttrib(
-                program.handle.get(),
-                attrib as GLuint,
-                max_name_buffer_len,
-                &mut name_len,
-                &mut size,
-                &mut ty,
-                name_buffer.as_mut_ptr() as *mut GLchar,
-            );
-            name_buffer.truncate(name_len as usize);
-            let name = String::from_utf8(name_buffer).unwrap();
-            let prim_tag = TypeTagSingle::from_gl_enum(ty)
-                .expect(&format!("unsupported GLSL type in attribute {}", name));
-            let shader_ty = match size {
-                1 => TypeTag::Single(prim_tag),
-                _ => TypeTag::Array(prim_tag, size as usize),
-            };
-
-            attrib_types.push((name, shader_ty));
-        }
-
-        V::members(VertexAttribTypeChecker {
-            attrib_types: &mut attrib_types,
+        V::members(AttribTypeChecker {
+            attrib_types: &mut vertex_attrib_types,
             errors,
             _marker: PhantomData,
         });
+        // U::members(AttribTypeChecker {
+        //     attrib_types: &mut uniform_attrib_types,
+        //     errors,
+        //     _marker: PhantomData,
+        // });
 
-        for (name, _) in attrib_types {
+        for (name, _) in vertex_attrib_types {
             warnings.push(ProgramWarning::UnusedVertexAttribute(name));
         }
     }

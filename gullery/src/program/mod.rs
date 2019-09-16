@@ -132,7 +132,7 @@ impl<V: Vertex, U: Uniforms, A: Attachments> Program<V, U, A> {
             panic!("Shaders passed to Program creation are parts of different contexts!");
         }
 
-        let (raw, mut warnings) = RawProgram::new(
+        let (raw, mut warnings) = RawProgram::new::<_, U>(
             |mut rpsa| {
                 rpsa.attach_shader(&vert.raw);
                 if let Some(ref geom) = geom {
