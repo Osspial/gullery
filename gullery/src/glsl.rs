@@ -40,7 +40,8 @@
 //! probably do so like this:
 //!
 //! ```rust
-//! let vector = GLVec3::new(0, 1, 2);
+//! # use gullery::glsl::GLVec3;
+//! let vector: GLVec3<i32> = GLVec3::new(0, 1, 2);
 //! ```
 //!
 //! In memory, that corresponds to an array of three numbers:
@@ -103,11 +104,12 @@
 //! Or, with one of Gullery's matrix types, like this:
 //!
 //! ```rust
+//! # use gullery::glsl::{GLVec2, GLMat2r3c};
 //! let matrix = GLMat2r3c {
 //!     x: GLVec2::new(0, 1),
 //!     y: GLVec2::new(2, 3),
 //!     z: GLVec2::new(4, 5),
-//! }
+//! };
 //! ```
 //!
 //! We've recreated the mismatch. This style of layout is referred to as "column major", and most
