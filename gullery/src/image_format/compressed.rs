@@ -28,15 +28,14 @@
 //! [nvidia]: https://developer.nvidia.com/gpu-accelerated-texture-compression
 
 use crate::{
-    cgmath::Vector3,
     gl,
-    glsl::GLSLFloat,
+    glsl::{GLSLFloat, GLVec3},
     image_format::{
         ColorComponents, ConcreteImageFormat, FormatAttributes, ImageFormat, Red, Rg, Rgb, Rgba,
         SRgb, SRgba,
     },
 };
-use cgmath_geometry::rect::DimsBox;
+use std::marker::PhantomData;
 
 /// Alias for DXT1.
 pub type BC1<S> = DXT1<S>;
@@ -130,8 +129,11 @@ unsafe impl ImageFormat for RGTC<Red<i8>> {
 unsafe impl ConcreteImageFormat for RGTC<Red<i8>> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_SIGNED_RED_RGTC1,
-        block_dims: DimsBox {
-            dims: Vector3 { x: 4, y: 4, z: 1 },
+        block_dims: GLVec3 {
+            x: 4,
+            y: 4,
+            z: 1,
+            _normalization: PhantomData,
         },
     };
 }
@@ -141,8 +143,11 @@ unsafe impl ImageFormat for RGTC<Red<u8>> {
 unsafe impl ConcreteImageFormat for RGTC<Red<u8>> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_RED_RGTC1,
-        block_dims: DimsBox {
-            dims: Vector3 { x: 4, y: 4, z: 1 },
+        block_dims: GLVec3 {
+            x: 4,
+            y: 4,
+            z: 1,
+            _normalization: PhantomData,
         },
     };
 }
@@ -152,8 +157,11 @@ unsafe impl ImageFormat for RGTC<Rg<i8>> {
 unsafe impl ConcreteImageFormat for RGTC<Rg<i8>> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_SIGNED_RG_RGTC2,
-        block_dims: DimsBox {
-            dims: Vector3 { x: 4, y: 4, z: 1 },
+        block_dims: GLVec3 {
+            x: 4,
+            y: 4,
+            z: 1,
+            _normalization: PhantomData,
         },
     };
 }
@@ -163,8 +171,11 @@ unsafe impl ImageFormat for RGTC<Rg<u8>> {
 unsafe impl ConcreteImageFormat for RGTC<Rg<u8>> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_RG_RGTC2,
-        block_dims: DimsBox {
-            dims: Vector3 { x: 4, y: 4, z: 1 },
+        block_dims: GLVec3 {
+            x: 4,
+            y: 4,
+            z: 1,
+            _normalization: PhantomData,
         },
     };
 }
@@ -175,8 +186,11 @@ unsafe impl ImageFormat for DXT1<Rgb> {
 unsafe impl ConcreteImageFormat for DXT1<Rgb> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_RGB_S3TC_DXT1_EXT,
-        block_dims: DimsBox {
-            dims: Vector3 { x: 4, y: 4, z: 1 },
+        block_dims: GLVec3 {
+            x: 4,
+            y: 4,
+            z: 1,
+            _normalization: PhantomData,
         },
     };
 }
@@ -186,8 +200,11 @@ unsafe impl ImageFormat for DXT1<Rgba> {
 unsafe impl ConcreteImageFormat for DXT1<Rgba> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_RGBA_S3TC_DXT1_EXT,
-        block_dims: DimsBox {
-            dims: Vector3 { x: 4, y: 4, z: 1 },
+        block_dims: GLVec3 {
+            x: 4,
+            y: 4,
+            z: 1,
+            _normalization: PhantomData,
         },
     };
 }
@@ -197,8 +214,11 @@ unsafe impl ImageFormat for DXT1<SRgb> {
 unsafe impl ConcreteImageFormat for DXT1<SRgb> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_SRGB_S3TC_DXT1_EXT,
-        block_dims: DimsBox {
-            dims: Vector3 { x: 4, y: 4, z: 1 },
+        block_dims: GLVec3 {
+            x: 4,
+            y: 4,
+            z: 1,
+            _normalization: PhantomData,
         },
     };
 }
@@ -208,8 +228,11 @@ unsafe impl ImageFormat for DXT1<SRgba> {
 unsafe impl ConcreteImageFormat for DXT1<SRgba> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT,
-        block_dims: DimsBox {
-            dims: Vector3 { x: 4, y: 4, z: 1 },
+        block_dims: GLVec3 {
+            x: 4,
+            y: 4,
+            z: 1,
+            _normalization: PhantomData,
         },
     };
 }
@@ -220,8 +243,11 @@ unsafe impl ImageFormat for DXT3<Rgba> {
 unsafe impl ConcreteImageFormat for DXT3<Rgba> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_RGBA_S3TC_DXT3_EXT,
-        block_dims: DimsBox {
-            dims: Vector3 { x: 4, y: 4, z: 1 },
+        block_dims: GLVec3 {
+            x: 4,
+            y: 4,
+            z: 1,
+            _normalization: PhantomData,
         },
     };
 }
@@ -231,8 +257,11 @@ unsafe impl ImageFormat for DXT3<SRgba> {
 unsafe impl ConcreteImageFormat for DXT3<SRgba> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT,
-        block_dims: DimsBox {
-            dims: Vector3 { x: 4, y: 4, z: 1 },
+        block_dims: GLVec3 {
+            x: 4,
+            y: 4,
+            z: 1,
+            _normalization: PhantomData,
         },
     };
 }
@@ -243,8 +272,11 @@ unsafe impl ImageFormat for DXT5<Rgba> {
 unsafe impl ConcreteImageFormat for DXT5<Rgba> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_RGBA_S3TC_DXT5_EXT,
-        block_dims: DimsBox {
-            dims: Vector3 { x: 4, y: 4, z: 1 },
+        block_dims: GLVec3 {
+            x: 4,
+            y: 4,
+            z: 1,
+            _normalization: PhantomData,
         },
     };
 }
@@ -254,8 +286,11 @@ unsafe impl ImageFormat for DXT5<SRgba> {
 unsafe impl ConcreteImageFormat for DXT5<SRgba> {
     const FORMAT: FormatAttributes = FormatAttributes::Compressed {
         internal_format: gl::COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT,
-        block_dims: DimsBox {
-            dims: Vector3 { x: 4, y: 4, z: 1 },
+        block_dims: GLVec3 {
+            x: 4,
+            y: 4,
+            z: 1,
+            _normalization: PhantomData,
         },
     };
 }

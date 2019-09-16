@@ -3,15 +3,14 @@
 extern crate gullery;
 #[macro_use]
 extern crate gullery_macros;
-extern crate cgmath_geometry;
 extern crate glutin;
 extern crate png;
-
-extern crate num_traits;
 
 use gullery::{
     buffer::*,
     framebuffer::{render_state::*, *},
+    geometry::D2,
+    glsl::{GLVec2, NonNormalized},
     image_format::*,
     program::*,
     texture::*,
@@ -19,25 +18,17 @@ use gullery::{
     ContextState,
 };
 
-use cgmath_geometry::{
-    cgmath,
-    rect::{DimsBox, OffsetBox},
-    D2,
-};
-
-use cgmath::*;
-
 use glutin::*;
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
-    pos: Vector2<f32>,
+    pos: GLVec2<f32>,
     color: Rgb<u8>,
 }
 
 #[derive(Clone, Copy, Uniforms)]
 struct TriUniforms {
-    offset: Point2<u32>,
+    offset: GLVec2<u32, NonNormalized>,
 }
 
 #[derive(Attachments)]
@@ -64,15 +55,15 @@ fn main() {
         BufferUsage::StaticDraw,
         &[
             Vertex {
-                pos: Vector2::new(-1.0, -1.0),
+                pos: GLVec2::new(-1.0, -1.0),
                 color: Rgb::new(255, 0, 0),
             },
             Vertex {
-                pos: Vector2::new(0.0, 1.0),
+                pos: GLVec2::new(0.0, 1.0),
                 color: Rgb::new(0, 255, 0),
             },
             Vertex {
-                pos: Vector2::new(1.0, -1.0),
+                pos: GLVec2::new(1.0, -1.0),
                 color: Rgb::new(0, 0, 255),
             },
         ],
@@ -88,26 +79,22 @@ fn main() {
     }
 
     let mut texture =
-        Texture::with_mip_count(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap();
+        Texture::with_mip_count(GLVec2::new(size_x, size_y), 1, state.clone()).unwrap();
     let mut fbo_attached = FramebufferObjectAttached {
         fbo: FramebufferObject::new(state.clone()),
         attachments: Attachments {
             color: &mut texture,
-            color_inverted: Texture::with_mip_count(
-                DimsBox::new2(size_x, size_y),
-                1,
-                state.clone(),
-            )
-            .unwrap(),
+            color_inverted: Texture::with_mip_count(GLVec2::new(size_x, size_y), 1, state.clone())
+                .unwrap(),
         },
     };
 
     let uniform = TriUniforms {
-        offset: Point2::new(0, 0),
+        offset: GLVec2::new(0, 0),
     };
     let render_state = RenderState {
         srgb: true,
-        viewport: OffsetBox::new2(0, 0, size_x, size_y),
+        viewport: GLVec2::new(0, 0)..=GLVec2::new(size_x, size_y),
         ..RenderState::default()
     };
     fbo_attached.clear_depth(1.0);
@@ -118,18 +105,18 @@ fn main() {
         &vao,
         &program,
         uniform,
-        render_state,
+        &render_state,
     );
 
     let (width, height) = (size_x, size_y);
     let mut data_buffer = vec![SRgb::new(0, 0, 0); (width * height) as usize * 2];
     fbo_attached.read_pixels_attachment(
-        OffsetBox::new2(0, 0, width, height),
+        GLVec2::new(0, 0)..=GLVec2::new(width, height),
         &mut data_buffer[(width * height) as usize..],
         |a| &a.color,
     );
     fbo_attached.read_pixels_attachment(
-        OffsetBox::new2(0, 0, width, height),
+        GLVec2::new(0, 0)..=GLVec2::new(width, height),
         &mut data_buffer[0..(width * height) as usize],
         |a| &a.color_inverted,
     );

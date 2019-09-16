@@ -19,8 +19,10 @@
 //! set the `T` parameter to `SpecialTex<{ImageFormat}>`
 
 use super::*;
-use crate::glsl::ScalarType;
-use cgmath_geometry::Dimensionality;
+use crate::{
+    geometry::Dimension,
+    glsl::{GLVec2, GLVec3, NonNormalized, ScalarType},
+};
 
 /// Stores multiple logical textures in a single texture object.
 ///
@@ -32,12 +34,13 @@ use cgmath_geometry::Dimensionality;
 /// For a concrete example of what exactly that means, consider the following:
 ///
 /// ```rust
-/// # extern crate cgmath_geometry;
 /// # extern crate glutin;
-/// # use gullery::{ContextState, image_format::SRgb, texture::{Texture, types::ArrayTex}};
+/// # use gullery::{
+/// #     ContextState, image_format::SRgb, texture::{Texture, types::ArrayTex},
+/// #     geometry::D2, glsl::GLVec3,
+/// # };
 /// # use glutin::*;
-/// # use cgmath_geometry::{D2, rect::DimsBox};
-/// #   let el = EventsLoop::new();
+/// # let el = EventsLoop::new();
 /// # let headless = Context::new(
 /// #     &el,
 /// #     ContextBuilder::new()
@@ -68,7 +71,7 @@ use cgmath_geometry::Dimensionality;
 /// // Upload the images to the GPU. Notice how we pass 3D dimensions, instead of 2D dimensions -
 /// // the third parameter is the number of textures in the array.
 /// let array_texture: Texture<D2, ArrayTex<SRgb>> = Texture::with_image(
-///     DimsBox::new3(TEXTURE_WIDTH as u32, TEXTURE_HEIGHT as u32, num_images),
+///     GLVec3::new(TEXTURE_WIDTH as u32, TEXTURE_HEIGHT as u32, num_images),
 ///     &combined_image[..],
 ///     context_state.clone()
 /// ).unwrap();
@@ -90,13 +93,14 @@ where
 /// on the type level with the [`DimsSquare`] type.
 ///
 /// ```
-/// # extern crate cgmath_geometry;
 /// # extern crate glutin;
-/// # use gullery::{ContextState, image_format::SRgb, texture::{Texture, DimsSquare, types::{CubemapTex, CubemapImage}}};
+/// # use gullery::{
+/// #     ContextState, image_format::SRgb, texture::{Texture, DimsSquare, types::{CubemapTex, CubemapImage}},
+/// #     geometry::D2,
+/// # };
 /// # use glutin::*;
 /// # use std::iter;
-/// # use cgmath_geometry::{D2, rect::DimsBox};
-/// #   let el = EventsLoop::new();
+/// # let el = EventsLoop::new();
 /// # let headless = Context::new(
 /// #     &el,
 /// #     ContextBuilder::new()
@@ -196,7 +200,7 @@ impl<'a, I: ImageFormat> Copy for CubemapImage<'a, I> {}
 unsafe impl<D, C> TextureTypeBasicImage<D> for ArrayTex<C>
 where
     C: ?Sized + ImageFormat,
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     ArrayTex<C>: TextureType<D>,
 {
 }
@@ -207,7 +211,7 @@ where
     type MipSelector = u8;
     type Samples = ();
     type Format = C;
-    type Dims = DimsBox<D2, u32>;
+    type Dims = GLVec2<u32, NonNormalized>;
 
     type Dyn = ArrayTex<dyn ImageFormat<ScalarType = C::ScalarType>>;
 
@@ -271,7 +275,7 @@ where
     type MipSelector = u8;
     type Samples = ();
     type Format = C;
-    type Dims = DimsBox<D3, u32>;
+    type Dims = GLVec3<u32, NonNormalized>;
 
     type Dyn = ArrayTex<dyn ImageFormat<ScalarType = C::ScalarType>>;
 
@@ -334,7 +338,7 @@ where
 unsafe impl<D, C> TextureTypeBasicImage<D> for C
 where
     C: ?Sized + ImageFormat,
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     C: TextureType<D>,
 {
 }
@@ -345,7 +349,7 @@ where
     type MipSelector = u8;
     type Samples = ();
     type Format = C;
-    type Dims = DimsBox<D1, u32>;
+    type Dims = u32;
 
     type Dyn = dyn ImageFormat<ScalarType = C::ScalarType>;
 
@@ -416,7 +420,7 @@ where
     type MipSelector = u8;
     type Samples = ();
     type Format = C;
-    type Dims = DimsBox<D2, u32>;
+    type Dims = GLVec2<u32, NonNormalized>;
 
     type Dyn = dyn ImageFormat<ScalarType = C::ScalarType>;
 
@@ -487,7 +491,7 @@ where
     type MipSelector = u8;
     type Samples = ();
     type Format = C;
-    type Dims = DimsBox<D3, u32>;
+    type Dims = GLVec3<u32, NonNormalized>;
 
     type Dyn = dyn ImageFormat<ScalarType = C::ScalarType>;
 
@@ -582,7 +586,7 @@ where
         Self::Format: ConcreteImageFormat,
     {
         let mip_level = mip_level.to_glint();
-        let mip_dims = DimsBox::new2(mip_dims.side, mip_dims.side);
+        let mip_dims = GLVec2::new(mip_dims.side, mip_dims.side);
 
         alloc_image_2d(
             gl,
@@ -605,7 +609,7 @@ where
     ) where
         Self::Format: ConcreteImageFormat,
     {
-        let sub_dims = DimsBox::new2(sub_dims.side, sub_dims.side);
+        let sub_dims = GLVec2::new(sub_dims.side, sub_dims.side);
         sub_image_2d(
             gl,
             image_bind,
@@ -637,7 +641,7 @@ where
     type MipSelector = ();
     type Samples = ();
     type Format = C;
-    type Dims = DimsBox<D2, u32>;
+    type Dims = GLVec2<u32, NonNormalized>;
 
     type Dyn = RectTex<dyn ImageFormat<ScalarType = C::ScalarType>>;
 
@@ -724,7 +728,7 @@ where
     type MipSelector = ();
     type Samples = u8;
     type Format = dyn ImageFormat<ScalarType = S>;
-    type Dims = DimsBox<D2, u32>;
+    type Dims = GLVec2<u32, NonNormalized>;
 
     type Dyn = MultisampleTex<dyn ImageFormat<ScalarType = S>>;
 
@@ -768,7 +772,7 @@ where
     type MipSelector = ();
     type Samples = u8;
     type Format = C;
-    type Dims = DimsBox<D2, u32>;
+    type Dims = GLVec2<u32, NonNormalized>;
 
     type Dyn = MultisampleTex<dyn ImageFormat<ScalarType = C::ScalarType>>;
 
@@ -843,7 +847,7 @@ where
     type MipSelector = ();
     type Samples = u8;
     type Format = C;
-    type Dims = DimsBox<D3, u32>;
+    type Dims = GLVec3<u32, NonNormalized>;
 
     type Dyn = ArrayTex<MultisampleTex<dyn ImageFormat<ScalarType = C::ScalarType>>>;
 
@@ -925,7 +929,7 @@ where
 unsafe fn alloc_image_1d(
     gl: &Gl,
     image_bind: GLenum,
-    mip_dims: DimsBox<D1, u32>,
+    mip_dims: u32,
     mip_level: GLint,
     data_ptr: *const GLvoid,
     data_len: GLsizei,
@@ -963,7 +967,7 @@ unsafe fn alloc_image_1d(
 unsafe fn alloc_image_2d(
     gl: &Gl,
     image_bind: GLenum,
-    mip_dims: DimsBox<D2, u32>,
+    mip_dims: GLVec2<u32, NonNormalized>,
     mip_level: GLint,
     data_ptr: *const GLvoid,
     data_len: GLsizei,
@@ -1003,7 +1007,7 @@ unsafe fn alloc_image_2d(
 unsafe fn alloc_image_3d(
     gl: &Gl,
     image_bind: GLenum,
-    mip_dims: DimsBox<D3, u32>,
+    mip_dims: GLVec3<u32, NonNormalized>,
     mip_level: GLint,
     data_ptr: *const GLvoid,
     data_len: GLsizei,
@@ -1045,8 +1049,8 @@ unsafe fn alloc_image_3d(
 unsafe fn sub_image_1d(
     gl: &Gl,
     image_bind: GLenum,
-    sub_offset: Vector1<u32>,
-    sub_dims: DimsBox<D1, u32>,
+    sub_offset: u32,
+    sub_dims: u32,
     mip_level: GLint,
     data_ptr: *const GLvoid,
     data_len: GLsizei,
@@ -1060,8 +1064,8 @@ unsafe fn sub_image_1d(
         } => gl.TexSubImage1D(
             image_bind,
             mip_level,
-            sub_offset.x as GLint,
-            sub_dims.width() as GLsizei,
+            sub_offset as GLint,
+            sub_dims as GLsizei,
             pixel_format,
             pixel_type,
             data_ptr,
@@ -1070,14 +1074,14 @@ unsafe fn sub_image_1d(
             internal_format,
             block_dims,
         } => {
-            assert_eq!(sub_offset.x % block_dims.width(), 0);
+            assert_eq!(sub_offset % block_dims.width(), 0);
             assert_eq!(sub_dims.width() % block_dims.width(), 0);
 
             gl.CompressedTexSubImage1D(
                 image_bind,
                 mip_level,
-                sub_offset.x as GLint,
-                sub_dims.width() as GLsizei,
+                sub_offset as GLint,
+                sub_dims as GLsizei,
                 internal_format,
                 data_len,
                 data_ptr,
@@ -1089,8 +1093,8 @@ unsafe fn sub_image_1d(
 unsafe fn sub_image_2d(
     gl: &Gl,
     image_bind: GLenum,
-    sub_offset: Vector2<u32>,
-    sub_dims: DimsBox<D2, u32>,
+    sub_offset: GLVec2<u32, NonNormalized>,
+    sub_dims: GLVec2<u32, NonNormalized>,
     mip_level: GLint,
     data_ptr: *const GLvoid,
     data_len: GLsizei,
@@ -1139,8 +1143,8 @@ unsafe fn sub_image_2d(
 unsafe fn sub_image_3d(
     gl: &Gl,
     image_bind: GLenum,
-    sub_offset: Vector3<u32>,
-    sub_dims: DimsBox<D3, u32>,
+    sub_offset: GLVec3<u32, NonNormalized>,
+    sub_dims: GLVec3<u32, NonNormalized>,
     mip_level: GLint,
     data_ptr: *const GLvoid,
     data_len: GLsizei,

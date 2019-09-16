@@ -12,18 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-extern crate cgmath_geometry;
 extern crate gullery;
 #[macro_use]
 extern crate gullery_macros;
 
-use cgmath_geometry::cgmath::{Vector3, Vector4};
-use gullery::glsl::TransparentType;
+use gullery::glsl::{GLVec3, GLVec4, TransparentType};
 
 #[derive(Vertex, Clone, Copy)]
 pub struct TestBlock {
-    pub vec3: Vector3<f32>,
-    pub vec4: Vector4<f32>,
+    pub vec3: GLVec3<f32>,
+    pub vec4: GLVec4<f32>,
 }
 
 #[derive(Vertex, Clone, Copy)]

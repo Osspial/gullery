@@ -1,18 +1,17 @@
 extern crate gullery;
 #[macro_use]
 extern crate gullery_macros;
-extern crate cgmath_geometry;
+extern crate cgmath;
 extern crate glutin;
 extern crate png;
-
-extern crate num_traits;
 
 mod helper;
 
 use gullery::{
     buffer::*,
     framebuffer::{render_state::*, *},
-    glsl::GLSLFloat,
+    geometry::D2,
+    glsl::{GLMat4r4c, GLSLFloat, GLVec2, GLVec3},
     image_format::{compressed::DXT1, ImageFormat, Rgba, SRgb},
     program::*,
     texture::{
@@ -23,21 +22,19 @@ use gullery::{
     ContextState,
 };
 
-use cgmath_geometry::{cgmath, rect::OffsetBox, D2};
-
-use cgmath::*;
+use cgmath::{Basis3, Deg, Euler, Matrix3, Matrix4, Quaternion};
 
 use glutin::{dpi::LogicalSize, *};
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
-    pos: Point3<f32>,
+    pos: GLVec3<f32>,
 }
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
     tex: &'a Texture<D2, CubemapTex<dyn ImageFormat<ScalarType = GLSLFloat>>>,
-    matrix: Matrix4<f32>,
+    matrix: GLMat4r4c<f32>,
 }
 
 fn main() {
@@ -60,28 +57,28 @@ fn main() {
         BufferUsage::StaticDraw,
         &[
             Vertex {
-                pos: Point3::new(-1.0, -1.0, -1.0),
+                pos: GLVec3::new(-1.0, -1.0, -1.0),
             },
             Vertex {
-                pos: Point3::new(-1.0, -1.0, 1.0),
+                pos: GLVec3::new(-1.0, -1.0, 1.0),
             },
             Vertex {
-                pos: Point3::new(1.0, -1.0, 1.0),
+                pos: GLVec3::new(1.0, -1.0, 1.0),
             },
             Vertex {
-                pos: Point3::new(1.0, -1.0, -1.0),
+                pos: GLVec3::new(1.0, -1.0, -1.0),
             },
             Vertex {
-                pos: Point3::new(-1.0, 1.0, -1.0),
+                pos: GLVec3::new(-1.0, 1.0, -1.0),
             },
             Vertex {
-                pos: Point3::new(-1.0, 1.0, 1.0),
+                pos: GLVec3::new(-1.0, 1.0, 1.0),
             },
             Vertex {
-                pos: Point3::new(1.0, 1.0, 1.0),
+                pos: GLVec3::new(1.0, 1.0, 1.0),
             },
             Vertex {
-                pos: Point3::new(1.0, 1.0, -1.0),
+                pos: GLVec3::new(1.0, 1.0, -1.0),
             },
         ],
         state.clone(),
@@ -133,10 +130,7 @@ fn main() {
         srgb: true,
         texture_cubemap_seamless: true,
         cull: Some((CullFace::Front, FrontFace::CounterClockwise)),
-        viewport: OffsetBox {
-            origin: Point2::new(0, 0),
-            dims: Vector2::new(512, 512),
-        },
+        viewport: GLVec2::new(0, 0)..=GLVec2::new(512, 512),
         ..RenderState::default()
     };
 
@@ -152,12 +146,8 @@ fn main() {
             .get_inner_size()
             .unwrap()
             .to_physical(window.get_hidpi_factor());
-        render_state.viewport = OffsetBox::new2(
-            0,
-            0,
-            physical_size.width as u32,
-            physical_size.height as u32,
-        );
+        render_state.viewport = GLVec2::new(0, 0)
+            ..=GLVec2::new(physical_size.width as u32, physical_size.height as u32);
         let scale = 1.0 / (fov.to_radians() / 2.0).tan();
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let perspective_matrix = match use_perspective {
@@ -176,8 +166,10 @@ fn main() {
         };
         let uniform = Uniforms {
             tex: cubemap_texture.as_dyn(),
-            matrix: perspective_matrix
-                * Matrix4::from(Matrix3::from(Basis3::from(Quaternion::from(rotation)))),
+            matrix: GLMat4r4c::from(
+                perspective_matrix
+                    * Matrix4::from(Matrix3::from(Basis3::from(Quaternion::from(rotation)))),
+            ),
         };
         default_framebuffer.clear_depth(1.0);
         default_framebuffer.clear_color_all(Rgba::new(0.0, 0.0, 0.0, 1.0));
@@ -187,7 +179,7 @@ fn main() {
             &vao,
             &program,
             uniform,
-            render_state,
+            &render_state,
         );
 
         window.swap_buffers().unwrap();

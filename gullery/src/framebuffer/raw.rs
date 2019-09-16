@@ -12,22 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    gl::{self, types::*, Gl},
-    texture::{MipSelector, Texture, TextureType},
-};
-use cgmath_geometry::{
-    rect::{GeoBox, OffsetBox},
-    Dimensionality, D2,
-};
-
 use super::{attachments::*, Renderbuffer};
 use crate::{
+    geometry::Dimension,
+    gl::{self, types::*, Gl},
+    glsl::{GLVec2, NonNormalized},
     image_format::{
         ConcreteImageFormat, FormatAttributes, FormatType, FormatTypeTag, ImageFormatRenderable,
         Rgba,
     },
     program::BoundProgram,
+    texture::{MipSelector, Texture, TextureType},
     uniform::Uniforms,
     vertex::{vao::BoundVAO, Index, Vertex},
     ContextState, GLObject, Handle,
@@ -223,12 +218,13 @@ where
     #[inline]
     pub(crate) fn read_pixels<C: ImageFormatRenderable + ConcreteImageFormat>(
         &self,
-        read_rect: OffsetBox<D2, u32>,
+        read_origin: GLVec2<u32, NonNormalized>,
+        read_dims: GLVec2<u32, NonNormalized>,
         data: &mut [C],
     ) {
         // TODO: STENCIL AND DEPTH SUPPORT
         // TODO: GL_PIXEL_PACK_BUFFER SUPPORT
-        let read_len = (read_rect.width() * read_rect.height()) as usize;
+        let read_len = (read_dims.x * read_dims.y) as usize;
         assert_eq!(
             read_len,
             data.len(),
@@ -236,10 +232,10 @@ where
             read_len,
             data.len()
         );
-        assert!(read_rect.origin.x as i32 >= 0);
-        assert!(read_rect.origin.y as i32 >= 0);
-        assert!(read_rect.width() as i32 >= 0);
-        assert!(read_rect.height() as i32 >= 0);
+        assert!(read_origin.x as i32 >= 0);
+        assert!(read_origin.y as i32 >= 0);
+        assert!(read_dims.x as i32 >= 0);
+        assert!(read_dims.y as i32 >= 0);
 
         let (pixel_format, pixel_type) = match C::FORMAT {
             FormatAttributes::Uncompressed {
@@ -255,10 +251,10 @@ where
         };
         unsafe {
             self.gl.ReadPixels(
-                read_rect.origin.x as GLint,
-                read_rect.origin.y as GLint,
-                read_rect.width() as GLsizei,
-                read_rect.height() as GLsizei,
+                read_origin.x as GLint,
+                read_origin.y as GLint,
+                read_dims.x as GLsizei,
+                read_dims.y as GLsizei,
                 pixel_format,
                 pixel_type,
                 data.as_mut_ptr() as *mut GLvoid,
@@ -432,7 +428,7 @@ pub unsafe trait RawBoundFramebuffer {
                 get_member: impl FnOnce(&Self::Attachments) -> &Texture<D, T>,
                 texture_level: T::MipSelector,
             ) where
-                D: Dimensionality<u32>,
+                D: Dimension<u32>,
                 T: TextureType<D>,
                 T::Format: ImageFormatRenderable,
             {

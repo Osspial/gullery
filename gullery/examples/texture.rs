@@ -1,30 +1,22 @@
 extern crate gullery;
 #[macro_use]
 extern crate gullery_macros;
-extern crate cgmath_geometry;
 extern crate glutin;
 extern crate png;
 
-extern crate num_traits;
+mod helper;
 
 use gullery::{
     buffer::*,
     framebuffer::{render_state::*, *},
-    glsl::GLSLFloat,
+    geometry::D2,
+    glsl::{GLSLFloat, GLVec2, Normalized},
     image_format::*,
     program::*,
     texture::*,
     vertex::VertexArrayObject,
     ContextState,
 };
-
-use cgmath_geometry::{
-    cgmath,
-    rect::{DimsBox, OffsetBox},
-    D2,
-};
-
-use cgmath::*;
 
 use glutin::{
     dpi::LogicalSize, ContextBuilder, ControlFlow, Event, EventsLoop, GlContext, GlRequest,
@@ -33,8 +25,8 @@ use glutin::{
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
-    pos: Vector2<f32>,
-    tex_coord: Vector2<u16>,
+    pos: GLVec2<f32>,
+    tex_coord: GLVec2<u16, Normalized>,
 }
 
 #[derive(Clone, Copy, Uniforms)]
@@ -62,20 +54,20 @@ fn main() {
         BufferUsage::StaticDraw,
         &[
             Vertex {
-                pos: Vector2::new(-1.0, -1.0),
-                tex_coord: Vector2::new(0, !0),
+                pos: GLVec2::new(-1.0, -1.0),
+                tex_coord: GLVec2::new(0, !0),
             },
             Vertex {
-                pos: Vector2::new(-1.0, 1.0),
-                tex_coord: Vector2::new(0, 0),
+                pos: GLVec2::new(-1.0, 1.0),
+                tex_coord: GLVec2::new(0, 0),
             },
             Vertex {
-                pos: Vector2::new(1.0, 1.0),
-                tex_coord: Vector2::new(!0, 0),
+                pos: GLVec2::new(1.0, 1.0),
+                tex_coord: GLVec2::new(!0, 0),
             },
             Vertex {
-                pos: Vector2::new(1.0, -1.0),
-                tex_coord: Vector2::new(!0, !0),
+                pos: GLVec2::new(1.0, -1.0),
+                tex_coord: GLVec2::new(!0, !0),
             },
         ],
         state.clone(),
@@ -87,15 +79,7 @@ fn main() {
     );
     let vao = VertexArrayObject::new(vertex_buffer, Some(index_buffer));
     println!("vao created");
-    let (ferris_image, ferris_dims) = {
-        use std::fs::File;
-        let decoder =
-            png::Decoder::new(File::open("./examples/textures/ferris_plush.png").unwrap());
-        let (info, mut reader) = decoder.read_info().unwrap();
-        let mut buf = vec![0; info.buffer_size()];
-        reader.next_frame(&mut buf).unwrap();
-        (buf, DimsBox::new2(info.width, info.height))
-    };
+    let (ferris_image, ferris_dims) = helper::load_png("textures/ferris_plush.png").unwrap();
     println!("texture loaded");
     let ferris_texture: Texture<D2, SRgb> = Texture::with_images(
         ferris_dims,
@@ -111,10 +95,7 @@ fn main() {
 
     let mut render_state = RenderState {
         srgb: true,
-        viewport: OffsetBox {
-            origin: Point2::new(0, 0),
-            dims: Vector2::new(512, 512),
-        },
+        viewport: GLVec2::new(0, 0)..=GLVec2::new(512, 512),
         ..RenderState::default()
     };
 
@@ -128,12 +109,8 @@ fn main() {
                     let uniform = Uniforms {
                         tex: ferris_texture.as_dyn(),
                     };
-                    render_state.viewport = OffsetBox::new2(
-                        0,
-                        0,
-                        physical_size.width as u32,
-                        physical_size.height as u32,
-                    );
+                    render_state.viewport = GLVec2::new(0, 0)
+                        ..=GLVec2::new(physical_size.width as u32, physical_size.height as u32);
                     default_framebuffer.clear_depth(1.0);
                     default_framebuffer.clear_color_all(Rgba::new(0.0, 0.0, 0.0, 1.0));
                     default_framebuffer.draw(
@@ -142,7 +119,7 @@ fn main() {
                         &vao,
                         &program,
                         uniform,
-                        render_state,
+                        &render_state,
                     );
 
                     window.swap_buffers().unwrap();

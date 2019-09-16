@@ -129,12 +129,16 @@
 
 use crate::gl::{self, types::*};
 
+use mint::{
+    ColumnMatrix2, ColumnMatrix2x3, ColumnMatrix2x4, ColumnMatrix3, ColumnMatrix3x2,
+    ColumnMatrix3x4, ColumnMatrix4, ColumnMatrix4x2, ColumnMatrix4x3,
+};
 use std::{
     fmt::{self, Display, Formatter},
     marker::PhantomData,
     mem,
+    ops::{Add, Sub},
 };
-use mint::{ColumnMatrix2, ColumnMatrix3, ColumnMatrix4, ColumnMatrix2x3, ColumnMatrix3x2, ColumnMatrix3x4, ColumnMatrix4x3};
 
 use num_traits::Num;
 
@@ -147,7 +151,7 @@ pub unsafe trait TransparentType: 'static + Copy {
 }
 
 pub trait ScalarBase: 'static + Copy {
-    type DefaultNormalization: Normalization;
+    type ImageNormalization: Normalization;
     const GL_ENUM: GLenum;
     const SIGNED: bool;
 }
@@ -323,10 +327,7 @@ pub enum TypeTagSingle {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct GLInt<S: Scalar<N>, N: Normalization = <S as ScalarBase>::DefaultNormalization>(
-    pub S,
-    pub PhantomData<N>,
-);
+pub struct GLInt<S: Scalar<N>, N: Normalization = NonNormalized>(pub S, pub PhantomData<N>);
 
 impl<S: Scalar<N>, N: Normalization> GLInt<S, N> {
     pub fn new(i: S) -> GLInt<S, N> {
@@ -379,12 +380,13 @@ macro_rules! impl_mint_conversions {
             }
         }
 
-        // This implementation doesn't work because we can't specialize `core`'s generic `From`
-        // and `Into` implementations.
+        // // This implementation doesn't work because we can't specialize `core`'s generic `From`
+        // // and `Into` implementations.
         // impl<M $(, $($generics)+)?> Into<M> for $t
         //     where $mint: Into<M>
         // {
         //     fn into(self) -> M {
+        //         unimplemented!()
         //         // use std::mem;
         //         // assert_eq!(mem::size_of::<$mint>(), mem::size_of::<$t>());
         //         // let r: $mint = unsafe{ mem::transmute_copy(&self) };
@@ -421,7 +423,7 @@ macro_rules! vector_struct {
         $(#[$meta])*
         #[repr(C)]
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        pub struct $Vector<S: Scalar<N>, N: Normalization = <S as ScalarBase>::DefaultNormalization> {
+        pub struct $Vector<S: Scalar<N>, N: Normalization = NonNormalized> {
             $(pub $dim: S,)+
             pub _normalization: PhantomData<N>,
         }
@@ -436,6 +438,30 @@ macro_rules! vector_struct {
             impl_slice_conversions!(S);
         }
 
+        impl<S: Scalar<N>, N: Normalization> Add for $Vector<S, N>
+            where S: Add<Output=S>,
+        {
+            type Output = Self;
+            fn add(self, other: Self) -> Self {
+                Self {
+                    $($dim: self.$dim + other.$dim,)+
+                    _normalization: PhantomData,
+                }
+            }
+        }
+
+        impl<S: Scalar<N>, N: Normalization> Sub for $Vector<S, N>
+            where S: Sub<Output=S>,
+        {
+            type Output = Self;
+            fn sub(self, other: Self) -> Self {
+                Self {
+                    $($dim: self.$dim - other.$dim,)+
+                    _normalization: PhantomData,
+                }
+            }
+        }
+
         impl_mint_conversions!({S: Scalar<N>, N: Normalization} [S; $len] => $Vector<S, N>);
         impl_array_deref!({S: Scalar<N>, N: Normalization} [S; $len] -> $Vector<S, N>);
 
@@ -448,7 +474,6 @@ macro_rules! vector_struct {
     }
 }
 
-
 vector_struct! {
     struct GLVec2(x, y): 2;
 }
@@ -460,7 +485,7 @@ vector_struct! {
 }
 
 macro_rules! matrix_struct {
-    ($(#[$meta:meta])* struct $(: $mint:ident ->)? $Matrix:ident($($dim:ident),+): $Vector:ident, ($rows:expr, $cols:expr);) => {
+    ($(#[$meta:meta])* struct $mint:ident -> $Matrix:ident($($dim:ident),+): $Vector:ident, ($rows:expr, $cols:expr);) => {
         $(#[$meta])*
         #[repr(C)]
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -483,16 +508,16 @@ macro_rules! matrix_struct {
             impl_slice_conversions!(S);
         }
 
-        $(impl_mint_conversions!({S: Scalar<NonNormalized>} $mint<S> => $Matrix<S>);)?
+        impl_mint_conversions!({S: Scalar<NonNormalized>} $mint<S> => $Matrix<S>);
         impl_array_deref!({S: Scalar<NonNormalized>} [S; $rows * $cols] -> $Matrix<S>);
 
         // We aren't implementing matrix for normalized integers because that complicates uniform
         // upload. No idea if OpenGL actually supports it either.
         unsafe impl TransparentType for $Matrix<f32> {
-            type Normalization = <f32 as ScalarBase>::DefaultNormalization;
+            type Normalization = NonNormalized;
             type Scalar = f32;
             #[inline]
-            fn prim_tag() -> TypeTagSingle {<f32 as Scalar<<f32 as ScalarBase>::DefaultNormalization>>::ScalarType::PRIM_TAG.matricize($cols, $rows).unwrap()}
+            fn prim_tag() -> TypeTagSingle {<f32 as Scalar<NonNormalized>>::ScalarType::PRIM_TAG.matricize($cols, $rows).unwrap()}
         }
     }
 }
@@ -501,57 +526,57 @@ matrix_struct! {
     /// A column-major, 2-row, 2-column matrix.
     ///
     /// This corresponds to `mat2` in GLSL and a `2x2` matrix in math.
-    struct : ColumnMatrix2 -> GLMat2r2c(x, y): GLVec2, (2, 2);
+    struct ColumnMatrix2 -> GLMat2r2c(x, y): GLVec2, (2, 2);
 }
 matrix_struct! {
     /// A column-major, 2-row, 3-column matrix.
     ///
     /// This corresponds to `mat3x2` in GLSL and a `2x3` matrix literally everywhere else.
-    struct : ColumnMatrix2x3 -> GLMat2r3c(x, y, z): GLVec2, (2, 3);
+    struct ColumnMatrix2x3 -> GLMat2r3c(x, y, z): GLVec2, (2, 3);
 }
 matrix_struct! {
     /// A column-major, 2-row, 4-column matrix.
     ///
     /// This corresponds to `mat4x2` in GLSL and a `2x4` matrix literally everywhere else.
-    struct /*ColumnMatrix2x4 ->*/ GLMat2r4c(x, y, z, w): GLVec2, (2, 4);
+    struct ColumnMatrix2x4 -> GLMat2r4c(x, y, z, w): GLVec2, (2, 4);
 }
 
 matrix_struct! {
     /// A column-major, 3-row, 2-column matrix.
     ///
     /// This corresponds to `mat2x3` in GLSL and a `3x2` matrix literally everywhere else.
-    struct : ColumnMatrix3x2 -> GLMat3r2c(x, y): GLVec3, (3, 2);
+    struct ColumnMatrix3x2 -> GLMat3r2c(x, y): GLVec3, (3, 2);
 }
 matrix_struct! {
     /// A column-major, 3-row, 3-column matrix.
     ///
     /// This corresponds to `mat3` in GLSL and a `3x3` matrix in math.
-    struct : ColumnMatrix3 -> GLMat3r3c(x, y, z): GLVec3, (3, 3);
+    struct ColumnMatrix3 -> GLMat3r3c(x, y, z): GLVec3, (3, 3);
 }
 matrix_struct! {
     /// A column-major, 3-row, 4-column matrix.
     ///
     /// This corresponds to `mat4x3` in GLSL and a `3x4` matrix literally everywhere else.
-    struct : ColumnMatrix3x4 -> GLMat3r4c(x, y, z, w): GLVec3, (3, 4);
+    struct ColumnMatrix3x4 -> GLMat3r4c(x, y, z, w): GLVec3, (3, 4);
 }
 
 matrix_struct! {
     /// A column-major, 4-row, 2-column matrix.
     ///
     /// This corresponds to `mat2x4` in GLSL and a `4x2` matrix literally everywhere else.
-    struct /*ColumnMatrix4x2 ->*/ GLMat4r2c(x, y): GLVec4, (4, 2);
+    struct ColumnMatrix4x2 -> GLMat4r2c(x, y): GLVec4, (4, 2);
 }
 matrix_struct! {
     /// A column-major, 4-row, 3-column matrix.
     ///
     /// This corresponds to `mat3x4` in GLSL and a `4x3` matrix literally everywhere else.
-    struct : ColumnMatrix4x3 -> GLMat4r3c(x, y, z): GLVec4, (4, 3);
+    struct ColumnMatrix4x3 -> GLMat4r3c(x, y, z): GLVec4, (4, 3);
 }
 matrix_struct! {
     /// A column-major, 4-row, 4-column matrix.
     ///
     /// This corresponds to `mat4` in GLSL and a `4x4` matrix in math.
-    struct : ColumnMatrix4 -> GLMat4r4c(x, y, z, w): GLVec4, (4, 4);
+    struct ColumnMatrix4 -> GLMat4r4c(x, y, z, w): GLVec4, (4, 4);
 }
 
 // I'm not implementing arrays right now because that's kinda complicated and I'm not convinced
@@ -571,9 +596,9 @@ matrix_struct! {
 //     24, 25, 26, 27, 28, 29, 30, 31, 32);
 
 macro_rules! impl_gl_scalar_float {
-    ($(impl $scalar:ty = ($gl_enum:expr, $normalized:ty, $signed:expr);)*) => {$(
+    ($(impl $scalar:ty = ($gl_enum:expr, $normalized:ty, $signed:expr $(, $TransparentType:ident)?);)*) => {$(
         impl ScalarBase for $scalar {
-            type DefaultNormalization = $normalized;
+            type ImageNormalization = $normalized;
             const GL_ENUM: GLenum = $gl_enum;
             const SIGNED: bool = $signed;
         }
@@ -581,15 +606,17 @@ macro_rules! impl_gl_scalar_float {
             // We treat raw integers as normalized, so every base scalar is technically a float.
             type ScalarType = GLSLFloat;
         }
-        unsafe impl TransparentType for $scalar
-        {
-            type Normalization = $normalized;
-            type Scalar = $scalar;
-            #[inline(always)]
-            fn prim_tag() -> TypeTagSingle {
-                <$scalar as Scalar<$normalized>>::ScalarType::PRIM_TAG
+        $(
+            unsafe impl $TransparentType for $scalar
+            {
+                type Normalization = $normalized;
+                type Scalar = $scalar;
+                #[inline(always)]
+                fn prim_tag() -> TypeTagSingle {
+                    <$scalar as Scalar<$normalized>>::ScalarType::PRIM_TAG
+                }
             }
-        }
+        )?
     )*};
 }
 
@@ -600,7 +627,7 @@ impl_gl_scalar_float! {
     impl i8 = (gl::BYTE, Normalized, true);
     impl i16 = (gl::SHORT, Normalized, true);
     impl i32 = (gl::INT, Normalized, true);
-    impl f32 = (gl::FLOAT, NonNormalized, true);
+    impl f32 = (gl::FLOAT, NonNormalized, true, TransparentType);
     // impl f64 = (gl::DOUBLE, NonNormalized, true);
 }
 
@@ -608,6 +635,15 @@ macro_rules! impl_gl_scalar_int {
     ($(impl $scalar:ty = $prim_tag:ident;)*) => {$(
         unsafe impl Scalar<NonNormalized> for $scalar {
             type ScalarType = $prim_tag;
+        }
+        unsafe impl TransparentType for $scalar
+        {
+            type Normalization = NonNormalized;
+            type Scalar = $scalar;
+            #[inline(always)]
+            fn prim_tag() -> TypeTagSingle {
+                <$scalar as Scalar<NonNormalized>>::ScalarType::PRIM_TAG
+            }
         }
     )*}
 }
@@ -625,7 +661,7 @@ unsafe impl Scalar<NonNormalized> for bool {
     type ScalarType = GLSLBool;
 }
 impl ScalarBase for bool {
-    type DefaultNormalization = NonNormalized;
+    type ImageNormalization = NonNormalized;
     const GL_ENUM: GLenum = gl::BOOL;
     const SIGNED: bool = false;
 }

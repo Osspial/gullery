@@ -1,7 +1,8 @@
-use gullery::image_format::{compressed::DXT1, ConcreteImageFormat, SRgb};
+use gullery::{
+    glsl::{GLVec2, GLVec3, NonNormalized},
+    image_format::{compressed::DXT1, ConcreteImageFormat, SRgb},
+};
 use png;
-
-use cgmath_geometry::{rect::DimsBox, D2};
 
 use std::{
     fs::File,
@@ -9,7 +10,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-fn transform_path(path: &str) -> PathBuf {
+pub fn transform_path(path: &str) -> PathBuf {
     let mut path_transformed = Path::new(file!())
         .parent()
         .unwrap()
@@ -21,7 +22,7 @@ fn transform_path(path: &str) -> PathBuf {
 }
 
 #[allow(dead_code)]
-pub fn load_dxt1_from_dds(path: &str) -> (Vec<Vec<DXT1<SRgb>>>, DimsBox<D2, u32>) {
+pub fn load_dxt1_from_dds(path: &str) -> (Vec<Vec<DXT1<SRgb>>>, GLVec2<u32, NonNormalized>) {
     let path = transform_path(path);
     let mut file = BufReader::new(File::open(path).unwrap());
     let dds = ddsfile::Dds::read(&mut file).unwrap();
@@ -32,7 +33,7 @@ pub fn load_dxt1_from_dds(path: &str) -> (Vec<Vec<DXT1<SRgb>>>, DimsBox<D2, u32>
     println!("{:?}", data.len());
     for i in 0..dds.header.mip_map_count.unwrap() {
         let div = 2_u32.pow(i);
-        let dims = DimsBox::new3(dds.header.width / div, dds.header.height / div, 1);
+        let dims = GLVec3::new(dds.header.width / div, dds.header.height / div, 1);
         let split_index = DXT1::<SRgb>::blocks_for_dims(dims);
         println!("{:?} {:?} {}", i, dims, split_index);
         let mip = &data[..split_index];
@@ -40,15 +41,15 @@ pub fn load_dxt1_from_dds(path: &str) -> (Vec<Vec<DXT1<SRgb>>>, DimsBox<D2, u32>
         mips.push(mip.to_vec());
     }
 
-    (mips, DimsBox::new2(dds.header.width, dds.header.height))
+    (mips, GLVec2::new(dds.header.width, dds.header.height))
 }
 
 #[allow(dead_code)]
-pub fn load_png(path: &str) -> Result<(Vec<u8>, DimsBox<D2, u32>), io::Error> {
+pub fn load_png(path: &str) -> Result<(Vec<u8>, GLVec2<u32, NonNormalized>), io::Error> {
     let path = transform_path(path);
     let decoder = png::Decoder::new(File::open(path)?);
     let (info, mut reader) = decoder.read_info()?;
     let mut buf = vec![0; info.buffer_size()];
     reader.next_frame(&mut buf)?;
-    Ok((buf, DimsBox::new2(info.width, info.height)))
+    Ok((buf, GLVec2::new(info.width, info.height)))
 }

@@ -3,16 +3,13 @@
 extern crate gullery;
 #[macro_use]
 extern crate gullery_macros;
-extern crate cgmath_geometry;
 extern crate glutin;
-extern crate png;
-
-extern crate num_traits;
 
 use gullery::{
     buffer::*,
     framebuffer::{render_state::*, *},
-    glsl::GLSLFloat,
+    geometry::D2,
+    glsl::{GLSLFloat, GLVec2, GLVec3, Normalized},
     image_format::*,
     program::*,
     texture::{sample_parameters::Swizzle, *},
@@ -20,30 +17,22 @@ use gullery::{
     ContextState,
 };
 
-use cgmath_geometry::{
-    cgmath,
-    rect::{DimsBox, OffsetBox},
-    D2,
-};
-
-use cgmath::*;
-
 use glutin::{dpi::LogicalSize, *};
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
-    pos: Vector3<f32>,
+    pos: GLVec3<f32>,
 }
 
 #[derive(Vertex, Clone, Copy)]
 struct TextureVertex {
-    pos: Vector2<f32>,
-    uv: Vector2<u16>,
+    pos: GLVec2<f32>,
+    uv: GLVec2<u16, Normalized>,
 }
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
-    offset: Vector2<f32>,
+    offset: GLVec2<f32>,
     tex: &'a Texture<D2, dyn ImageFormat<ScalarType = GLSLFloat>>,
 }
 
@@ -72,22 +61,22 @@ fn main() {
     let state = unsafe { ContextState::new(|addr| window.context().get_proc_address(addr)) };
 
     let mut color_texture =
-        Texture::with_mip_count(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap();
+        Texture::with_mip_count(GLVec2::new(size_x, size_y), 1, state.clone()).unwrap();
     let mut depth_texture =
-        Texture::with_mip_count(DimsBox::new2(size_x, size_y), 1, state.clone()).unwrap();
+        Texture::with_mip_count(GLVec2::new(size_x, size_y), 1, state.clone()).unwrap();
 
     {
         let vertex_buffer = Buffer::with_data(
             BufferUsage::StaticDraw,
             &[
                 Vertex {
-                    pos: Vector3::new(-1.0, -1.0, -1.0),
+                    pos: GLVec3::new(-1.0, -1.0, -1.0),
                 },
                 Vertex {
-                    pos: Vector3::new(0.0, 1.0, 1.0),
+                    pos: GLVec3::new(0.0, 1.0, 1.0),
                 },
                 Vertex {
-                    pos: Vector3::new(1.0, -1.0, -1.0),
+                    pos: GLVec3::new(1.0, -1.0, -1.0),
                 },
             ],
             state.clone(),
@@ -110,13 +99,13 @@ fn main() {
         };
         let render_state = RenderState {
             srgb: true,
-            viewport: OffsetBox::new2(0, 0, size_x, size_y),
+            viewport: GLVec2::new(0, 0)..=GLVec2::new(size_x, size_y),
             depth_test: Some(DepthStencilFunc::Less),
             ..RenderState::default()
         };
         fbo_attached.clear_depth(1.0);
         fbo_attached.clear_color_all(Rgba::new(0.0, 0.0, 0.0, 1.0));
-        fbo_attached.draw(DrawMode::Triangles, .., &vao, &program, (), render_state);
+        fbo_attached.draw(DrawMode::Triangles, .., &vao, &program, (), &render_state);
     }
 
     {
@@ -124,20 +113,20 @@ fn main() {
             BufferUsage::StaticDraw,
             &[
                 TextureVertex {
-                    pos: Vector2::new(-1.0, -1.0),
-                    uv: Vector2::new(0, 0),
+                    pos: GLVec2::new(-1.0, -1.0),
+                    uv: GLVec2::new(0, 0),
                 },
                 TextureVertex {
-                    pos: Vector2::new(-1.0, 1.0),
-                    uv: Vector2::new(0, !0),
+                    pos: GLVec2::new(-1.0, 1.0),
+                    uv: GLVec2::new(0, !0),
                 },
                 TextureVertex {
-                    pos: Vector2::new(0.0, 1.0),
-                    uv: Vector2::new(!0, !0),
+                    pos: GLVec2::new(0.0, 1.0),
+                    uv: GLVec2::new(!0, !0),
                 },
                 TextureVertex {
-                    pos: Vector2::new(0.0, -1.0),
-                    uv: Vector2::new(!0, 0),
+                    pos: GLVec2::new(0.0, -1.0),
+                    uv: GLVec2::new(!0, 0),
                 },
             ],
             state.clone(),
@@ -156,19 +145,11 @@ fn main() {
 
         let mut render_state = RenderState {
             srgb: true,
-            viewport: OffsetBox {
-                origin: Point2::new(0, 0),
-                dims: Vector2::new(512, 512),
-            },
+            viewport: GLVec2::new(0, 0)..=GLVec2::new(512, 512),
             ..RenderState::default()
         };
 
-        depth_texture.swizzle_read(Rgba::new(
-            Swizzle::Red,
-            Swizzle::Red,
-            Swizzle::Red,
-            Swizzle::One,
-        ));
+        depth_texture.swizzle_read(Swizzle::Red, Swizzle::Red, Swizzle::Red, Swizzle::One);
 
         let mut default_framebuffer = FramebufferDefault::new(state.clone()).unwrap();
         events_loop.run_forever(|event| {
@@ -178,15 +159,11 @@ fn main() {
                         let physical_size = logical_size.to_physical(window.get_hidpi_factor());
                         window.resize(physical_size);
                         let uniform = Uniforms {
-                            offset: Vector2::new(0.0, 0.0),
+                            offset: GLVec2::new(0.0, 0.0),
                             tex: color_texture.as_dyn(),
                         };
-                        render_state.viewport = OffsetBox::new2(
-                            0,
-                            0,
-                            physical_size.width as _,
-                            physical_size.height as _,
-                        );
+                        render_state.viewport = GLVec2::new(0, 0)
+                            ..=GLVec2::new(physical_size.width as _, physical_size.height as _);
                         default_framebuffer.clear_depth(1.0);
                         default_framebuffer.clear_color_all(Rgba::new(0.0, 0.0, 0.0, 1.0));
 
@@ -196,11 +173,11 @@ fn main() {
                             &vao,
                             &program,
                             uniform,
-                            render_state,
+                            &render_state,
                         );
 
                         let uniform = Uniforms {
-                            offset: Vector2::new(1.0, 0.0),
+                            offset: GLVec2::new(1.0, 0.0),
                             tex: depth_texture.as_dyn(),
                         };
                         default_framebuffer.draw(
@@ -209,7 +186,7 @@ fn main() {
                             &vao,
                             &program,
                             uniform,
-                            render_state,
+                            &render_state,
                         );
 
                         window.swap_buffers().unwrap();

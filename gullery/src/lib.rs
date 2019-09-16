@@ -17,8 +17,6 @@
 
 extern crate gullery_bindings as gl;
 extern crate num_traits;
-use cgmath_geometry::cgmath;
-extern crate cgmath_geometry;
 #[macro_use]
 extern crate bitflags;
 extern crate mint;
@@ -33,6 +31,7 @@ extern crate glutin;
 mod macros;
 pub mod buffer;
 pub mod framebuffer;
+pub mod geometry;
 pub mod glsl;
 pub mod image_format;
 pub mod program;

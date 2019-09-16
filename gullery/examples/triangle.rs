@@ -3,24 +3,18 @@
 extern crate gullery;
 #[macro_use]
 extern crate gullery_macros;
-extern crate cgmath_geometry;
 extern crate glutin;
 extern crate png;
-
-extern crate num_traits;
 
 use gullery::{
     buffer::*,
     framebuffer::{render_state::*, *},
+    glsl::GLVec2,
     image_format::*,
     program::*,
     vertex::VertexArrayObject,
     ContextState,
 };
-
-use cgmath_geometry::{cgmath, rect::OffsetBox};
-
-use cgmath::*;
 
 use glutin::{
     dpi::LogicalSize, ContextBuilder, ControlFlow, Event, EventsLoop, GlContext, GlProfile,
@@ -29,13 +23,13 @@ use glutin::{
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
-    pos: Vector2<f32>,
+    pos: GLVec2<f32>,
     color: Rgb<u8>,
 }
 
 #[derive(Clone, Copy, Uniforms)]
 struct TriUniforms {
-    offset: Point2<f32>,
+    offset: GLVec2<f32>,
 }
 
 fn main() {
@@ -59,15 +53,15 @@ fn main() {
         BufferUsage::StaticDraw,
         &[
             Vertex {
-                pos: Vector2::new(-1.0, -1.0),
+                pos: GLVec2::new(-1.0, -1.0),
                 color: Rgb::new(255, 0, 0),
             },
             Vertex {
-                pos: Vector2::new(0.0, 1.0),
+                pos: GLVec2::new(0.0, 1.0),
                 color: Rgb::new(0, 255, 0),
             },
             Vertex {
-                pos: Vector2::new(1.0, -1.0),
+                pos: GLVec2::new(1.0, -1.0),
                 color: Rgb::new(0, 0, 255),
             },
         ],
@@ -81,10 +75,7 @@ fn main() {
 
     let mut render_state = RenderState {
         srgb: true,
-        viewport: OffsetBox {
-            origin: Point2::new(0, 0),
-            dims: Vector2::new(512, 512),
-        },
+        viewport: GLVec2::new(0, 0)..=GLVec2::new(512, 512),
         ..RenderState::default()
     };
 
@@ -96,10 +87,10 @@ fn main() {
                     let physical_size = logical_size.to_physical(window.get_hidpi_factor());
                     window.resize(physical_size);
                     let uniform = TriUniforms {
-                        offset: Point2::new(0.0, 0.0),
+                        offset: GLVec2::new(0.0, 0.0),
                     };
-                    render_state.viewport =
-                        OffsetBox::new2(0, 0, physical_size.width as _, physical_size.height as _);
+                    render_state.viewport = GLVec2::new(0, 0)
+                        ..=GLVec2::new(physical_size.width as u32, physical_size.height as u32);
                     default_framebuffer.clear_depth(1.0);
                     default_framebuffer.clear_color_all(Rgba::new(0.0, 0.0, 0.0, 1.0));
                     default_framebuffer.draw(
@@ -108,7 +99,7 @@ fn main() {
                         &vao,
                         &program,
                         uniform,
-                        render_state,
+                        &render_state,
                     );
 
                     window.swap_buffers().unwrap();

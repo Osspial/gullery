@@ -6,7 +6,6 @@ authors = ["Osspial <osspial@gmail.com>"]
 [dependencies]
 gullery_bindings = {path = "../gullery_bindings"}
 num-traits = "0.2"
-cgmath-geometry = { git = "https://github.com/Osspial/cgmath-geometry" }
 bitflags = "1.0"
 mint = "0.5"
 
@@ -16,3 +15,4 @@ quickcheck = "0.7"
 gullery_macros = { path = "../gullery_macros" }
 png = "0.13"
 ddsfile = "0.2"
+cgmath = {version = "0.17", features = ["mint"]}

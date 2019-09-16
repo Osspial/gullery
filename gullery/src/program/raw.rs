@@ -367,6 +367,7 @@ impl<'a> RawBoundProgram<'a> {
         impl<'a, U: Uniforms> UniformsMemberRegistry for UniformsUploader<'a, U> {
             type Uniforms = U;
             fn add_member<T: UniformType>(&mut self, _: &str, get_member: fn(U) -> T) {
+                // TODO: TYPE-CHECK UNIFORMS
                 let loc = self.locs[self.loc_index];
                 if loc != -1 {
                     let mut binder = TextureUniformBinder {

@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{ContextState, GLObject, Handle};
+use crate::{
+    glsl::{GLVec2, NonNormalized},
+    image_format::{ConcreteImageFormat, FormatAttributes, ImageFormatRenderable},
+    ContextState, GLObject, Handle,
+};
 mod raw;
 use self::raw::{RawRenderbuffer, RawRenderbufferTarget};
-use crate::image_format::{ConcreteImageFormat, FormatAttributes, ImageFormatRenderable};
 
-use cgmath_geometry::{rect::DimsBox, D2};
 use std::{marker::PhantomData, rc::Rc};
 
 pub(crate) struct RenderbufferTarget(RawRenderbufferTarget);
@@ -31,7 +33,7 @@ pub(crate) struct RenderbufferTarget(RawRenderbufferTarget);
 pub struct Renderbuffer<I: ImageFormatRenderable> {
     raw: RawRenderbuffer,
     samples: u32,
-    dims: DimsBox<D2, u32>,
+    dims: GLVec2<u32, NonNormalized>,
     state: Rc<ContextState>,
     _format: PhantomData<I>,
 }
@@ -48,7 +50,11 @@ impl<I: ImageFormatRenderable> Renderbuffer<I> {
     /// ## Parameters
     /// * `dims`: The dimensions of the renderbuffer.
     /// * `samples`: The number of samples to use for multisampling to use when rendering to the renderbuffer. TODO: ACCOUNT FOR GL_MAX_SAMPLES
-    pub fn new(dims: DimsBox<D2, u32>, samples: u32, state: Rc<ContextState>) -> Renderbuffer<I>
+    pub fn new(
+        dims: GLVec2<u32, NonNormalized>,
+        samples: u32,
+        state: Rc<ContextState>,
+    ) -> Renderbuffer<I>
     where
         I: ConcreteImageFormat,
     {
@@ -80,7 +86,7 @@ impl<I: ImageFormatRenderable> Renderbuffer<I> {
 
     /// The dimensions of the underlying renderbuffer.
     #[inline(always)]
-    pub fn dims(&self) -> DimsBox<D2, u32> {
+    pub fn dims(&self) -> GLVec2<u32, NonNormalized> {
         self.dims
     }
 

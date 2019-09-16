@@ -1,32 +1,22 @@
 extern crate gullery;
 #[macro_use]
 extern crate gullery_macros;
-extern crate cgmath_geometry;
 extern crate glutin;
 extern crate png;
-
-extern crate num_traits;
 
 mod helper;
 
 use gullery::{
     buffer::*,
     framebuffer::{render_state::*, *},
-    glsl::GLSLFloat,
+    geometry::D2,
+    glsl::{GLSLFloat, GLVec2, GLVec3, Normalized},
     image_format::*,
     program::*,
     texture::{types::ArrayTex, *},
     vertex::VertexArrayObject,
     ContextState,
 };
-
-use cgmath_geometry::{
-    cgmath,
-    rect::{DimsBox, OffsetBox},
-    D2,
-};
-
-use cgmath::*;
 
 use glutin::{
     dpi::LogicalSize, ContextBuilder, ControlFlow, ElementState, Event, EventsLoop, GlContext,
@@ -35,8 +25,8 @@ use glutin::{
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
-    pos: Vector2<f32>,
-    tex_coord: Vector2<u16>,
+    pos: GLVec2<f32>,
+    tex_coord: GLVec2<u16, Normalized>,
 }
 
 #[derive(Clone, Copy, Uniforms)]
@@ -65,20 +55,20 @@ fn main() {
         BufferUsage::StaticDraw,
         &[
             Vertex {
-                pos: Vector2::new(-1.0, -1.0),
-                tex_coord: Vector2::new(0, !0),
+                pos: GLVec2::new(-1.0, -1.0),
+                tex_coord: GLVec2::new(0, !0),
             },
             Vertex {
-                pos: Vector2::new(-1.0, 1.0),
-                tex_coord: Vector2::new(0, 0),
+                pos: GLVec2::new(-1.0, 1.0),
+                tex_coord: GLVec2::new(0, 0),
             },
             Vertex {
-                pos: Vector2::new(1.0, 1.0),
-                tex_coord: Vector2::new(!0, 0),
+                pos: GLVec2::new(1.0, 1.0),
+                tex_coord: GLVec2::new(!0, 0),
             },
             Vertex {
-                pos: Vector2::new(1.0, -1.0),
-                tex_coord: Vector2::new(!0, !0),
+                pos: GLVec2::new(1.0, -1.0),
+                tex_coord: GLVec2::new(!0, !0),
             },
         ],
         state.clone(),
@@ -107,7 +97,7 @@ fn main() {
     image_combined.extend_from_slice(&ferris_happy_image);
 
     let ferris_texture: Texture<D2, ArrayTex<SRgba>> = Texture::with_images(
-        DimsBox::new3(ferris_happy_dims.width(), ferris_happy_dims.height(), 3),
+        GLVec3::new(ferris_happy_dims.width(), ferris_happy_dims.height(), 3),
         Some(SRgba::from_raw_slice(&image_combined)),
         state.clone(),
     )
@@ -120,10 +110,7 @@ fn main() {
 
     let mut render_state = RenderState {
         srgb: true,
-        viewport: OffsetBox {
-            origin: Point2::new(0, 0),
-            dims: Vector2::new(512, 512),
-        },
+        viewport: GLVec2::new(0, 0)..=GLVec2::new(512, 512),
         ..RenderState::default()
     };
 
@@ -134,12 +121,8 @@ fn main() {
             .get_inner_size()
             .unwrap()
             .to_physical(window.get_hidpi_factor());
-        render_state.viewport = OffsetBox::new2(
-            0,
-            0,
-            physical_size.width as u32,
-            physical_size.height as u32,
-        );
+        render_state.viewport = GLVec2::new(0, 0)
+            ..=GLVec2::new(physical_size.width as u32, physical_size.height as u32);
         let uniform = Uniforms {
             tex: ferris_texture.as_dyn(),
             array_index,
@@ -152,7 +135,7 @@ fn main() {
             &vao,
             &program,
             uniform,
-            render_state,
+            &render_state,
         );
 
         window.swap_buffers().unwrap();

@@ -16,11 +16,11 @@
 
 use crate::{
     framebuffer::Renderbuffer,
+    geometry::Dimension,
     image_format::{FormatType, FormatTypeTag, ImageFormatRenderable},
     texture::{MipSelector, Texture, TextureType},
     GLObject, Handle,
 };
-use cgmath_geometry::Dimensionality;
 use std::marker::PhantomData;
 
 /// A Rust type that can be used as a [`FramebufferObject`] attachment.
@@ -137,7 +137,7 @@ pub trait AttachmentsMemberRegistry {
         get_member: impl FnOnce(&Self::Attachments) -> &Texture<D, T>,
         texture_level: T::MipSelector,
     ) where
-        D: Dimensionality<u32>,
+        D: Dimension<u32>,
         T: TextureType<D>,
         T::Format: ImageFormatRenderable;
 }
@@ -173,7 +173,7 @@ where
         get_member: impl FnOnce(&Self::Attachments) -> &Texture<D, T>,
         _: T::MipSelector,
     ) where
-        D: Dimensionality<u32>,
+        D: Dimension<u32>,
         T: TextureType<D>,
         T::Format: ImageFormatRenderable,
     {
@@ -226,7 +226,7 @@ impl<I: ImageFormatRenderable> AttachmentType for Renderbuffer<I> {
 
 impl<D, T> AttachmentType for Texture<D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: TextureType<D>,
     T::Format: ImageFormatRenderable,
 {

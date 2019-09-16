@@ -12,14 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::gl::{self, types::*, Gl};
+use crate::{
+    gl::{self, types::*, Gl},
+    glsl::{GLVec2, NonNormalized},
+};
 
 use std::mem;
-
-use cgmath_geometry::{
-    rect::{GeoBox, OffsetBox},
-    D2,
-};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Capability {
@@ -246,15 +244,17 @@ pub fn set_gl_cap(gl: &Gl, cap: Capability) {
     }
 }
 
-pub fn set_viewport(gl: &Gl, vp_rect: OffsetBox<D2, u32>) {
-    assert!(vp_rect.width() < GLint::max_value() as u32);
-    assert!(vp_rect.height() < GLint::max_value() as u32);
+pub fn set_viewport(gl: &Gl, min: GLVec2<u32, NonNormalized>, max: GLVec2<u32, NonNormalized>) {
+    let width = max.x - min.x;
+    let height = max.y - min.y;
+    assert!(width < GLint::max_value() as u32);
+    assert!(width < GLint::max_value() as u32);
     unsafe {
         gl.Viewport(
-            vp_rect.origin.x as GLint,
-            vp_rect.origin.y as GLint,
-            vp_rect.width() as GLint,
-            vp_rect.height() as GLint,
+            min.x as GLint,
+            min.y as GLint,
+            width as GLint,
+            height as GLint,
         );
     }
 }

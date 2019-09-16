@@ -1,28 +1,19 @@
 extern crate gullery;
 #[macro_use]
 extern crate gullery_macros;
-extern crate cgmath_geometry;
 extern crate glutin;
-
-extern crate num_traits;
 
 use gullery::{
     buffer::*,
     framebuffer::{render_state::*, *},
+    geometry::D2,
+    glsl::{GLVec2, Normalized},
     image_format::{compressed::RGTC, *},
     program::*,
     texture::*,
     vertex::VertexArrayObject,
     ContextState,
 };
-
-use cgmath_geometry::{
-    cgmath,
-    rect::{DimsBox, OffsetBox},
-    D2,
-};
-
-use cgmath::*;
 
 use glutin::{
     dpi::LogicalSize, ContextBuilder, ControlFlow, Event, EventsLoop, GlContext, GlRequest,
@@ -31,8 +22,8 @@ use glutin::{
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
-    pos: Vector2<f32>,
-    tex_coord: Vector2<u16>,
+    pos: GLVec2<f32>,
+    tex_coord: GLVec2<u16, Normalized>,
 }
 
 #[derive(Clone, Copy, Uniforms)]
@@ -60,20 +51,20 @@ fn main() {
         BufferUsage::StaticDraw,
         &[
             Vertex {
-                pos: Vector2::new(-1.0, -1.0),
-                tex_coord: Vector2::new(0, !0),
+                pos: GLVec2::new(-1.0, -1.0),
+                tex_coord: GLVec2::new(0, !0),
             },
             Vertex {
-                pos: Vector2::new(-1.0, 1.0),
-                tex_coord: Vector2::new(0, 0),
+                pos: GLVec2::new(-1.0, 1.0),
+                tex_coord: GLVec2::new(0, 0),
             },
             Vertex {
-                pos: Vector2::new(1.0, 1.0),
-                tex_coord: Vector2::new(!0, 0),
+                pos: GLVec2::new(1.0, 1.0),
+                tex_coord: GLVec2::new(!0, 0),
             },
             Vertex {
-                pos: Vector2::new(1.0, -1.0),
-                tex_coord: Vector2::new(!0, !0),
+                pos: GLVec2::new(1.0, -1.0),
+                tex_coord: GLVec2::new(!0, !0),
             },
         ],
         state.clone(),
@@ -97,7 +88,7 @@ fn main() {
         );
         (
             dds.data[..buf_len].to_vec(),
-            DimsBox::new2(dds.header.width, dds.header.height),
+            GLVec2::new(dds.header.width, dds.header.height),
         )
     };
     println!("texture loaded");
@@ -111,10 +102,7 @@ fn main() {
 
     let mut render_state = RenderState {
         srgb: true,
-        viewport: OffsetBox {
-            origin: Point2::new(0, 0),
-            dims: Vector2::new(512, 512),
-        },
+        viewport: GLVec2::new(0, 0)..=GLVec2::new(512, 512),
         ..RenderState::default()
     };
 
@@ -126,12 +114,8 @@ fn main() {
                     let physical_size = logical_size.to_physical(window.get_hidpi_factor());
 
                     let uniform = Uniforms { tex: &texture };
-                    render_state.viewport = OffsetBox::new2(
-                        0,
-                        0,
-                        physical_size.width as u32,
-                        physical_size.height as u32,
-                    );
+                    render_state.viewport = GLVec2::new(0, 0)
+                        ..=GLVec2::new(physical_size.width as u32, physical_size.height as u32);
                     default_framebuffer.clear_depth(1.0);
                     default_framebuffer.clear_color_all(Rgba::new(0.0, 0.0, 0.0, 1.0));
                     default_framebuffer.draw(
@@ -140,7 +124,7 @@ fn main() {
                         &vao,
                         &program,
                         uniform,
-                        render_state,
+                        &render_state,
                     );
 
                     window.swap_buffers().unwrap();

@@ -15,7 +15,9 @@
 pub mod types;
 
 use crate::{
+    geometry::{Dimension, D1, D2, D3},
     gl::{self, types::*, Gl},
+    glsl::{GLVec2, GLVec3, NonNormalized},
     Handle,
 };
 
@@ -29,21 +31,16 @@ use std::{
     iter,
     marker::PhantomData,
     mem,
-    ops::{Deref, Index, Range},
+    ops::{Deref, Range},
     ptr,
 };
 
 use super::sample_parameters::*;
-use crate::cgmath::{Vector1, Vector2, Vector3};
-use cgmath_geometry::{
-    rect::{DimsBox, GeoBox},
-    Dimensionality, D1, D2, D3,
-};
 
 #[repr(C)]
 pub struct RawTexture<D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: ?Sized + TextureType<D>,
 {
     handle: Handle,
@@ -82,7 +79,7 @@ pub struct RawImageUnits {
 #[repr(C)]
 pub struct RawBoundTexture<'a, D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: 'a + ?Sized + TextureType<D>,
 {
     tex: &'a RawTexture<D, T>,
@@ -92,7 +89,7 @@ where
 #[repr(C)]
 pub struct RawBoundTextureMut<'a, D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: 'a + ?Sized + TextureType<D>,
 {
     tex: &'a mut RawTexture<D, T>,
@@ -105,7 +102,7 @@ pub struct DimsSquare {
 }
 
 pub trait Dims: 'static + Copy {
-    type Offset: Copy + Index<usize, Output = u32>;
+    type Offset: Copy;
     fn width(self) -> u32;
     fn height(self) -> u32;
     fn depth(self) -> u32;
@@ -119,7 +116,7 @@ pub trait DimsArray: Dims {
     fn mip_dims_array(self, mip_level: GLint) -> Self;
 }
 
-pub unsafe trait TextureType<D: Dimensionality<u32>>: 'static {
+pub unsafe trait TextureType<D: Dimension<u32>>: 'static {
     type Dims: Dims;
     type MipSelector: MipSelector;
     type Samples: Samples;
@@ -152,11 +149,11 @@ pub unsafe trait TextureType<D: Dimensionality<u32>>: 'static {
         Self::Format: ConcreteImageFormat;
 }
 
-pub unsafe trait TextureTypeRenderable<D: Dimensionality<u32>>: TextureType<D> {
+pub unsafe trait TextureTypeRenderable<D: Dimension<u32>>: TextureType<D> {
     type DynRenderable: ?Sized + TextureType<D, MipSelector = Self::MipSelector>;
 }
 
-pub unsafe trait TextureTypeBasicImage<D: Dimensionality<u32>>: TextureType<D> {}
+pub unsafe trait TextureTypeBasicImage<D: Dimension<u32>>: TextureType<D> {}
 
 // pub unsafe trait ArrayTextureType: TextureType {
 //     const ARRAY_BIND_TARGET: GLenum;
@@ -172,7 +169,7 @@ pub trait MipSelector: Copy {
 }
 pub trait Image<'a, D, T>: Copy + Sized
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: TextureType<D>,
     T::Format: Sized,
 {
@@ -197,7 +194,7 @@ impl Samples for u8 {
 
 impl<D, T> RawTexture<D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: ?Sized + TextureType<D>,
 {
     pub fn new(dims: T::Dims, gl: &Gl) -> RawTexture<D, T> {
@@ -307,7 +304,7 @@ impl RawImageUnits {
         gl: &'a Gl,
     ) -> RawBoundTexture<'a, D, T>
     where
-        D: Dimensionality<u32>,
+        D: Dimension<u32>,
         T: 'a + ?Sized + TextureType<D>,
     {
         let max_unit = self.image_units.len() as u32 - 1;
@@ -341,7 +338,7 @@ impl RawImageUnits {
         gl: &'a Gl,
     ) -> RawBoundTextureMut<'a, D, T>
     where
-        D: Dimensionality<u32>,
+        D: Dimension<u32>,
         T: 'a + ?Sized + TextureType<D>,
     {
         self.bind_texture(unit, tex, gl);
@@ -394,7 +391,7 @@ impl RawImageUnits {
 
 impl<'a, D, T> RawBoundTexture<'a, D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: TextureType<D>,
 {
     pub fn raw_tex(&self) -> &RawTexture<D, T> {
@@ -455,7 +452,7 @@ pub trait ParameterUploader {
 
 impl<'a, D, T> RawBoundTextureMut<'a, D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: TextureType<D>,
 {
     pub fn alloc_image<'b, I>(
@@ -477,7 +474,7 @@ where
             }
 
             let mip_dims = T::mip_dims(self.tex.dims(), level);
-            let num_blocks_expected = T::Format::blocks_for_dims(DimsBox::new3(
+            let num_blocks_expected = T::Format::blocks_for_dims(GLVec3::new(
                 mip_dims.width(),
                 mip_dims.height(),
                 mip_dims.depth(),
@@ -541,11 +538,8 @@ where
             }
 
             let dims = self.tex.dims();
-            let num_blocks_expected = T::Format::blocks_for_dims(DimsBox::new3(
-                dims.width(),
-                dims.height(),
-                dims.depth(),
-            ));
+            let num_blocks_expected =
+                T::Format::blocks_for_dims(GLVec3::new(dims.width(), dims.height(), dims.depth()));
 
             image.variants(|image_bind, data| {
                 let num_blocks = data.len();
@@ -575,7 +569,7 @@ where
 
 impl<'a, D, T> RawBoundTextureMut<'a, D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: ?Sized + TextureType<D>,
 {
     #[inline]
@@ -595,7 +589,7 @@ where
 
 impl<'a, D, T> ParameterUploader for RawBoundTexture<'a, D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: ?Sized + TextureType<D>,
 {
     #[inline]
@@ -629,7 +623,7 @@ impl<'a> ParameterUploader for (&'a Gl, &'a RawSampler) {
 
 impl<'a, D, T> Deref for RawBoundTextureMut<'a, D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: TextureType<D>,
 {
     type Target = RawBoundTexture<'a, D, T>;
@@ -683,90 +677,90 @@ impl DimsSquare {
     }
 }
 
-impl Dims for DimsBox<D1, u32> {
-    type Offset = Vector1<u32>;
+impl Dims for u32 {
+    type Offset = Self;
 
     #[inline]
     fn width(self) -> u32 {
-        GeoBox::width(&self)
+        self
     }
     #[inline]
     fn height(self) -> u32 {
-        GeoBox::height(&self)
+        1
     }
     #[inline]
     fn depth(self) -> u32 {
-        GeoBox::depth(&self)
+        1
     }
     #[inline]
     fn num_pixels(self) -> u32 {
         self.width()
     }
     #[inline]
-    fn max_size(state: &ContextState) -> DimsBox<D1, u32> {
+    fn max_size(state: &ContextState) -> u32 {
         unsafe {
             let mut size = 0;
             state.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
-            DimsBox::new1(size as u32)
+            size as u32
         }
     }
     fn mip_dims(self, mip_level: GLint) -> Self {
         let dim_divisor = 2u32.pow(mip_level as u32);
-        DimsBox::new1(self.width() / dim_divisor)
+        self / dim_divisor
     }
 }
 
-impl Dims for DimsBox<D2, u32> {
-    type Offset = Vector2<u32>;
+impl Dims for GLVec2<u32, NonNormalized> {
+    type Offset = Self;
     #[inline]
     fn width(self) -> u32 {
-        GeoBox::width(&self)
+        self.x
     }
     #[inline]
     fn height(self) -> u32 {
-        GeoBox::height(&self)
+        self.y
     }
     #[inline]
     fn depth(self) -> u32 {
-        GeoBox::depth(&self)
+        1
     }
     #[inline]
     fn num_pixels(self) -> u32 {
         self.width() * self.height()
     }
     #[inline]
-    fn max_size(state: &ContextState) -> DimsBox<D2, u32> {
+    fn max_size(state: &ContextState) -> Self {
         unsafe {
             let mut size = 0;
             state.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
-            DimsBox::new2(size as u32, size as u32)
+            GLVec2::new(size as u32, size as u32)
         }
     }
     fn mip_dims(self, mip_level: GLint) -> Self {
         let dim_divisor = 2u32.pow(mip_level as u32);
-        DimsBox::new2(self.width() / dim_divisor, self.height() / dim_divisor)
+        GLVec2::new(self.width() / dim_divisor, self.height() / dim_divisor)
     }
 }
-impl DimsArray for DimsBox<D2, u32> {
+impl DimsArray for GLVec2<u32, NonNormalized> {
     #[inline]
-    fn max_size_array(state: &ContextState) -> DimsBox<D2, u32> {
+    fn max_size_array(state: &ContextState) -> Self {
         unsafe {
             let (mut size, mut array_size) = (0, 0);
             state.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
             state
                 .gl
                 .GetIntegerv(gl::MAX_ARRAY_TEXTURE_LAYERS, &mut array_size);
-            DimsBox::new2(size as u32, array_size as u32)
+            GLVec2::new(size as u32, array_size as u32)
         }
     }
-    fn mip_dims_array(self, mip_level: GLint) -> DimsBox<D2, u32> {
+    fn mip_dims_array(self, mip_level: GLint) -> Self {
         let dim_divisor = 2u32.pow(mip_level as u32);
-        DimsBox::new2(self.width() / dim_divisor, self.height())
+        GLVec2::new(self.width() / dim_divisor, self.height())
     }
 }
 
 impl Dims for DimsSquare {
-    type Offset = Vector2<u32>;
+    type Offset = GLVec2<u32, NonNormalized>;
     #[inline]
     fn width(self) -> u32 {
         self.side
@@ -796,56 +790,56 @@ impl Dims for DimsSquare {
         DimsSquare::new(self.side / dim_divisor)
     }
 }
-impl Dims for DimsBox<D3, u32> {
-    type Offset = Vector3<u32>;
+impl Dims for GLVec3<u32, NonNormalized> {
+    type Offset = Self;
     #[inline]
     fn width(self) -> u32 {
-        GeoBox::width(&self)
+        self.x
     }
     #[inline]
     fn height(self) -> u32 {
-        GeoBox::height(&self)
+        self.y
     }
     #[inline]
     fn depth(self) -> u32 {
-        GeoBox::depth(&self)
+        self.z
     }
     #[inline]
     fn num_pixels(self) -> u32 {
         self.width() * self.height() * self.depth()
     }
     #[inline]
-    fn max_size(state: &ContextState) -> DimsBox<D3, u32> {
+    fn max_size(state: &ContextState) -> Self {
         unsafe {
             let mut size = 0;
             state.gl.GetIntegerv(gl::MAX_3D_TEXTURE_SIZE, &mut size);
-            DimsBox::new3(size as u32, size as u32, size as u32)
+            GLVec3::new(size as u32, size as u32, size as u32)
         }
     }
     fn mip_dims(self, mip_level: GLint) -> Self {
         let dim_divisor = 2u32.pow(mip_level as u32);
-        DimsBox::new3(
+        GLVec3::new(
             self.width() / dim_divisor,
             self.height() / dim_divisor,
             self.depth() / dim_divisor,
         )
     }
 }
-impl DimsArray for DimsBox<D3, u32> {
+impl DimsArray for GLVec3<u32, NonNormalized> {
     #[inline]
-    fn max_size_array(state: &ContextState) -> DimsBox<D3, u32> {
+    fn max_size_array(state: &ContextState) -> GLVec3<u32, NonNormalized> {
         unsafe {
             let (mut size, mut array_size) = (0, 0);
             state.gl.GetIntegerv(gl::MAX_TEXTURE_SIZE, &mut size);
             state
                 .gl
                 .GetIntegerv(gl::MAX_ARRAY_TEXTURE_LAYERS, &mut array_size);
-            DimsBox::new3(size as u32, size as u32, array_size as u32)
+            GLVec3::new(size as u32, size as u32, array_size as u32)
         }
     }
     fn mip_dims_array(self, mip_level: GLint) -> Self {
         let dim_divisor = 2u32.pow(mip_level as u32);
-        DimsBox::new3(
+        GLVec3::new(
             self.width() / dim_divisor,
             self.height() / dim_divisor,
             self.depth(),
@@ -854,7 +848,7 @@ impl DimsArray for DimsBox<D3, u32> {
 }
 impl<'a, D, T> Image<'a, D, T> for &'a [T::Format]
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: TextureTypeBasicImage<D>,
     T::Format: Sized,
 {
@@ -867,7 +861,7 @@ where
 }
 impl<'a, D, T> Image<'a, D, T> for !
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: TextureType<D>,
     T::Format: Sized,
 {

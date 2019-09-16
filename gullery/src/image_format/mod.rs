@@ -37,9 +37,6 @@ use std::marker::PhantomData;
 
 use crate::glsl::*;
 
-use crate::cgmath::{Vector1, Vector2, Vector3, Vector4};
-use cgmath_geometry::{rect::DimsBox, D3};
-
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FormatTypeTag {
@@ -79,7 +76,7 @@ pub enum FormatAttributes {
         ///
         /// Gullery's compressed formats expose a single instance of a struct as a block of pixel
         /// data.
-        block_dims: DimsBox<D3, u32>,
+        block_dims: GLVec3<u32, NonNormalized>,
     },
 }
 
@@ -102,16 +99,16 @@ fn next_multiple_of(u: u32, m: u32) -> u32 {
 
 pub unsafe trait ConcreteImageFormat: ImageFormat + Copy {
     const FORMAT: FormatAttributes;
-    fn blocks_for_dims(dims: DimsBox<D3, u32>) -> usize {
+    fn blocks_for_dims(dims: GLVec3<u32, NonNormalized>) -> usize {
         let (x_mult, y_mult, z_mult) = match Self::FORMAT {
             FormatAttributes::Uncompressed { .. } => (1, 1, 1),
             FormatAttributes::Compressed { block_dims, .. } => {
-                (block_dims.dims.x, block_dims.dims.y, block_dims.dims.z)
+                (block_dims.x, block_dims.y, block_dims.z)
             }
         };
-        ((next_multiple_of(dims.dims.x, x_mult)
-            * next_multiple_of(dims.dims.y, y_mult)
-            * next_multiple_of(dims.dims.z, z_mult))
+        ((next_multiple_of(dims.x, x_mult)
+            * next_multiple_of(dims.y, y_mult)
+            * next_multiple_of(dims.z, z_mult))
             / (x_mult * y_mult * z_mult)) as usize
     }
 }
@@ -188,7 +185,7 @@ unsafe impl ConcreteImageFormat for Depth32F {
 /// [`GLSLInt`]: ../glsl/struct.GLSLInt.html
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Rgba<S: Scalar<N> = u8, N: Normalization = <S as ScalarBase>::DefaultNormalization> {
+pub struct Rgba<S: Scalar<N> = u8, N: Normalization = <S as ScalarBase>::ImageNormalization> {
     pub r: S,
     pub g: S,
     pub b: S,
@@ -205,7 +202,7 @@ pub struct Rgba<S: Scalar<N> = u8, N: Normalization = <S as ScalarBase>::Default
 /// [`GLSLInt`]: ../glsl/struct.GLSLInt.html
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Rgb<S: Scalar<N> = u8, N: Normalization = <S as ScalarBase>::DefaultNormalization> {
+pub struct Rgb<S: Scalar<N> = u8, N: Normalization = <S as ScalarBase>::ImageNormalization> {
     pub r: S,
     pub g: S,
     pub b: S,
@@ -221,7 +218,7 @@ pub struct Rgb<S: Scalar<N> = u8, N: Normalization = <S as ScalarBase>::DefaultN
 /// [`GLSLInt`]: ../glsl/struct.GLSLInt.html
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Rg<S: Scalar<N> = u8, N: Normalization = <S as ScalarBase>::DefaultNormalization> {
+pub struct Rg<S: Scalar<N> = u8, N: Normalization = <S as ScalarBase>::ImageNormalization> {
     pub r: S,
     pub g: S,
     pub _normalization: PhantomData<N>,
@@ -234,9 +231,9 @@ pub struct Rg<S: Scalar<N> = u8, N: Normalization = <S as ScalarBase>::DefaultNo
 /// wrapipng a `u8`, `i8`, `u16`, `i16`, `u32`, or `i32`.
 ///
 /// [`GLSLInt`]: ../glsl/struct.GLSLInt.html
-#[repr(transparent)]
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Red<S: Scalar<N> = u8, N: Normalization = <S as ScalarBase>::DefaultNormalization> {
+pub struct Red<S: Scalar<N> = u8, N: Normalization = <S as ScalarBase>::ImageNormalization> {
     pub r: S,
     pub _normalization: PhantomData<N>,
 }
@@ -295,7 +292,7 @@ impl SRgba {
         SRgba { r, g, b, a }
     }
 
-    impl_slice_conversions!(SRgba);
+    impl_slice_conversions!(u8);
 }
 
 impl SRgb {
@@ -304,7 +301,7 @@ impl SRgb {
         SRgb { r, g, b }
     }
 
-    impl_slice_conversions!(SRgb);
+    impl_slice_conversions!(u8);
 }
 
 impl<S: ScalarNum<N>, N: Normalization> From<Rgb<S, N>> for Rgba<S, N> {
@@ -358,28 +355,28 @@ unsafe impl<S: ScalarNum<N>, N: Normalization> TransparentType for Red<S, N> {
         <S as Scalar<N>>::ScalarType::PRIM_TAG.vectorize(1).unwrap()
     }
 }
-impl<S: ScalarNum<N>, N: Normalization> Into<Vector4<S>> for Rgba<S, N> {
+impl<S: ScalarNum<N>, N: Normalization> Into<GLVec4<S, N>> for Rgba<S, N> {
     #[inline]
-    fn into(self: Rgba<S, N>) -> Vector4<S> {
-        Vector4::new(self.r, self.g, self.b, self.a)
+    fn into(self: Rgba<S, N>) -> GLVec4<S, N> {
+        GLVec4::new(self.r, self.g, self.b, self.a)
     }
 }
-impl<S: ScalarNum<N>, N: Normalization> Into<Vector3<S>> for Rgb<S, N> {
+impl<S: ScalarNum<N>, N: Normalization> Into<GLVec3<S, N>> for Rgb<S, N> {
     #[inline]
-    fn into(self: Rgb<S, N>) -> Vector3<S> {
-        Vector3::new(self.r, self.g, self.b)
+    fn into(self: Rgb<S, N>) -> GLVec3<S, N> {
+        GLVec3::new(self.r, self.g, self.b)
     }
 }
-impl<S: ScalarNum<N>, N: Normalization> Into<Vector2<S>> for Rg<S, N> {
+impl<S: ScalarNum<N>, N: Normalization> Into<GLVec2<S, N>> for Rg<S, N> {
     #[inline]
-    fn into(self: Rg<S, N>) -> Vector2<S> {
-        Vector2::new(self.r, self.g)
+    fn into(self: Rg<S, N>) -> GLVec2<S, N> {
+        GLVec2::new(self.r, self.g)
     }
 }
-impl<S: ScalarNum<N>, N: Normalization> Into<Vector1<S>> for Red<S, N> {
+impl<S: ScalarNum<N>, N: Normalization> Into<GLInt<S, N>> for Red<S, N> {
     #[inline]
-    fn into(self: Red<S, N>) -> Vector1<S> {
-        Vector1::new(self.r)
+    fn into(self: Red<S, N>) -> GLInt<S, N> {
+        GLInt::new(self.r)
     }
 }
 

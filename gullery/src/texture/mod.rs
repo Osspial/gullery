@@ -22,6 +22,7 @@ use crate::gl::{types::*, Gl};
 
 use self::{raw::*, sample_parameters::*};
 use crate::{
+    geometry::{Dimension, D1, D2, D3},
     image_format::{ConcreteImageFormat, ImageFormat},
     ContextState, GLObject, Handle,
 };
@@ -38,14 +39,12 @@ pub use self::raw::{
     TextureTypeRenderable,
 };
 
-use cgmath_geometry::{Dimensionality, D1, D2, D3};
-
 /// OpenGL Texture object.
 // This is repr C in order to guarantee that the `to_dyn` casts work.
 #[repr(C)]
 pub struct Texture<D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: ?Sized + TextureType<D>,
 {
     raw: RawTexture<D, T>,
@@ -62,7 +61,7 @@ pub struct Sampler {
 
 pub struct SampledTexture<'a, D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: ?Sized + TextureType<D>,
 {
     pub sampler: &'a Sampler,
@@ -72,7 +71,7 @@ where
 #[derive(Debug, Clone)]
 pub enum TextureCreateError<D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: TextureType<D>,
 {
     DimsExceedMax { requested: T::Dims, max: T::Dims },
@@ -80,7 +79,7 @@ where
 
 impl<D, T> GLObject for Texture<D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: TextureType<D>,
 {
     #[inline(always)]
@@ -107,12 +106,12 @@ impl GLObject for Sampler {
 pub(crate) struct ImageUnits(RawImageUnits);
 pub(crate) struct BoundTexture<'a, D, T>(RawBoundTexture<'a, D, T>)
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: ?Sized + TextureType<D>;
 
 impl<D, T> Texture<D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: TextureType<D>,
     T::Format: ConcreteImageFormat,
 {
@@ -296,7 +295,7 @@ where
 
 impl<D, T> Texture<D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: ?Sized + TextureType<D>,
 {
     /// The number of mipmap levels the texture has.
@@ -547,7 +546,7 @@ impl ImageUnits {
         gl: &'a Gl,
     ) -> BoundTexture<D, T>
     where
-        D: Dimensionality<u32>,
+        D: Dimension<u32>,
         T: ?Sized + TextureType<D>,
     {
         let tex_bind = self.0.bind_texture(unit, &tex.raw, gl);
@@ -563,7 +562,7 @@ impl ImageUnits {
 
 impl<D, T> Drop for Texture<D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: ?Sized + TextureType<D>,
 {
     fn drop(&mut self) {
@@ -624,7 +623,7 @@ texture_type_uniform! {
 
 unsafe impl<'a, D, T> UniformType for SampledTexture<'a, D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: ?Sized + TextureType<D>,
     &'a Texture<D, T>: UniformType,
 {
@@ -641,7 +640,7 @@ where
 
 impl<D, T> From<TextureCreateError<D, T>> for io::Error
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: TextureType<D>,
     TextureCreateError<D, T>: Send + Sync + fmt::Debug + fmt::Display,
 {
@@ -650,14 +649,14 @@ where
     }
 }
 
-impl<D: Dimensionality<u32>, T: TextureType<D>> Error for TextureCreateError<D, T> where
+impl<D: Dimension<u32>, T: TextureType<D>> Error for TextureCreateError<D, T> where
     TextureCreateError<D, T>: fmt::Debug + fmt::Display
 {
 }
 
 impl<D, T> fmt::Display for TextureCreateError<D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: TextureType<D>,
     T::Dims: fmt::Display,
 {
@@ -674,7 +673,7 @@ where
 
 impl<'a, D, T> Clone for SampledTexture<'a, D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: ?Sized + TextureType<D>,
 {
     fn clone(&self) -> Self {
@@ -687,7 +686,7 @@ where
 
 impl<'a, D, T> Copy for SampledTexture<'a, D, T>
 where
-    D: Dimensionality<u32>,
+    D: Dimension<u32>,
     T: ?Sized + TextureType<D>,
 {
 }

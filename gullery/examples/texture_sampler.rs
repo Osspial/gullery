@@ -1,27 +1,22 @@
 extern crate gullery;
 #[macro_use]
 extern crate gullery_macros;
-extern crate cgmath_geometry;
 extern crate glutin;
 extern crate png;
-
-extern crate num_traits;
 
 mod helper;
 
 use gullery::{
     buffer::*,
     framebuffer::{render_state::*, *},
+    geometry::D2,
+    glsl::{GLVec2, Normalized},
     image_format::*,
     program::*,
     texture::{sample_parameters::*, *},
     vertex::VertexArrayObject,
     ContextState,
 };
-
-use cgmath_geometry::{cgmath, rect::OffsetBox, D2};
-
-use cgmath::*;
 
 use glutin::{
     dpi::LogicalSize, ContextBuilder, ControlFlow, ElementState, Event, EventsLoop, GlContext,
@@ -30,15 +25,15 @@ use glutin::{
 
 #[derive(Vertex, Clone, Copy)]
 struct Vertex {
-    pos: Vector2<f32>,
-    tex_coord: Vector2<u16>,
+    pos: GLVec2<f32>,
+    tex_coord: GLVec2<u16, Normalized>,
 }
 
 #[derive(Clone, Copy, Uniforms)]
 struct Uniforms<'a> {
     tex: SampledTexture<'a, D2, SRgba>,
-    offset: Vector2<f32>,
-    scale: Vector2<f32>,
+    offset: GLVec2<f32>,
+    scale: GLVec2<f32>,
 }
 
 fn main() {
@@ -61,20 +56,20 @@ fn main() {
         BufferUsage::StaticDraw,
         &[
             Vertex {
-                pos: Vector2::new(-1.0, -1.0),
-                tex_coord: Vector2::new(0, !0),
+                pos: GLVec2::new(-1.0, -1.0),
+                tex_coord: GLVec2::new(0, !0),
             },
             Vertex {
-                pos: Vector2::new(-1.0, 1.0),
-                tex_coord: Vector2::new(0, 0),
+                pos: GLVec2::new(-1.0, 1.0),
+                tex_coord: GLVec2::new(0, 0),
             },
             Vertex {
-                pos: Vector2::new(1.0, 1.0),
-                tex_coord: Vector2::new(!0, 0),
+                pos: GLVec2::new(1.0, 1.0),
+                tex_coord: GLVec2::new(!0, 0),
             },
             Vertex {
-                pos: Vector2::new(1.0, -1.0),
-                tex_coord: Vector2::new(!0, !0),
+                pos: GLVec2::new(1.0, -1.0),
+                tex_coord: GLVec2::new(!0, !0),
             },
         ],
         state.clone(),
@@ -114,10 +109,7 @@ fn main() {
 
     let mut render_state = RenderState {
         srgb: true,
-        viewport: OffsetBox {
-            origin: Point2::new(0, 0),
-            dims: Vector2::new(512, 512),
-        },
+        viewport: GLVec2::new(0, 0)..=GLVec2::new(512, 512),
         ..RenderState::default()
     };
 
@@ -132,12 +124,8 @@ fn main() {
                 .get_inner_size()
                 .unwrap()
                 .to_physical(window.get_hidpi_factor());
-            render_state.viewport = OffsetBox::new2(
-                0,
-                0,
-                physical_size.width as u32,
-                physical_size.height as u32,
-            );
+            render_state.viewport = GLVec2::new(0, 0)
+                ..=GLVec2::new(physical_size.width as u32, physical_size.height as u32);
             default_framebuffer.clear_depth(1.0);
             default_framebuffer.clear_color_all(Rgba::new(0.0, 0.0, 0.0, 1.0));
 
@@ -147,8 +135,8 @@ fn main() {
                     texture: &ferris_normal_texture,
                     sampler: &sampler,
                 },
-                offset: Vector2::new(-0.5, 0.5),
-                scale: Vector2::new(0.5, 0.5),
+                offset: GLVec2::new(-0.5, 0.5),
+                scale: GLVec2::new(0.5, 0.5),
             };
 
             let mut draw_scaled_copies = |mut uniform: Uniforms| {
@@ -161,7 +149,7 @@ fn main() {
                         &vao,
                         &program,
                         uniform,
-                        render_state,
+                        &render_state,
                     );
                     uniform.offset.y -= uniform.scale.y * 1.5;
                     uniform.scale.y /= 2.0;

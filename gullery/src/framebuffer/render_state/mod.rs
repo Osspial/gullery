@@ -19,10 +19,13 @@ pub use self::raw::{
     BlendFunc, BlendFuncs, ColorMask, CullFace, DepthStencilFunc, FrontFace, PolygonOffset,
     StencilOp, StencilTest,
 };
-use crate::ContextState;
-use cgmath_geometry::{rect::OffsetBox, D2};
+use crate::{
+    glsl::{GLVec2, NonNormalized},
+    ContextState,
+};
+use std::ops::RangeInclusive;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RenderState {
     pub blend: BlendFuncs,
     pub cull: Option<(CullFace, FrontFace)>,
@@ -37,15 +40,15 @@ pub struct RenderState {
     pub texture_cubemap_seamless: bool,
     pub program_point_size: bool,
     pub polygon_offset: Option<PolygonOffset>,
-    pub viewport: OffsetBox<D2, u32>,
+    pub viewport: RangeInclusive<GLVec2<u32, NonNormalized>>,
     pub color_mask: ColorMask,
     pub depth_mask: bool,
 }
 
 impl RenderState {
     #[inline]
-    pub fn upload_state(self, state: &ContextState) {
-        let old_state = state.render_state.replace(self);
+    pub fn upload_state(&self, state: &ContextState) {
+        let old_state = state.render_state.replace(self.clone());
         let gl = &state.gl;
         if self.blend != old_state.blend {
             raw::set_gl_cap(gl, Capability::Blend(Some(self.blend)));
@@ -93,7 +96,7 @@ impl RenderState {
             raw::set_gl_cap(gl, Capability::PolygonOffset(self.polygon_offset));
         }
         if self.viewport != old_state.viewport {
-            raw::set_viewport(gl, self.viewport);
+            raw::set_viewport(gl, *self.viewport.start(), *self.viewport.end());
         }
         if self.color_mask != old_state.color_mask {
             raw::set_color_mask(gl, self.color_mask);
@@ -121,7 +124,7 @@ impl Default for RenderState {
             texture_cubemap_seamless: false,
             program_point_size: false,
             polygon_offset: None,
-            viewport: OffsetBox::new2(0, 0, 0, 0),
+            viewport: GLVec2::new(0, 0)..=GLVec2::new(0, 0),
             color_mask: ColorMask::default(),
             depth_mask: true,
         }

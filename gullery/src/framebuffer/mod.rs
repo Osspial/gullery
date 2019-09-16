@@ -35,15 +35,18 @@ use std::borrow::BorrowMut;
 use self::render_state::RenderState;
 use crate::{
     gl::{self, types::*, Gl},
+    glsl::{GLVec2, NonNormalized},
     image_format::{ConcreteImageFormat, FormatType, FormatTypeTag, ImageFormatRenderable, Rgba},
     program::Program,
     uniform::Uniforms,
     vertex::{Index, Vertex, VertexArrayObject},
     ContextState, Handle,
 };
-use cgmath_geometry::{rect::OffsetBox, D2};
 
-use std::{ops::RangeBounds, rc::Rc};
+use std::{
+    ops::{RangeBounds, RangeInclusive},
+    rc::Rc,
+};
 
 pub(crate) struct FramebufferTargets {
     read: RawFramebufferTargetRead,
@@ -182,7 +185,7 @@ pub trait Framebuffer {
         vao: &VertexArrayObject<V, I>,
         program: &Program<V, U::Static, Self::AttachmentsStatic>,
         uniform: U,
-        render_state: RenderState,
+        render_state: &RenderState,
     ) where
         R: RangeBounds<usize>,
         V: Vertex,
@@ -226,15 +229,19 @@ impl FramebufferDefault {
 
     /// Reads pixels from the default framebuffer
     #[inline]
-    pub fn read_pixels<C>(&mut self, read_rect: OffsetBox<D2, u32>, data: &mut [C])
+    pub fn read_pixels<V, C>(&mut self, read_range: RangeInclusive<V>, data: &mut [C])
     where
+        V: Into<GLVec2<u32, NonNormalized>>,
         C: ImageFormatRenderable + ConcreteImageFormat,
     {
         let (raw, arm, state) = self.raw_mut();
         unsafe {
             let mut framebuffer_bind = state.framebuffer_targets.read.bind(raw, &state.gl);
             framebuffer_bind.set_attachments(arm.ahc, arm.attachments);
-            framebuffer_bind.read_pixels(read_rect, data);
+            let (start, end) = read_range.into_inner();
+            let start: GLVec2<_, _> = start.into();
+            let end: GLVec2<_, _> = end.into();
+            framebuffer_bind.read_pixels(start, end - start, data);
         }
     }
 }
@@ -316,12 +323,13 @@ where
     }
 
     #[inline]
-    pub fn read_pixels_attachment<C, At>(
+    pub fn read_pixels_attachment<V, C, At>(
         &mut self,
-        read_rect: OffsetBox<D2, u32>,
+        read_range: RangeInclusive<V>,
         data: &mut [C],
         get_attachment: impl FnOnce(&<Self as Framebuffer>::Attachments) -> &At,
     ) where
+        V: Into<GLVec2<u32, NonNormalized>>,
         C: ImageFormatRenderable + ConcreteImageFormat,
         At: AttachmentType<Format = C>,
     {
@@ -333,7 +341,10 @@ where
                 framebuffer_bind.read_color_attachment(color_index);
             }
             framebuffer_bind.set_attachments(arm.ahc, arm.attachments);
-            framebuffer_bind.read_pixels(read_rect, data);
+            let (start, end) = read_range.into_inner();
+            let start: GLVec2<_, _> = start.into();
+            let end: GLVec2<_, _> = end.into();
+            framebuffer_bind.read_pixels(start, end - start, data);
         }
     }
 

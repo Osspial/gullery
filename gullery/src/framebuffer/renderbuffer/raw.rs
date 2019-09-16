@@ -12,14 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::gl::{self, types::*, Gl};
-
-use cgmath_geometry::{
-    rect::{DimsBox, GeoBox},
-    D2,
+use crate::{
+    gl::{self, types::*, Gl},
+    glsl::{GLVec2, NonNormalized},
+    ContextState, Handle,
 };
-
-use crate::{ContextState, Handle};
 
 use std::{cell::Cell, marker::PhantomData};
 
@@ -99,19 +96,19 @@ impl RawRenderbufferTarget {
 }
 
 impl<'a> RawBoundRenderbufferMut<'a> {
-    pub fn alloc_storage(&mut self, internal_format: GLenum, dims: DimsBox<D2, u32>, samples: u32) {
-        let width = dims.width() as i32;
-        let height = dims.height() as i32;
+    pub fn alloc_storage(
+        &mut self,
+        internal_format: GLenum,
+        dims: GLVec2<u32, NonNormalized>,
+        samples: u32,
+    ) {
         unsafe {
-            assert!(width >= 0);
-            assert!(height >= 0);
-
             self.gl.RenderbufferStorageMultisample(
                 gl::RENDERBUFFER,
                 samples as i32,
                 internal_format,
-                width as GLsizei,
-                height as GLsizei,
+                dims.x as GLsizei,
+                dims.y as GLsizei,
             );
             assert_eq!(0, self.gl.GetError());
         }
