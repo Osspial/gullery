@@ -52,7 +52,7 @@ pub enum ProgramError {
 }
 
 /// Error detected by Gullery that could indicate a misbehaved program.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ProgramWarning {
     /// A uniform was specified, but is unused by OpenGL.
     ///
