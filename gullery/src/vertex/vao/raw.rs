@@ -180,8 +180,8 @@ impl<'a, V: Vertex> VertexMemberRegistry for VertexAttribBuilder<'a, V> {
                             mem::size_of::<V>() as GLsizei,
                             (attrib_offset + slot_offset) as *const GLvoid,
                         ),
-                        TypeTagSingle::Int | TypeTagSingle::UInt | TypeTagSingle::Bool => gl
-                            .VertexAttribIPointer(
+                        TypeTagSingle::Int | TypeTagSingle::UInt | TypeTagSingle::Bool =>
+                            gl.VertexAttribIPointer(
                                 self.attrib_loc + slot,
                                 attrib_len as GLint,
                                 T::Scalar::GL_ENUM,
