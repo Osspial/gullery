@@ -193,6 +193,16 @@ pub struct Rgba<S: Scalar<N> = u8, N: Normalization = <S as ScalarBase>::ImageNo
     pub _normalization: PhantomData<N>,
 }
 
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Bgra<S: Scalar<N> = u8, N: Normalization = <S as ScalarBase>::ImageNormalization> {
+    pub b: S,
+    pub g: S,
+    pub r: S,
+    pub a: S,
+    pub _normalization: PhantomData<N>,
+}
+
 /// Linear three-channel RGB color format.
 ///
 /// If you want GLSL to take normalized integer or floating point data, `S` can be `u8`,
@@ -284,6 +294,7 @@ impl_color! {
     impl Rgb<S>(3, color: r, g, b);
     impl Rg<S>(2, color: r, g);
     impl Red<S>(1, color: r);
+    impl Bgra<S>(4, color: r, g, b, a);
 }
 
 impl SRgba {
@@ -355,6 +366,14 @@ unsafe impl<S: ScalarNum<N>, N: Normalization> TransparentType for Red<S, N> {
         <S as Scalar<N>>::ScalarType::PRIM_TAG.vectorize(1).unwrap()
     }
 }
+unsafe impl<S: ScalarNum<N>, N: Normalization> TransparentType for Bgra<S, N> {
+    type Normalization = N;
+    type Scalar = S;
+    #[inline]
+    fn prim_tag() -> TypeTagSingle {
+        <S as Scalar<N>>::ScalarType::PRIM_TAG.vectorize(4).unwrap()
+    }
+}
 impl<S: ScalarNum<N>, N: Normalization> Into<GLVec4<S, N>> for Rgba<S, N> {
     #[inline]
     fn into(self: Rgba<S, N>) -> GLVec4<S, N> {
@@ -377,6 +396,12 @@ impl<S: ScalarNum<N>, N: Normalization> Into<GLInt<S, N>> for Red<S, N> {
     #[inline]
     fn into(self: Red<S, N>) -> GLInt<S, N> {
         GLInt::new(self.r)
+    }
+}
+impl<S: ScalarNum<N>, N: Normalization> Into<GLVec4<S, N>> for Bgra<S, N> {
+    #[inline]
+    fn into(self: Bgra<S, N>) -> GLVec4<S, N> {
+        GLVec4::new(self.r, self.g, self.b, self.a)
     }
 }
 
@@ -510,6 +535,24 @@ unsafe impl ConcreteImageFormat for SRgb {
     const FORMAT: FormatAttributes = FormatAttributes::Uncompressed {
         internal_format: gl::SRGB8,
         pixel_format: gl::RGB,
+        pixel_type: <u8 as ScalarBase>::GL_ENUM,
+    };
+}
+
+impl ColorComponents for Bgra<u8, Normalized> {
+    type Normalization = Normalized;
+    type Scalar = u8;
+}
+unsafe impl ImageFormat for Bgra<u8, Normalized> {
+    type ScalarType = GLSLFloat;
+}
+unsafe impl ImageFormatRenderable for Bgra<u8, Normalized> {
+    type FormatType = ColorFormat;
+}
+unsafe impl ConcreteImageFormat for Bgra<u8, Normalized> {
+    const FORMAT: FormatAttributes = FormatAttributes::Uncompressed {
+        internal_format: gl::RGBA8,
+        pixel_format: gl::BGRA,
         pixel_type: <u8 as ScalarBase>::GL_ENUM,
     };
 }
