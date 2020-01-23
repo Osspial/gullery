@@ -128,10 +128,10 @@ pub enum StencilOp {
     Keep = gl::KEEP,
     Zero = gl::ZERO,
     Replace = gl::REPLACE,
-    Incr = gl::INCR,
-    IncrWrap = gl::INCR_WRAP,
-    Decr = gl::DECR,
-    DecrWrap = gl::DECR_WRAP,
+    Increment = gl::INCR,
+    IncrementWrap = gl::INCR_WRAP,
+    Decrement = gl::DECR,
+    DecrementWrap = gl::DECR_WRAP,
     Invert = gl::INVERT,
 }
 
