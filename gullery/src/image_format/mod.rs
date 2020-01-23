@@ -35,7 +35,7 @@ pub mod compressed;
 use crate::gl::{self, types::*};
 use std::marker::PhantomData;
 
-use crate::glsl::*;
+use crate::geometry::*;
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

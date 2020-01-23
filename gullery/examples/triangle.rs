@@ -9,7 +9,7 @@ extern crate png;
 use gullery::{
     buffer::*,
     framebuffer::{render_state::*, *},
-    glsl::GLVec2,
+    geometry::GLVec2,
     image_format::*,
     program::*,
     vertex::VertexArrayObject,

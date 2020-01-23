@@ -7,7 +7,7 @@ use gullery::{
     buffer::*,
     framebuffer::{render_state::*, *},
     geometry::D2,
-    glsl::{GLVec2, Normalized},
+    geometry::{GLVec2, Normalized},
     image_format::{compressed::RGTC, *},
     program::*,
     texture::*,

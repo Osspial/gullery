@@ -10,7 +10,7 @@ use gullery::{
     buffer::*,
     framebuffer::{render_state::*, *},
     geometry::D2,
-    glsl::{GLVec2, NonNormalized},
+    geometry::{GLVec2, NonNormalized},
     image_format::*,
     program::*,
     texture::*,

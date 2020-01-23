@@ -29,7 +29,7 @@
 
 use crate::{
     gl,
-    glsl::{GLSLFloat, GLVec3},
+    geometry::{GLSLFloat, GLVec3},
     image_format::{
         ColorComponents, ConcreteImageFormat, FormatAttributes, ImageFormat, Red, Rg, Rgb, Rgba,
         SRgb, SRgba,

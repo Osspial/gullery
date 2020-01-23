@@ -28,7 +28,7 @@ use crate::{
 };
 
 use crate::{
-    glsl::{ScalarType, TypeTag, TypeTagSingle},
+    geometry::{ScalarType, TypeTag, TypeTagSingle},
     uniform::{TextureUniformBinder, UniformType},
 };
 

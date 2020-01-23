@@ -22,7 +22,7 @@ use crate::{
 
 use super::error::{LinkError, MismatchedTypeError, ProgramError, ProgramWarning};
 use crate::{
-    glsl::{TransparentType, TypeTag, TypeTagSingle},
+    geometry::{TransparentType, TypeTag, TypeTagSingle},
     texture::ImageUnits,
     uniform::{
         TextureUniformBinder, UniformLocContainer, UniformType, Uniforms, UniformsMemberRegistry,

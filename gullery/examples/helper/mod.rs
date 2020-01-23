@@ -1,5 +1,5 @@
 use gullery::{
-    glsl::{GLVec2, GLVec3, NonNormalized},
+    geometry::{GLVec2, GLVec3, NonNormalized},
     image_format::{compressed::DXT1, ConcreteImageFormat, SRgb},
 };
 use png;

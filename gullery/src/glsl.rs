@@ -40,7 +40,7 @@
 //! probably do so like this:
 //!
 //! ```rust
-//! # use gullery::glsl::GLVec3;
+//! # use gullery::geometry::GLVec3;
 //! let vector: GLVec3<i32> = GLVec3::new(0, 1, 2);
 //! ```
 //!
@@ -104,7 +104,7 @@
 //! Or, with one of Gullery's matrix types, like this:
 //!
 //! ```rust
-//! # use gullery::glsl::{GLVec2, GLMat2r3c};
+//! # use gullery::geometry::{GLVec2, GLMat2r3c};
 //! let matrix = GLMat2r3c {
 //!     x: GLVec2::new(0, 1),
 //!     y: GLVec2::new(2, 3),

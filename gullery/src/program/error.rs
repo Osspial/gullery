@@ -14,7 +14,7 @@
 
 //! Program and shader errors.
 
-use crate::glsl::TypeTag;
+use crate::geometry::TypeTag;
 
 use std::{
     error::Error,

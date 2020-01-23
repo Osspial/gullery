@@ -32,7 +32,6 @@ mod macros;
 pub mod buffer;
 pub mod framebuffer;
 pub mod geometry;
-pub mod glsl;
 pub mod image_format;
 pub mod program;
 pub mod texture;
@@ -127,7 +126,7 @@ impl ContextState {
 mod test_helper {
     use super::*;
     use crate::{
-        glsl::{GLVec2, GLVec3},
+        geometry::{GLVec2, GLVec3},
         vertex::{Vertex, VertexMemberRegistry},
     };
     use glutin::{Api, Context, ContextBuilder, EventsLoop, GlContext, GlRequest};

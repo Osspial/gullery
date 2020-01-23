@@ -16,7 +16,7 @@ extern crate gullery;
 #[macro_use]
 extern crate gullery_macros;
 
-use gullery::glsl::{GLVec3, GLVec4, TransparentType};
+use gullery::geometry::{GLVec3, GLVec4, TransparentType};
 
 #[derive(Vertex, Clone, Copy)]
 pub struct TestBlock {

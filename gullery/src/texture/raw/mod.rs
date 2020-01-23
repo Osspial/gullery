@@ -17,7 +17,7 @@ pub mod types;
 use crate::{
     geometry::{Dimension, D1, D2, D3},
     gl::{self, types::*, Gl},
-    glsl::{GLVec2, GLVec3, NonNormalized},
+    geometry::{GLVec2, GLVec3, NonNormalized},
     Handle,
 };
 

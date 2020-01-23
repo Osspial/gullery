@@ -14,7 +14,7 @@
 
 use crate::{
     gl::{self, types::*, Gl},
-    glsl::{GLVec2, NonNormalized},
+    geometry::{GLVec2, NonNormalized},
 };
 
 use std::mem;

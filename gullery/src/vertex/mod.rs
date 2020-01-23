@@ -17,7 +17,7 @@ pub use self::vao::VertexArrayObject;
 
 use crate::{
     gl::types::GLenum,
-    glsl::{ScalarBase, TransparentType},
+    geometry::{ScalarBase, TransparentType},
 };
 use std::marker::PhantomData;
 

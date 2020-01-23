@@ -16,7 +16,7 @@ use super::{attachments::*, Renderbuffer};
 use crate::{
     geometry::Dimension,
     gl::{self, types::*, Gl},
-    glsl::{GLVec2, NonNormalized},
+    geometry::{GLVec2, NonNormalized},
     image_format::{
         ConcreteImageFormat, FormatAttributes, FormatType, FormatTypeTag, ImageFormatRenderable,
         Rgba,

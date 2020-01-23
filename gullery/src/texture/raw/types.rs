@@ -21,7 +21,7 @@
 use super::*;
 use crate::{
     geometry::Dimension,
-    glsl::{GLVec2, GLVec3, NonNormalized, ScalarType},
+    geometry::{GLVec2, GLVec3, NonNormalized, ScalarType},
 };
 
 /// Stores multiple logical textures in a single texture object.
@@ -37,7 +37,7 @@ use crate::{
 /// # extern crate glutin;
 /// # use gullery::{
 /// #     ContextState, image_format::SRgb, texture::{Texture, types::ArrayTex},
-/// #     geometry::D2, glsl::GLVec3,
+/// #     geometry::D2, geometry::GLVec3,
 /// # };
 /// # use glutin::*;
 /// # let el = EventsLoop::new();

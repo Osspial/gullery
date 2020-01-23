@@ -35,7 +35,7 @@ use std::borrow::BorrowMut;
 use self::render_state::RenderState;
 use crate::{
     gl::{self, types::*, Gl},
-    glsl::{GLVec2, NonNormalized},
+    geometry::{GLVec2, NonNormalized},
     image_format::{ConcreteImageFormat, FormatType, FormatTypeTag, ImageFormatRenderable, Rgba},
     program::Program,
     uniform::Uniforms,

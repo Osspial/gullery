@@ -252,7 +252,7 @@ mod tests {
     use super::*;
     use crate::{
         gl::types::*,
-        glsl::GLVec3,
+        geometry::GLVec3,
         test_helper::{TestVertex, CONTEXT_STATE},
         uniform::{Uniforms, UniformsMemberRegistry},
     };

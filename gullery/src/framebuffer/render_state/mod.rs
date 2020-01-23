@@ -20,7 +20,7 @@ pub use self::raw::{
     StencilOp, StencilTest,
 };
 use crate::{
-    glsl::{GLVec2, NonNormalized},
+    geometry::{GLVec2, NonNormalized},
     ContextState,
 };
 use std::ops::RangeInclusive;

@@ -16,7 +16,7 @@ use crate::gl::{self, types::*, Gl};
 
 use crate::{
     geometry::Dimension,
-    glsl::*,
+    geometry::*,
     image_format::{Red, Rg, Rgb, Rgba},
     texture::{ImageUnits, Sampler, Texture, TextureType},
 };

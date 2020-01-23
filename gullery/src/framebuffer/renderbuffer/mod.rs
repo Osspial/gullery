@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{
-    glsl::{GLVec2, NonNormalized},
+    geometry::{GLVec2, NonNormalized},
     image_format::{ConcreteImageFormat, FormatAttributes, ImageFormatRenderable},
     ContextState, GLObject, Handle,
 };

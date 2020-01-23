@@ -11,7 +11,7 @@ use gullery::{
     buffer::*,
     framebuffer::{render_state::*, *},
     geometry::D2,
-    glsl::{GLMat4r4c, GLSLFloat, GLVec2, GLVec3},
+    geometry::{GLMat4r4c, GLSLFloat, GLVec2, GLVec3},
     image_format::{compressed::DXT1, ImageFormat, Rgba, SRgb},
     program::*,
     texture::{
