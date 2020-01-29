@@ -13,6 +13,77 @@
 // limitations under the License.
 
 //! Textures and texture samplers.
+//!
+//! # Examples
+//!
+//! Initializing a texture with a single image.
+//! ```rust,no_run
+//! # use std::rc::Rc;
+//! use gullery::{
+//!     # ContextState,
+//!     image_format::SRgba,
+//!     geometry::{D2, GLVec2},
+//!     texture::Texture,
+//! };
+//! # let context_state: Rc<ContextState> = panic!();
+//! let (width, height) = (64, 64);
+//! let red_image   = vec![SRgba::new(255, 0, 0, 255);  width * height];
+//! let texture: Texture<D2, SRgba> = Texture::with_image(
+//!     GLVec2::new(width as u32, height as u32),
+//!     &*red_image,
+//!     context_state.clone(),
+//! ).unwrap();
+//! ```
+//!
+//! Initializing a texture with three mip images.
+//! ```rust,no_run
+//! # use std::rc::Rc;
+//! use gullery::{
+//!     # ContextState,
+//!     image_format::SRgba,
+//!     geometry::{D2, GLVec2},
+//!     texture::Texture,
+//! };
+//! # let context_state: Rc<ContextState> = panic!();
+//! let (width, height) = (64, 64);
+//! let red_image   = vec![SRgba::new(255, 0, 0, 255);  width * height];
+//! let green_image = vec![SRgba::new(0, 255, 0, 255); (width / 2) * (height / 2)];
+//! let blue_image  = vec![SRgba::new(0, 0, 255, 255); (width / 4) * (height / 4)];
+//! let texture: Texture<D2, SRgba> = Texture::with_images(
+//!     GLVec2::new(width as u32, height as u32),
+//!     [
+//!         &*red_image,
+//!         &*green_image,
+//!         &*blue_image,
+//!     ].iter().cloned(),
+//!     context_state.clone(),
+//! ).unwrap();
+//! ```
+//!
+//! Initializing a texture with three mip levels, and uploading the images after creation.
+//! ```rust,no_run
+//! # use std::rc::Rc;
+//! use gullery::{
+//!     # ContextState,
+//!     image_format::SRgba,
+//!     geometry::{D2, GLVec2},
+//!     texture::Texture,
+//! };
+//! # let context_state: Rc<ContextState> = panic!();
+//! let (width, height) = (64, 64);
+//! let red_image = vec![SRgba::new(255, 0, 0, 255); width * height];
+//! let green_image = vec![SRgba::new(0, 255, 0, 255); (width / 2) * (height / 2)];
+//! let blue_image = vec![SRgba::new(0, 0, 255, 255); (width / 4) * (height / 4)];
+//! let (width, height) = (width as u32, height as u32);
+//! let mut texture: Texture<D2, SRgba> = Texture::with_mip_count(
+//!     GLVec2::new(width, height),
+//!     3,
+//!     context_state.clone(),
+//! ).unwrap();
+//! texture.sub_image(0, GLVec2::new(0, 0), GLVec2::new(width, height), &*red_image);
+//! texture.sub_image(0, GLVec2::new(0, 0), GLVec2::new(width / 2, height / 2), &*green_image);
+//! texture.sub_image(0, GLVec2::new(0, 0), GLVec2::new(width / 4, height / 4), &*blue_image);
+//! ```
 
 #[macro_use]
 pub mod sample_parameters;
@@ -51,6 +122,9 @@ where
     state: Rc<ContextState>,
 }
 
+/// Object that controls how the GPU reads from a [`Texture`].
+///
+///
 pub struct Sampler {
     pub sample_parameters: SampleParameters,
     old_sample_parameters: Cell<SampleParameters>,
@@ -59,6 +133,7 @@ pub struct Sampler {
     state: Rc<ContextState>,
 }
 
+/// Tells the GPU to read from a [`Texture`] as specified by a [`Sampler`].
 pub struct SampledTexture<'a, D, T>
 where
     D: Dimension<u32>,
@@ -131,11 +206,15 @@ where
         }
     }
 
-    /// Creates a new texture with the given number of mipmaps, without uploading any data to the
+    /// Creates a new texture with the given number of mip levels, without uploading any data to the
     /// GPU.
     ///
     /// The exact data in the texture is unspecified, and shouldn't be relied on to be any specific
     /// value.
+    ///
+    /// ## Panics
+    /// Will panic if `mip_count == 0`, as a texture with no mip levels does not contain any data and
+    /// thus cannot be used in any sensible way.
     pub fn with_mip_count(
         dims: T::Dims,
         mip_count: u8,
@@ -173,6 +252,9 @@ where
     /// must be half the size rounded down on an axis compared to the previous image, with the
     /// minimal size on a given axis being `1`. For example, `[32x8, 16x4, 8x2, 4x1, 2x1, 1x1]`
     /// would be a valid set of image sizes, but `[16x8, 16x4, 8x2, 4x1, 2x1, 1x1]` would not.
+    ///
+    /// ## Panics
+    /// Will panic if no images were provided.
     pub fn with_images<'a, I, J>(
         dims: T::Dims,
         image_mips: J,
@@ -209,6 +291,9 @@ where
         Ok(Texture { raw, state })
     }
 
+    /// Creates a new texture with a single image.
+    ///
+    /// Shorthand for `Texture::with_images(dims, iter::once(image), state)`.
     pub fn with_image<'a, I>(
         dims: T::Dims,
         image: I,
@@ -236,6 +321,9 @@ where
         Ok(Texture { raw, state })
     }
 
+    /// Initializes a texture to use a given number of samples when rendering.
+    ///
+    /// Only used for multisampled textures.
     pub fn with_sample_count<'a>(
         dims: T::Dims,
         samples: u8,
