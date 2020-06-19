@@ -51,7 +51,7 @@ impl<'a> TextureUniformBinder<'a> {
     }
 }
 
-pub unsafe trait UniformType: Copy {
+pub unsafe trait UniformType {
     fn uniform_tag() -> TypeTag;
     unsafe fn upload(&self, loc: GLint, tex_uniform_binder: &mut TextureUniformBinder, gl: &Gl);
 }

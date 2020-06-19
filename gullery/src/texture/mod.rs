@@ -111,8 +111,6 @@ pub use self::raw::{
 };
 
 /// OpenGL Texture object.
-// This is repr C in order to guarantee that the `to_dyn` casts work.
-#[repr(C)]
 pub struct Texture<D, T>
 where
     D: Dimension<u32>,
@@ -133,14 +131,19 @@ pub struct Sampler {
     state: Rc<ContextState>,
 }
 
-/// Tells the GPU to read from a [`Texture`] as specified by a [`Sampler`].
-pub struct SampledTexture<'a, D, T>
-where
-    D: Dimension<u32>,
-    T: ?Sized + TextureType<D>,
-{
-    pub sampler: &'a Sampler,
-    pub texture: &'a Texture<D, T>,
+pub unsafe trait SampledTexture {
+    type Dimension: Dimension<u32>;
+    type TextureType: ?Sized;// + TextureType<Self::Dimension>;
+
+    fn uniform_tag() -> TypeTag
+        where Self: Sized;
+    fn texture(&self) -> &Texture<Self::Dimension, Self::TextureType>
+        where Self::TextureType: TextureType<Self::Dimension>;
+    fn sampler(&self) -> Option<&Sampler>;
+}
+
+fn foo() -> &'static dyn SampledTexture<Dimension=D2, TextureType=crate::image_format::Rgba> {
+    panic!()
 }
 
 #[derive(Debug, Clone)]
@@ -672,10 +675,12 @@ macro_rules! texture_type_uniform {
     ($(
         impl &Texture<$d:ty, $texture_type:ty> = ($tag_ident:ident, $u_tag_ident:ident, $i_tag_ident:ident);
     )*) => {$(
-        unsafe impl<'a, C> UniformType for &'a Texture<$d, $texture_type>
+        unsafe impl<'a, C> SampledTexture for Texture<$d, $texture_type>
             where C: ?Sized + ImageFormat,
                   $texture_type: TextureType<$d>
         {
+            type Dimension = $d;
+            type TextureType = $texture_type;
             #[inline]
             fn uniform_tag() -> TypeTag {
                 TypeTag::Single(match C::ScalarType::PRIM_TAG {
@@ -686,10 +691,15 @@ macro_rules! texture_type_uniform {
                     _ => panic!("Bad scalar type tag")
                 })
             }
+
             #[inline]
-            unsafe fn upload(&self, loc: GLint, binder: &mut TextureUniformBinder, gl: &Gl) {
-                let unit = binder.bind(self, None, gl);
-                gl.Uniform1i(loc, unit as GLint);
+            fn texture(&self) -> &Texture<$d, $texture_type> {
+                self
+            }
+
+            #[inline]
+            fn sampler(&self) -> Option<&Sampler> {
+                None
             }
         }
     )*};
@@ -709,19 +719,91 @@ texture_type_uniform! {
     impl &Texture<D2, types::ArrayTex<types::MultisampleTex<C>>> = (Sampler2DMSArray, USampler2DMSArray, ISampler2DMSArray);
 }
 
-unsafe impl<'a, D, T> UniformType for SampledTexture<'a, D, T>
+unsafe impl<'a, D, T> SampledTexture for (&'a Texture<D, T>, &'a Sampler)
 where
     D: Dimension<u32>,
     T: ?Sized + TextureType<D>,
-    &'a Texture<D, T>: UniformType,
+    Texture<D, T>: SampledTexture
+{
+    type Dimension = D;
+    type TextureType = T;
+
+    #[inline]
+    fn uniform_tag() -> TypeTag {
+        <Texture<D, T> as SampledTexture>::uniform_tag()
+    }
+
+    #[inline]
+    fn texture(&self) -> &Texture<D, T> {
+        self.0
+    }
+
+    #[inline]
+    fn sampler(&self) -> Option<&Sampler> {
+        Some(self.1)
+    }
+}
+
+unsafe impl<'a, D, T> SampledTexture for (&'a Sampler, &'a Texture<D, T>)
+where
+    D: Dimension<u32>,
+    T: ?Sized + TextureType<D>,
+    Texture<D, T>: SampledTexture
+{
+    type Dimension = D;
+    type TextureType = T;
+
+    #[inline]
+    fn uniform_tag() -> TypeTag {
+        <Texture<D, T> as SampledTexture>::uniform_tag()
+    }
+
+    #[inline]
+    fn texture(&self) -> &Texture<D, T> {
+        self.1
+    }
+
+    #[inline]
+    fn sampler(&self) -> Option<&Sampler> {
+        Some(self.0)
+    }
+}
+
+unsafe impl<'a, S: SampledTexture> SampledTexture for &'a S
+    where S::TextureType: TextureType<S::Dimension>,
+          Texture<S::Dimension, S::TextureType>: SampledTexture,
+{
+    type Dimension = S::Dimension;
+    type TextureType = S::TextureType;
+
+    #[inline]
+    fn uniform_tag() -> TypeTag {
+        S::uniform_tag()
+    }
+
+    #[inline]
+    fn texture(&self) -> &Texture<S::Dimension, S::TextureType> {
+        (*self).texture()
+    }
+
+    #[inline]
+    fn sampler(&self) -> Option<&Sampler> {
+        (*self).sampler()
+    }
+}
+
+unsafe impl<S: ?Sized + SampledTexture> UniformType for S
+    where S::TextureType: TextureType<S::Dimension>,
+          Texture<S::Dimension, S::TextureType>: SampledTexture,
 {
     #[inline]
     fn uniform_tag() -> TypeTag {
-        <&'a Texture<D, T> as UniformType>::uniform_tag()
+        <Texture<S::Dimension, S::TextureType> as SampledTexture>::uniform_tag()
     }
+
     #[inline]
     unsafe fn upload(&self, loc: GLint, binder: &mut TextureUniformBinder, gl: &Gl) {
-        let unit = binder.bind(self.texture, Some(self.sampler), gl);
+        let unit = binder.bind(self.texture(), self.sampler(), gl);
         gl.Uniform1i(loc, unit as GLint);
     }
 }
@@ -757,24 +839,4 @@ where
             ),
         }
     }
-}
-
-impl<'a, D, T> Clone for SampledTexture<'a, D, T>
-where
-    D: Dimension<u32>,
-    T: ?Sized + TextureType<D>,
-{
-    fn clone(&self) -> Self {
-        SampledTexture {
-            sampler: self.sampler,
-            texture: self.texture,
-        }
-    }
-}
-
-impl<'a, D, T> Copy for SampledTexture<'a, D, T>
-where
-    D: Dimension<u32>,
-    T: ?Sized + TextureType<D>,
-{
 }
