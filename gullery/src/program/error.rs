@@ -115,7 +115,7 @@ impl Display for ProgramWarning {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         use self::ProgramWarning::*;
         match *self {
-            UnusedUniform(ref ident) => write!(f, "Uniform uniform `{}`", ident),
+            UnusedUniform(ref ident) => write!(f, "Unused uniform `{}`", ident),
             UnusedVertexAttribute(ref ident) => write!(f, "Unused vertex attribute `{}`", ident),
             UnusedColorAttachment(ref ident) => write!(f, "Unused color attachment `{}`", ident),
         }
