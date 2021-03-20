@@ -40,7 +40,7 @@ pub mod vertex;
 
 use crate::gl::Gl;
 
-use std::{cell::Cell, collections::Bound, num::NonZeroU32, rc::Rc};
+use std::{cell::Cell, ops::Bound, num::NonZeroU32, rc::Rc};
 
 pub type Handle = NonZeroU32;
 pub trait GLObject {

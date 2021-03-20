@@ -43,7 +43,7 @@ struct VertexAttribBuilder<'a, V: Vertex> {
     attrib_loc: u32,
     max_attribs: u32,
     gl: &'a Gl,
-    _marker: PhantomData<(*const V)>,
+    _marker: PhantomData<*const V>,
 }
 
 impl<V: Vertex> RawVAO<V> {
