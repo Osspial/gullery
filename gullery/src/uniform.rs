@@ -70,7 +70,7 @@ pub trait Uniforms: Sized + Copy {
         impl<'a, U: Uniforms> UniformsMemberRegistry for MemberCounter<'a, U> {
             type Uniforms = U;
             #[inline]
-            fn add_member<T>(&mut self, _: &str, _: fn(Self::Uniforms) -> T)
+            fn add_member<T>(&mut self, _: &str, _: fn(&Self::Uniforms) -> T)
             where
                 T: UniformType,
             {
@@ -90,7 +90,7 @@ pub trait UniformLocContainer: AsRef<[GLint]> + AsMut<[GLint]> {
 
 pub trait UniformsMemberRegistry {
     type Uniforms: Uniforms;
-    fn add_member<T: UniformType>(&mut self, name: &str, get_member: fn(Self::Uniforms) -> T);
+    fn add_member<T: UniformType>(&mut self, name: &str, get_member: fn(&Self::Uniforms) -> T);
 }
 
 impl Uniforms for () {

@@ -250,7 +250,7 @@ impl RawProgram {
         }
         impl<'a, U: Uniforms> UniformsMemberRegistry for UniformsLocGetter<'a, U> {
             type Uniforms = U;
-            fn add_member<T: UniformType>(&mut self, name: &str, _: fn(U) -> T) {
+            fn add_member<T: UniformType>(&mut self, name: &str, _: fn(&U) -> T) {
                 let mut cstr_bytes = Vec::new();
                 mem::swap(&mut cstr_bytes, &mut self.cstr_bytes);
 
@@ -378,7 +378,7 @@ impl<'a, 'b> RawProgramShaderAttacher<'a, 'b> {
 impl<'a> RawBoundProgram<'a> {
     pub(crate) fn upload_uniforms<U: Uniforms>(
         &self,
-        uniform: U,
+        uniforms: &U,
         locs: &[GLint],
         image_units: &ImageUnits,
         gl: &Gl,
@@ -389,11 +389,11 @@ impl<'a> RawBoundProgram<'a> {
             unit: u32,
             image_units: &'a ImageUnits,
             gl: &'a Gl,
-            uniform: U,
+            uniforms: &'a U,
         }
         impl<'a, U: Uniforms> UniformsMemberRegistry for UniformsUploader<'a, U> {
             type Uniforms = U;
-            fn add_member<T: UniformType>(&mut self, _: &str, get_member: fn(U) -> T) {
+            fn add_member<T: UniformType>(&mut self, _: &str, get_member: fn(&U) -> T) {
                 let loc = self.locs[self.loc_index];
                 if loc != -1 {
                     let mut binder = TextureUniformBinder {
@@ -401,7 +401,7 @@ impl<'a> RawBoundProgram<'a> {
                         unit: &mut self.unit,
                     };
                     unsafe {
-                        get_member(self.uniform).upload(loc, &mut binder, self.gl);
+                        get_member(self.uniforms).upload(loc, &mut binder, self.gl);
                     }
                 }
 
@@ -416,7 +416,7 @@ impl<'a> RawBoundProgram<'a> {
             unit: 0,
             image_units,
             gl,
-            uniform,
+            uniforms,
         })
     }
 }
@@ -520,7 +520,7 @@ impl<'a, V: Vertex> VertexMemberRegistry for AttribTypeChecker<'a, V> {
 }
 impl<'a, U: Uniforms> UniformsMemberRegistry for AttribTypeChecker<'a, U> {
     type Uniforms = U;
-    fn add_member<T: UniformType>(&mut self, name: &str, _: fn(U) -> T) {
+    fn add_member<T: UniformType>(&mut self, name: &str, _: fn(&U) -> T) {
         self.check_type(name, T::uniform_tag());
     }
 }

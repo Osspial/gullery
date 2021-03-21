@@ -184,7 +184,7 @@ pub trait Framebuffer {
         range: R,
         vao: &VertexArrayObject<V, I>,
         program: &Program<V, U::Static, Self::AttachmentsStatic>,
-        uniform: U,
+        uniforms: &U,
         render_state: &RenderState,
     ) where
         R: RangeBounds<usize>,
@@ -198,7 +198,7 @@ pub trait Framebuffer {
             let vao_bind = state.vao_target.bind(vao);
 
             let program_bind = state.program_target.bind(program);
-            program_bind.upload_uniforms(uniform);
+            program_bind.upload_uniforms(uniforms);
 
             let mut framebuffer_bind = state.framebuffer_targets.draw.bind(raw_mut, &state.gl);
             framebuffer_bind.set_attachments(arm.ahc, arm.attachments);

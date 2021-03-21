@@ -148,7 +148,7 @@ fn main() {
                         ..,
                         &vao,
                         &program,
-                        uniform,
+                        &uniform,
                         &render_state,
                     );
                     uniform.offset.y -= uniform.scale.y * 1.5;

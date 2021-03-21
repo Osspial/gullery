@@ -133,7 +133,7 @@ fn main() {
                         ..,
                         &vao,
                         &program,
-                        uniform,
+                        &uniform,
                         &render_state,
                     );
 

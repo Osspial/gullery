@@ -105,7 +105,7 @@ fn main() {
         };
         fbo_attached.clear_depth(1.0);
         fbo_attached.clear_color_all(Rgba::new(0.0, 0.0, 0.0, 1.0));
-        fbo_attached.draw(DrawMode::Triangles, .., &vao, &program, (), &render_state);
+        fbo_attached.draw(DrawMode::Triangles, .., &vao, &program, &(), &render_state);
     }
 
     {
@@ -172,7 +172,7 @@ fn main() {
                             ..,
                             &vao,
                             &program,
-                            uniform,
+                            &uniform,
                             &render_state,
                         );
 
@@ -185,7 +185,7 @@ fn main() {
                             ..,
                             &vao,
                             &program,
-                            uniform,
+                            &uniform,
                             &render_state,
                         );
 

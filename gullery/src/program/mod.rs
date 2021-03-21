@@ -186,12 +186,12 @@ where
     A: Attachments,
 {
     #[inline]
-    pub fn upload_uniforms<N>(&self, uniform: N)
+    pub fn upload_uniforms<N>(&self, uniforms: &N)
     where
         N: Uniforms<ULC = U::ULC, Static = U>,
     {
         self.raw.upload_uniforms(
-            uniform,
+            uniforms,
             self.program.uniform_locs.as_ref(),
             &self.program.state.image_units,
             &self.program.state.gl,
@@ -321,7 +321,7 @@ mod tests {
             }
 
             let program_bind = unsafe { state.program_target.bind(&program) };
-            program_bind.upload_uniforms(TestUniforms {
+            program_bind.upload_uniforms(&TestUniforms {
                 color_tint: GLVec3::new(1.0, 1.0, 1.0),
                 offset: GLVec3::new(0.0, 1.0, 0.0),
             })
