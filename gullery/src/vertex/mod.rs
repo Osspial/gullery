@@ -16,25 +16,33 @@ pub(crate) mod vao;
 pub use self::vao::VertexArrayObject;
 
 use crate::{
-    gl::types::GLenum,
+    gl::types::{GLenum, GLint},
     geometry::{ScalarBase, TransparentType},
 };
 use std::marker::PhantomData;
 
 pub unsafe trait Index: 'static + Copy {
     const INDEX_GL_ENUM: Option<GLenum>;
+    fn as_glint(&self) -> GLint;
 }
 unsafe impl Index for ! {
     const INDEX_GL_ENUM: Option<GLenum> = None;
+    fn as_glint(&self) -> GLint {*self}
 }
 unsafe impl Index for u8 {
     const INDEX_GL_ENUM: Option<GLenum> = Some(<u8 as ScalarBase>::GL_ENUM);
+    fn as_glint(&self) -> GLint {*self as GLint}
 }
 unsafe impl Index for u16 {
     const INDEX_GL_ENUM: Option<GLenum> = Some(<u16 as ScalarBase>::GL_ENUM);
+    fn as_glint(&self) -> GLint {*self as GLint}
 }
 unsafe impl Index for u32 {
     const INDEX_GL_ENUM: Option<GLenum> = Some(<u32 as ScalarBase>::GL_ENUM);
+    fn as_glint(&self) -> GLint {
+        assert!(*self <= GLint::max_value() as u32);
+        *self as GLint
+    }
 }
 
 pub trait VertexMemberRegistry {

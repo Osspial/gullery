@@ -177,7 +177,6 @@ pub trait Framebuffer {
     /// * `program`: The compiled program used to render the vertices.
     /// * `uniform`: The uniforms used by the program. If the program has no uniforms, pass `()`.
     /// * `render_state`: The state parameters used to control rendering.
-    #[inline]
     fn draw<R, V, I, U>(
         &mut self,
         mode: DrawMode,
@@ -186,6 +185,32 @@ pub trait Framebuffer {
         program: &Program<V, U::Static, Self::AttachmentsStatic>,
         uniforms: &U,
         render_state: &RenderState,
+    ) where
+        R: RangeBounds<usize>,
+        V: Vertex,
+        I: Index,
+        U: Uniforms,
+    {
+        self.draw_ext(mode, range, vao, program, uniforms, render_state, None, None)
+    }
+
+    /// ## Extra parameters
+    /// * `instance_count`: The highest value the instance ID gets incremented to. See
+    ///   https://www.khronos.org/opengl/wiki/Vertex_Rendering#Instancing for more details.
+    /// * `base_index`: An offset that gets added to every accessed element in the vertex buffer.
+    ///   Useful if multiple meshes are being stored in one buffer.
+    // TODO: DRAW_EXT IS AN AWFUL NAME
+    #[inline]
+    fn draw_ext<R, V, I, U>(
+        &mut self,
+        mode: DrawMode,
+        range: R,
+        vao: &VertexArrayObject<V, I>,
+        program: &Program<V, U::Static, Self::AttachmentsStatic>,
+        uniforms: &U,
+        render_state: &RenderState,
+        instance_count: Option<usize>,
+        base_index: Option<I>,
     ) where
         R: RangeBounds<usize>,
         V: Vertex,
@@ -202,7 +227,7 @@ pub trait Framebuffer {
 
             let mut framebuffer_bind = state.framebuffer_targets.draw.bind(raw_mut, &state.gl);
             framebuffer_bind.set_attachments(arm.ahc, arm.attachments);
-            framebuffer_bind.draw(mode, range, &vao_bind, &program_bind);
+            framebuffer_bind.draw(mode, range, &vao_bind, &program_bind, instance_count, base_index);
         }
     }
 }

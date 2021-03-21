@@ -301,6 +301,8 @@ where
         range: R,
         bound_vao: &BoundVAO<V, I>,
         _bound_program: &BoundProgram<V, U, A>,
+        instance_count: Option<usize>,
+        base_index: Option<I>,
     ) where
         R: RangeBounds<usize>,
         V: Vertex,
@@ -311,6 +313,11 @@ where
         let index_type_option = I::INDEX_GL_ENUM;
         let read_offset = crate::bound_to_num_start(range.start_bound(), 0);
 
+        let instance_count = instance_count.map(|instance_count| {
+            assert!(instance_count <= GLsizei::max_value() as usize);
+            instance_count as GLsizei
+        });
+
         if let (Some(index_type), Some(index_buffer)) =
             (index_type_option, bound_vao.vao().index_buffer())
         {
@@ -318,13 +325,20 @@ where
             assert!(read_offset <= read_end);
             assert!((read_end - read_offset) <= GLsizei::max_value() as usize);
 
+            let mode = mode.to_gl_enum();
+            let first = (read_end - read_offset) as GLsizei;
+            let indices = (read_offset * mem::size_of::<I>()) as *const GLvoid;
+
             unsafe {
-                self.gl.DrawElements(
-                    mode.to_gl_enum(),
-                    (read_end - read_offset) as GLsizei,
-                    index_type,
-                    (read_offset * mem::size_of::<I>()) as *const GLvoid,
-                );
+                match (instance_count, base_index) {
+                    (Some(instance_count), Some(base_index)) =>
+                        self.gl.DrawElementsInstancedBaseVertex(mode, first, index_type, indices, instance_count, base_index.as_glint()),
+                    (None, Some(base_index)) =>
+                        self.gl.DrawElementsBaseVertex(mode, first, index_type, indices, base_index.as_glint()),
+                    (Some(instance_count), None) =>
+                        self.gl.DrawElementsInstanced(mode, first, index_type, indices, instance_count),
+                    (None, None) => self.gl.DrawElements(mode, first, index_type, indices),
+                }
             }
         } else {
             let read_end =
@@ -333,12 +347,15 @@ where
             assert!(read_offset <= read_end);
             assert!((read_end - read_offset) <= isize::max_value() as usize);
 
+            let mode = mode.to_gl_enum();
+            let count = (read_end - read_offset) as GLsizei;
+            let read_offset = read_offset as GLint;
+
             unsafe {
-                self.gl.DrawArrays(
-                    mode.to_gl_enum(),
-                    read_offset as GLint,
-                    (read_end - read_offset) as GLsizei,
-                );
+                match instance_count {
+                    Some(instance_count) => self.gl.DrawArraysInstanced(mode, read_offset, count, instance_count),
+                    None => self.gl.DrawArrays(mode, read_offset, count),
+                }
             }
         }
     }
