@@ -107,6 +107,20 @@ impl Uniforms for () {
 
 macro_rules! impl_glsl_type_uniform {
     () => ();
+    ([$ty:ty], ($self:ident, $loc:pat, $gl:pat) => $expr:expr, $($rest:tt)*) => {
+        unsafe impl<const N: usize> UniformType for [$ty; N] {
+            #[inline]
+            fn uniform_tag() -> TypeTag {
+                TypeTag::Array(<$ty>::prim_tag(), N)
+            }
+            unsafe fn upload(&self, $loc: GLint, _: &mut TextureUniformBinder, $gl: &Gl) {
+                let $self = *self;
+                $expr
+            }
+        }
+
+        impl_glsl_type_uniform!($($rest)*);
+    };
     ($ty:ty, ($self:ident, $loc:pat, $gl:pat) => $expr:expr, $($rest:tt)*) => {
         unsafe impl UniformType for $ty {
             #[inline]
@@ -150,9 +164,9 @@ fn ni32(i: i32) -> f32 {
 
 impl_glsl_type_uniform! {
     f32, (f, loc, gl) => gl.Uniform1f(loc, f),
-    GLVec2<f32, NonNormalized>, (v, loc, gl) => gl.Uniform2f(loc, v.x, v.y),
-    GLVec3<f32, NonNormalized>, (v, loc, gl) => gl.Uniform3f(loc, v.x, v.y, v.z),
-    GLVec4<f32, NonNormalized>, (v, loc, gl) => gl.Uniform4f(loc, v.x, v.y, v.z, v.w),
+    GLVec2<f32>, (v, loc, gl) => gl.Uniform2f(loc, v.x, v.y),
+    GLVec3<f32>, (v, loc, gl) => gl.Uniform3f(loc, v.x, v.y, v.z),
+    GLVec4<f32>, (v, loc, gl) => gl.Uniform4f(loc, v.x, v.y, v.z, v.w),
     GLMat2r2c<f32>, (m, loc, gl) => gl.UniformMatrix2fv(loc, 1, gl::FALSE, &m.x.x),
     GLMat3r3c<f32>, (m, loc, gl) => gl.UniformMatrix3fv(loc, 1, gl::FALSE, &m.x.x),
     GLMat4r4c<f32>, (m, loc, gl) => gl.UniformMatrix4fv(loc, 1, gl::FALSE, &m.x.x),
@@ -237,35 +251,36 @@ impl_glsl_type_uniform! {
     Red<u8, Normalized>, (c, loc, gl) => gl.Uniform1f(loc, nu8(c.r)),
     Red<u16, Normalized>, (c, loc, gl) => gl.Uniform1f(loc, nu16(c.r)),
     Red<u32, Normalized>, (c, loc, gl) => gl.Uniform1f(loc, nu32(c.r)),
+
+    [f32], (a, loc, gl) => gl.Uniform1fv(loc, a.len() as _, a.as_ptr()),
+    [GLVec2<f32>], (a, loc, gl) => gl.Uniform2fv(loc, a.len() as _, a.as_ptr() as *const f32),
+    [GLVec3<f32>], (a, loc, gl) => gl.Uniform2fv(loc, a.len() as _, a.as_ptr() as *const f32),
+    [GLVec4<f32>], (a, loc, gl) => gl.Uniform2fv(loc, a.len() as _, a.as_ptr() as *const f32),
+
+    [i32], (a, loc, gl) => gl.Uniform1iv(loc, a.len() as _, a.as_ptr()),
+    [GLVec2<i32>], (a, loc, gl) => gl.Uniform2iv(loc, a.len() as _, a.as_ptr() as *const i32),
+    [GLVec3<i32>], (a, loc, gl) => gl.Uniform2iv(loc, a.len() as _, a.as_ptr() as *const i32),
+    [GLVec4<i32>], (a, loc, gl) => gl.Uniform2iv(loc, a.len() as _, a.as_ptr() as *const i32),
+
+    [u32], (a, loc, gl) => gl.Uniform1uiv(loc, a.len() as _, a.as_ptr()),
+    [GLVec2<u32>], (a, loc, gl) => gl.Uniform2uiv(loc, a.len() as _, a.as_ptr() as *const u32),
+    [GLVec3<u32>], (a, loc, gl) => gl.Uniform2uiv(loc, a.len() as _, a.as_ptr() as *const u32),
+    [GLVec4<u32>], (a, loc, gl) => gl.Uniform2uiv(loc, a.len() as _, a.as_ptr() as *const u32),
+
+    [GLMat2r2c<f32>], (a, loc, gl) => gl.UniformMatrix2fv(loc, a.len() as _, gl::FALSE, a.as_ptr() as *const f32),
+    [GLMat3r3c<f32>], (a, loc, gl) => gl.UniformMatrix3fv(loc, a.len() as _, gl::FALSE, a.as_ptr() as *const f32),
+    [GLMat4r4c<f32>], (a, loc, gl) => gl.UniformMatrix4fv(loc, a.len() as _, gl::FALSE, a.as_ptr() as *const f32),
+    [GLMat2r3c<f32>], (a, loc, gl) => gl.UniformMatrix3x2fv(loc, a.len() as _, gl::FALSE, a.as_ptr() as *const f32),
+    [GLMat2r4c<f32>], (a, loc, gl) => gl.UniformMatrix4x2fv(loc, a.len() as _, gl::FALSE, a.as_ptr() as *const f32),
+    [GLMat3r2c<f32>], (a, loc, gl) => gl.UniformMatrix2x3fv(loc, a.len() as _, gl::FALSE, a.as_ptr() as *const f32),
+    [GLMat3r4c<f32>], (a, loc, gl) => gl.UniformMatrix4x3fv(loc, a.len() as _, gl::FALSE, a.as_ptr() as *const f32),
+    [GLMat4r2c<f32>], (a, loc, gl) => gl.UniformMatrix2x4fv(loc, a.len() as _, gl::FALSE, a.as_ptr() as *const f32),
+    [GLMat4r3c<f32>], (a, loc, gl) => gl.UniformMatrix3x4fv(loc, a.len() as _, gl::FALSE, a.as_ptr() as *const f32),
 }
 
-macro_rules! impl_ulc_array {
-    ($($len:expr),*) => {$(
-        impl UniformLocContainer for [GLint; $len] {
-            #[inline]
-            fn new_zeroed() -> [GLint; $len] {
-                [0; $len]
-            }
-        }
-    )*}
-}
-
-// If anybody complains that they need more than 255 uniform fields then idk they can just add
-// numbers to this list. However, if you ever need more than 1024 uniform fields (god forbid)
-// you're gonna needa add checks because OpenGL defines the minimum value of the maximum number
-// of uniform fields as 1024.
-impl_ulc_array! {
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-    26, 27, 28, 29, 30, 31, 32//, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
-    // 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73,
-    // 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97,
-    // 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116,
-    // 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135,
-    // 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154,
-    // 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173,
-    // 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192,
-    // 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211,
-    // 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230,
-    // 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249,
-    // 250, 251, 252, 253, 254, 255
+impl<const N: usize> UniformLocContainer for [GLint; N] {
+    #[inline]
+    fn new_zeroed() -> [GLint; N] {
+        [0; N]
+    }
 }
