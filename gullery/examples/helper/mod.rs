@@ -11,6 +11,7 @@ use std::{
 };
 
 pub fn transform_path(path: &str) -> PathBuf {
+    // TODO: THIS DOESN'T WORK WHEN THE WORKING DIRECTORY ISN'T ROOT
     let mut path_transformed = Path::new(file!())
         .parent()
         .unwrap()
